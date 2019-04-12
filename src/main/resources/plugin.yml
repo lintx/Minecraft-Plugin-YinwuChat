@@ -1,0 +1,9 @@
+name: YinwuChat
+main: org.lintx.plugins.yinwuchat.bukkit.YinwuChat
+version: 1.0.0
+author: LinTx
+api-version: "1.13"
+commands:
+  msg:
+    description: Send a private message
+    usage: /<command>
