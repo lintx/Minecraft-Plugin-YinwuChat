@@ -61,7 +61,6 @@ public class WSServer extends WebSocketServer {
                 }
                 else{
                     if (o.getIsbind()) {
-                        //TODO:这里要改定向发送
                         PlayerListJSON.sendGamePlayerList();
                         PlayerListJSON.sendWebPlayerList();
 

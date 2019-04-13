@@ -46,9 +46,15 @@ public class MessageManage {
             String json = input.readUTF();
             PublicMessage publicMessage = new Gson().fromJson(json,PublicMessage.class);
 
-            if (config.shieldeds.parallelStream().anyMatch(publicMessage.chat::contains)){
-                player.sendMessage(new TextComponent(formatMessage(config.shieldedTip)));
+            ShieldedManage.Result result = ShieldedManage.getInstance().checkShielded(player,publicMessage.chat);
+            if (result.kick){
                 return;
+            }
+            if (result.shielded){
+                if (result.end){
+                    return;
+                }
+                publicMessage.chat = result.msg;
             }
 
             BaseComponent item = null;
@@ -74,9 +80,15 @@ public class MessageManage {
             String json = input.readUTF();
             PrivateMessage privateMessage = new Gson().fromJson(json,PrivateMessage.class);
 
-            if (config.shieldeds.parallelStream().anyMatch(privateMessage.chat::contains)){
-                player.sendMessage(new TextComponent(formatMessage(config.shieldedTip)));
+            ShieldedManage.Result result = ShieldedManage.getInstance().checkShielded(player,privateMessage.chat);
+            if (result.kick){
                 return;
+            }
+            if (result.shielded){
+                if (result.end){
+                    return;
+                }
+                privateMessage.chat = result.msg;
             }
 
             PrivateMessageConf conf = privateMessageConf(privateMessage.toPlayer);
@@ -235,14 +247,22 @@ public class MessageManage {
 
     public void webSendPrivateMessage(WebSocket webSocket,WsClientUtil util,String toName,String message){
         PlayerConfig.Player playerConfig = PlayerConfig.getConfig(util.getUuid());
-        if (config.shieldeds.parallelStream().anyMatch(message::contains)){
-            sendWebMessage(webSocket,ServerMessageJSON.errorJSON(formatMessage(config.shieldedTip)).getJSON());
-            return;
-        }
         if (playerConfig.name==null || playerConfig.name.equals("")){
             sendWebMessage(webSocket,ServerMessageJSON.errorJSON("你可能没有绑定token").getJSON());
             return;
         }
+
+        ShieldedManage.Result result = ShieldedManage.getInstance().checkShielded(webSocket,util.getUuid().toString(),message);
+        if (result.kick){
+            return;
+        }
+        if (result.shielded){
+            if (result.end){
+                return;
+            }
+            message = result.msg;
+        }
+
         if (!canMessage(playerConfig.name,webSocket)){
             return;
         }
@@ -282,11 +302,23 @@ public class MessageManage {
     }
 
     public void webBroadcastMessage(UUID uuid, String message,WebSocket webSocket){
-        if (config.shieldeds.parallelStream().anyMatch(message::contains)){
-            sendWebMessage(webSocket,ServerMessageJSON.errorJSON(formatMessage(config.shieldedTip)).getJSON());
+        PlayerConfig.Player playerConfig = PlayerConfig.getConfig(uuid);
+        if (playerConfig.name==null || playerConfig.name.equals("")){
+            sendWebMessage(webSocket,ServerMessageJSON.errorJSON("你可能没有绑定token").getJSON());
             return;
         }
-        PlayerConfig.Player playerConfig = PlayerConfig.getConfig(uuid);
+
+        ShieldedManage.Result result = ShieldedManage.getInstance().checkShielded(webSocket,uuid.toString(),message);
+        if (result.kick){
+            return;
+        }
+        if (result.shielded){
+            if (result.end){
+                return;
+            }
+            message = result.msg;
+        }
+
         if (!canMessage(playerConfig.name,webSocket)){
             return;
         }

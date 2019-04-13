@@ -25,16 +25,16 @@ public class Config {
         }
         if (toFormat==null || toFormat.isEmpty()){
             toFormat = new ArrayList<>();
-            toFormat.add(new MessageFormat("&b[Web]","点击打开YinwuChat网页","https://chat.yinwurealm.org"));
+            toFormat.add(new MessageFormat("&7我 &6-> "));
             toFormat.add(new MessageFormat("&e{displayName}","点击私聊","/msg {displayName}"));
-            toFormat.add(new MessageFormat(" &6-> &7我"));
             toFormat.add(new MessageFormat(" &6>>> "));
             toFormat.add(new MessageFormat("&r{message}"));
         }
         if (fromFormat==null || fromFormat.isEmpty()){
             fromFormat = new ArrayList<>();
-            fromFormat.add(new MessageFormat("&7我 &6-> "));
+            fromFormat.add(new MessageFormat("&b[Web]","点击打开YinwuChat网页","https://chat.yinwurealm.org"));
             fromFormat.add(new MessageFormat("&e{displayName}","点击私聊","/msg {displayName}"));
+            fromFormat.add(new MessageFormat(" &6-> &7我"));
             fromFormat.add(new MessageFormat(" &6>>> "));
             fromFormat.add(new MessageFormat("&r{message}"));
         }
@@ -106,8 +106,23 @@ public class Config {
     public String youisbanTip = "&c你被ban了，不能说话";
 
     @YamlConfig
-    public String shieldedTip = "&c发送的信息中有被屏蔽的词语，无法发送";
+    public String shieldedTip = "&c发送的信息中有被屏蔽的词语，无法发送，继续发送将被踢出服务器";
 
     @YamlConfig
     public List<String> shieldeds = new ArrayList<>();
+
+    @YamlConfig
+    public int shieldedMode = 1;
+
+    @YamlConfig
+    public String shieldedReplace = "富强、民主、文明、和谐、自由、平等、公正、法治、爱国、敬业、诚信、友善";
+
+    @YamlConfig
+    public int shieldedKickTime = 60;
+
+    @YamlConfig
+    public int shieldedKickCount = 3;
+
+    @YamlConfig
+    public String shieldedKickTip = "你因为发送屏蔽词语，被踢出服务器";
 }

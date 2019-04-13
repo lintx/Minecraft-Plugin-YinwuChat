@@ -1,6 +1,6 @@
 name: YinwuChat
 main: org.lintx.plugins.yinwuchat.bukkit.YinwuChat
-version: 1.0.0
+version: 1.0.1
 author: LinTx
 api-version: "1.13"
 commands:

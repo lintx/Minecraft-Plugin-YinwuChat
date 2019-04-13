@@ -8,6 +8,7 @@ package org.lintx.plugins.yinwuchat.bungee.json;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import net.md_5.bungee.api.config.ServerInfo;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
 import org.lintx.plugins.yinwuchat.bungee.PlayerConfig;
 import org.lintx.plugins.yinwuchat.bungee.WSServer;
@@ -23,22 +24,19 @@ import java.util.Collection;
  */
 public class PlayerListJSON {
     public static void sendGamePlayerList(){
-        Collection<ProxiedPlayer> players = YinwuChat.getPlugin().getProxy().getPlayers();
         JsonArray jsonArray = new JsonArray();
-        for (ProxiedPlayer player : players) {
-            PlayerConfig.Player playerConfig = PlayerConfig.getConfig(player);
-            if (playerConfig.vanish){
-                continue;
+        for (ServerInfo serverInfo:YinwuChat.getPlugin().getProxy().getServers().values()){
+            for (ProxiedPlayer player : serverInfo.getPlayers()){
+                PlayerConfig.Player playerConfig = PlayerConfig.getConfig(player);
+                if (playerConfig.vanish){
+                    continue;
+                }
+                JsonObject jsonObject = new JsonObject();
+                jsonObject.addProperty("player_name", player.getDisplayName());
+                String server_name = serverInfo.getName();
+                jsonObject.addProperty("server_name", server_name);
+                jsonArray.add(jsonObject);
             }
-            JsonObject jsonObject = new JsonObject();
-            jsonObject.addProperty("player_name", player.getDisplayName());
-            String server_name = "";
-            try {
-                server_name = player.getServer().getInfo().getName();
-            } catch (Exception ignored) {
-            }
-            jsonObject.addProperty("server_name", server_name);
-            jsonArray.add(jsonObject);
         }
         JsonObject resultJsonObject = new JsonObject();
         resultJsonObject.addProperty("action", "game_player_list");

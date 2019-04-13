@@ -10,6 +10,7 @@ import net.md_5.bungee.api.event.PostLoginEvent;
 import net.md_5.bungee.api.plugin.Listener;
 import net.md_5.bungee.event.EventHandler;
 import org.lintx.plugins.yinwuchat.Const;
+import org.lintx.plugins.yinwuchat.bungee.json.PlayerListJSON;
 
 public class Listeners implements Listener {
     private final YinwuChat plugin;
@@ -41,6 +42,7 @@ public class Listeners implements Listener {
         if (event.getPlayer() != null) {
             PlayerConfig.getConfig(event.getPlayer());
         }
+        PlayerListJSON.sendGamePlayerList();
     }
 
     @EventHandler
@@ -48,5 +50,6 @@ public class Listeners implements Listener {
         if (event.getPlayer() != null) {
             PlayerConfig.unloadConfig(event.getPlayer());
         }
+        PlayerListJSON.sendGamePlayerList();
     }
 }

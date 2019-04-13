@@ -1,12 +1,14 @@
 # YinwuChat 说明文档
 
 ### 关于YinwuChat
-YinwuChat同时是Bungeecord插件和Spigot插件，可以将Bungeecord群组服内的消息通过WebSocket服务器广播，且可以收到WebSocket客户端的指令在服务器内广播消息，以达到游戏内和Web端同步聊天，且Web端可以发送消息到游戏内的插件。
+YinwuChat同时是Bungeecord插件和Spigot插件，主要功能有。
 1. 跨服聊天同步
 2. 跨服私聊（`/msg <玩家名> 消息`）
 3. 跨服@（聊天内容中输入想@的玩家的名字，或名字的前面一部分，不区分大小写）
 4. 跨服物品展示（聊天内容中输入`[i]`即可将手中的物品发送到聊天栏）
 5. WebSocket，开启WebSocket后配合YinwuChat-Web（Web客户端）可以实现web、游戏内聊天同步
+6. 关键词屏蔽
+注：你需要在你的Bungee服务端和这个Bungee接入的所有的Spigot服务端都安装这个插件
 
 
 ### 配置文件
@@ -56,9 +58,14 @@ toPlayerNoOnlineTip: '&c对方不在线，无法发送私聊'
 msgyouselfTip: '&c你不能私聊你自己'
 youismuteTip: '&c你正在禁言中，不能说话'
 youisbanTip: '&c你被ban了，不能说话'
-shieldedTip: '&c发送的信息中有被屏蔽的词语，无法发送'
+shieldedTip: '&c发送的信息中有被屏蔽的词语，无法发送，继续发送将被踢出服务器'        #发送的聊天消息中含有屏蔽的关键词时会收到的提醒
 shieldeds:          #聊天内容屏蔽关键词，list格式
 - keyword
+shieldedMode: 1     #聊天屏蔽模式，目前1为将聊天内容替换为shieldedReplace的内容，其他为直接拦截
+shieldedReplace: 富强、民主、文明、和谐、自由、平等、公正、法治、爱国、敬业、诚信、友善
+shieldedKickTime: 60      #多少秒内总共发送屏蔽关键词`shieldedKickCount`次就会被踢出服务器(包括web端)
+shieldedKickCount: 3      #`shieldedKickTime`秒内发送屏蔽关键词多少次会被踢出服务器
+shieldedKickTip: 你因为发送屏蔽词语，被踢出服务器     #发送屏蔽次达到次数后被踢出服务器时的提示语
 ```
 `webBATserver`可以实现WebSocket端的禁言（当你的服务器安装了BungeeAdminTools时，玩家在WebSocket发送信息，会以这个项目的内容作为玩家所在服务器，
 去BungeeAdminTools查询该玩家是否被禁言或被ban，当他被禁言或被ban时无法说话，由于BungeeAdminTools禁言、ban人只能选择Bungee的配置文件中实际存在的服务器，
