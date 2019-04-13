@@ -8,6 +8,7 @@ YinwuChat同时是Bungeecord插件和Spigot插件，主要功能有。
 4. 跨服物品展示（聊天内容中输入`[i]`即可将手中的物品发送到聊天栏）
 5. WebSocket，开启WebSocket后配合YinwuChat-Web（Web客户端）可以实现web、游戏内聊天同步
 6. 关键词屏蔽
+
 注：你需要在你的Bungee服务端和这个Bungee接入的所有的Spigot服务端都安装这个插件
 
 
