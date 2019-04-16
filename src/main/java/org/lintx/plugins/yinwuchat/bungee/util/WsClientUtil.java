@@ -14,7 +14,7 @@ import java.util.UUID;
  * @author jjcbw01
  */
 public class WsClientUtil {
-    private UUID uuid;
+    private UUID uuid = null;
     private String token;
     private LocalDateTime lastDate;
     

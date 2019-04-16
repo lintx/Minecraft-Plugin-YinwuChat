@@ -9,6 +9,7 @@ import org.lintx.plugins.yinwuchat.bungee.json.ServerMessageJSON;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 public class ShieldedManage {
@@ -53,9 +54,10 @@ public class ShieldedManage {
     }
 
     private Result checkShielded(String uuid,String message){
+        String string = message.replaceAll("&([0-9a-fklmnor])","").replaceAll(" ","").toLowerCase(Locale.ROOT);
         Result result = new Result();
         Config config = Config.getInstance();
-        if (config.shieldeds.parallelStream().anyMatch(message::contains)){
+        if (config.shieldeds.parallelStream().anyMatch(string::contains)){
             YinwuChat.getPlugin().getLogger().info(uuid + " send a shielded word: " + message);
             result.shielded = true;
             if (!users.containsKey(uuid)){

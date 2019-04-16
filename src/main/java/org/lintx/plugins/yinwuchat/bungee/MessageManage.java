@@ -428,7 +428,7 @@ public class MessageManage {
             }
             String[] arr = message.split(link);
             if (arr.length==0){
-                break;
+                message = "";
             }
             else if (arr.length==1){
                 if (!message.startsWith(link)){

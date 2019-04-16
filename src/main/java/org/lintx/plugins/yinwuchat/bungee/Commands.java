@@ -56,16 +56,18 @@ public class Commands extends Command {
                 if (player.hasPermission(Const.PERMISSION_BADWORD)){
                     if (args.length>=3){
                         if (args[1].equalsIgnoreCase("add")){
-                            Config.getInstance().shieldeds.add(args[2]);
+                            String word = args[2].toLowerCase(Locale.ROOT);
+                            Config.getInstance().shieldeds.add(word);
                             Config.getInstance().save(plugin);
-                            sender.sendMessage(buildMessage(ChatColor.GREEN + "成功将关键词 " + args[2] + " 添加到屏蔽库"));
+                            sender.sendMessage(buildMessage(ChatColor.GREEN + "成功将关键词 " + word + " 添加到屏蔽库"));
                             return;
                         }
                         else if (args[1].equalsIgnoreCase("remove")){
-                            if (Config.getInstance().shieldeds.contains(args[2])){
-                                Config.getInstance().shieldeds.remove(args[2]);
+                            String word = args[2].toLowerCase(Locale.ROOT);
+                            if (Config.getInstance().shieldeds.contains(word)){
+                                Config.getInstance().shieldeds.remove(word);
                                 Config.getInstance().save(plugin);
-                                sender.sendMessage(buildMessage(ChatColor.GREEN + "成功将关键词 " + args[2] + " 从屏蔽库删除"));
+                                sender.sendMessage(buildMessage(ChatColor.GREEN + "成功将关键词 " + word + " 从屏蔽库删除"));
                                 return;
                             }
                         }

@@ -73,7 +73,7 @@ public class WsClientHelper {
         for (Map.Entry<WebSocket, WsClientUtil> entry : clients.entrySet()) {
             WebSocket key = entry.getKey();
             WsClientUtil value = entry.getValue();
-            if (uuid.toString().equalsIgnoreCase(value.getUuid().toString())) {
+            if (value.getUuid()!=null && uuid.toString().equalsIgnoreCase(value.getUuid().toString())) {
                 list.add(key);
             }
         }
