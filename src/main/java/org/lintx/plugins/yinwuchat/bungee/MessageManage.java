@@ -478,7 +478,6 @@ public class MessageManage {
                 return atall;
             }
         }
-        PlayerConfig.Player playerConfig = PlayerConfig.getConfig(player);
         Pattern pattern = Pattern.compile("@(\\w*?)(?=\\W|$)");
         Matcher matcher = pattern.matcher(message);
         while (matcher.find()){
@@ -489,8 +488,9 @@ public class MessageManage {
                 continue;
             }
             for (ProxiedPlayer p: plugin.getProxy().getPlayers()){
-                String player_name = p.getName().toLowerCase(Locale.ROOT);
-                if (!playerConfig.vanish){
+                PlayerConfig.Player pc = PlayerConfig.getConfig(p);
+                if (!pc.vanish){
+                    String player_name = p.getName().toLowerCase(Locale.ROOT);
                     if (player_name.equalsIgnoreCase(str)){
                         atPlayer = p;
                         break;
