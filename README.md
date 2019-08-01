@@ -5,7 +5,7 @@ YinwuChat同时是Bungeecord插件和Spigot插件，主要功能有。
 1. 跨服聊天同步
 2. 跨服私聊（`/msg <玩家名> 消息`）
 3. 跨服@（聊天内容中输入想@的玩家的名字，或名字的前面一部分，不区分大小写）
-4. 跨服物品展示（聊天内容中输入`[i]`即可将手中的物品发送到聊天栏）
+4. 跨服物品展示（聊天内容中输入`[i]`即可将手中的物品发送到聊天栏，输入`[i:x]`可以展示背包中x对应的物品栏的物品，物品栏为0-8，然后从背包左上角从左至右从上至下为9-35，装备栏为36-39，副手为40，一条消息中可以展示多个物品）
 5. WebSocket，开启WebSocket后配合YinwuChat-Web（Web客户端）可以实现web、游戏内聊天同步
 6. 关键词屏蔽
 
@@ -71,6 +71,32 @@ shieldedKickTip: 你因为发送屏蔽词语，被踢出服务器     #发送屏
 `webBATserver`可以实现WebSocket端的禁言（当你的服务器安装了BungeeAdminTools时，玩家在WebSocket发送信息，会以这个项目的内容作为玩家所在服务器，
 去BungeeAdminTools查询该玩家是否被禁言或被ban，当他被禁言或被ban时无法说话，由于BungeeAdminTools禁言、ban人只能选择Bungee的配置文件中实际存在的服务器，
 所以这里需要填一个实际存在的服务器的名字，建议使用大厅服的名字）
+
+Bungee-Task配置文件(tasks.yml):
+```yaml
+tasks:
+- enable: true    #是否开启这个任务
+  interval: 30    #任务间隔时间
+  list:           #格式和Bungee的配置文件中的消息格式一致
+  - message: '&e[帮助]'
+    hover: 服务器帮助文档
+    click: ''
+  - message: '&r 在聊天中输入'
+  - message: '&b[i]'
+    hover: 在聊天文本中包含这三个字符即可
+    click: ''
+  - message: '&r可以展示你手中的物品，输入'
+  - message: '&b[i:x]'
+    hover: |-
+      &b:&r冒号不区分中英文
+      &bx&r为背包格子编号
+      物品栏为0-8，然后从背包左上角
+      从左至右从上至下为9-35
+      装备栏为36-39，副手为40
+    click: ''
+  - message: '&r可以展示背包中x位置对应的物品，一条消息中可以展示多个物品'
+  server: all     #任务对应的服务器，不区分大小写，只有对应的服务器的玩家才会收到消息，为"all"时所有服务器都会广播，为"web"时只有web端才会收到通知
+```
 
 YinwuChat-Spigot的配置文件内容为：
 

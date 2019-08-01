@@ -1,7 +1,7 @@
 package org.lintx.plugins.yinwuchat;
 
 public class Const {
-    public final static String ITEM_PLACEHOLDER = "[i]";
+    public final static String ITEM_PLACEHOLDER = "\\[i([:：](\\d+))?\\]";
     public final static String PLUGIN_CHANNEL = "BungeeCord";
     public final static String PLUGIN_SUB_CHANNEL_AT = "org.lintx.plugins.yinwuchat:at";
     public final static String PLUGIN_SUB_CHANNEL_CHAT = "org.lintx.plugins.yinwuchat:chat";

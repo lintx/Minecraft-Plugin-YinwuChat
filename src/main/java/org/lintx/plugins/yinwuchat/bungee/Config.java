@@ -4,6 +4,7 @@ import org.lintx.plugins.modules.configure.Configure;
 import org.lintx.plugins.modules.configure.YamlConfig;
 import org.lintx.plugins.yinwuchat.json.MessageFormat;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,7 +39,10 @@ public class Config {
             fromFormat.add(new MessageFormat(" &6>>> "));
             fromFormat.add(new MessageFormat("&r{message}"));
         }
-        save(plugin);
+        File file = new File(plugin.getDataFolder(),"config.yml");
+        if (!file.exists()){
+            save(plugin);
+        }
     }
 
     public void save(YinwuChat plugin){

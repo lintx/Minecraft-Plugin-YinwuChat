@@ -6,6 +6,8 @@ import com.google.gson.Gson;
 import me.clip.placeholderapi.PlaceholderAPI;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 import org.lintx.plugins.yinwuchat.Const;
 import org.lintx.plugins.yinwuchat.json.Message;
 import org.lintx.plugins.yinwuchat.json.MessageFormat;
@@ -15,6 +17,8 @@ import org.lintx.plugins.yinwuchat.Util.ItemUtil;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class MessageManage {
     private static MessageManage instance = new MessageManage();
@@ -37,7 +41,7 @@ public class MessageManage {
         privateMessage.fromFormat = format(player,Config.getInstance().fromFormat);
 
         if (chat.contains(Const.ITEM_PLACEHOLDER)){
-            privateMessage.item = ItemUtil.itemJsonWithPlayer(player);
+            privateMessage.items = getMessageItems(chat,player);
         }
 
         sendPluginMessage(player,Const.PLUGIN_SUB_CHANNEL_MSG,privateMessage);
@@ -50,9 +54,7 @@ public class MessageManage {
 
         publicMessage.format = format(player,Config.getInstance().format);
 
-        if (chat.contains(Const.ITEM_PLACEHOLDER)){
-            publicMessage.item = ItemUtil.itemJsonWithPlayer(player);
-        }
+        publicMessage.items = getMessageItems(chat,player);
 
         sendPluginMessage(player,Const.PLUGIN_SUB_CHANNEL_CHAT,publicMessage);
     }
@@ -92,5 +94,31 @@ public class MessageManage {
             return string;
         }
         return PlaceholderAPI.setPlaceholders(player,string);
+    }
+
+    private List<String> getMessageItems(String message,Player player){
+        Pattern pattern = Pattern.compile(Const.ITEM_PLACEHOLDER);
+        Matcher matcher = pattern.matcher(message);
+        List<String> list = new ArrayList<>();
+        PlayerInventory inventory = player.getInventory();
+        while (matcher.find()){
+            int index = -1;
+            String s = matcher.group(2);
+            try {
+                index = Integer.parseInt(s);
+                if (index>40 || index<0){
+                    index = -1;
+                }
+            }catch (Exception ignored){ }
+            ItemStack itemStack = null;
+            if (index==-1){
+                itemStack = inventory.getItemInMainHand()==null?player.getInventory().getItemInOffHand():player.getInventory().getItemInMainHand();
+            }else {
+                itemStack = inventory.getItem(index);
+            }
+
+            list.add(ItemUtil.itemJsonWithPlayer(itemStack));
+        }
+        return list;
     }
 }

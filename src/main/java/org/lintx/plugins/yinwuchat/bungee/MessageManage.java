@@ -57,21 +57,29 @@ public class MessageManage {
                 publicMessage.chat = result.msg;
             }
 
-            BaseComponent item = null;
-            if (publicMessage.item!=null){
+            List<BaseComponent> items = new ArrayList<>();
+            if (publicMessage.items!=null){
                 try {
-                    item = ComponentSerializer.parse(publicMessage.item)[0];
+                    for (String s : publicMessage.items){
+                        if (s==null){
+                            items.add(null);
+                        }else {
+                            items.add(ComponentSerializer.parse(s)[0]);
+                        }
+                    }
                 }
                 catch (Exception ignored){
 
                 }
             }
-            BaseComponent messageComponent = formatMessage(publicMessage.chat,item,player);
+            BaseComponent messageComponent = formatMessage(publicMessage.chat,items,player);
             TextComponent textComponent = new TextComponent();
             for (MessageFormat format:publicMessage.format){
                 textComponent.addExtra(parseJson(publicMessage.player,messageComponent,format.message,format.hover,format.click));
             }
             broadcast(player,textComponent);
+
+            plugin.getLogger().info(textComponent.toPlainText());
         }
         else if (Const.PLUGIN_SUB_CHANNEL_MSG.equals(subchannel)){
             if (!canMessage(player)){
@@ -105,16 +113,22 @@ public class MessageManage {
                 return;
             }
 
-            BaseComponent item = null;
-            if (privateMessage.item!=null){
+            List<BaseComponent> items = new ArrayList<>();
+            if (privateMessage.items!=null){
                 try {
-                    item = ComponentSerializer.parse(privateMessage.item)[0];
+                    for (String s : privateMessage.items){
+                        if (s==null){
+                            items.add(null);
+                        }else {
+                            items.add(ComponentSerializer.parse(s)[0]);
+                        }
+                    }
                 }
                 catch (Exception ignored){
 
                 }
             }
-            BaseComponent messageComponent = formatMessage(privateMessage.chat,item,player);
+            BaseComponent messageComponent = formatMessage(privateMessage.chat,items,player);
 
             TextComponent toComponent = new TextComponent();
             for (MessageFormat format:privateMessage.toFormat){
@@ -330,6 +344,33 @@ public class MessageManage {
             textComponent.addExtra(parseJson(playerConfig.name,messageComponent,format.message,format.hover,format.click));
         }
         broadcast(null,textComponent);
+        plugin.getLogger().info(textComponent.toPlainText());
+    }
+
+    public void broadcast(List<MessageFormat> formats,String server){
+        TextComponent textComponent = new TextComponent();
+        for (MessageFormat format:formats){
+            if (format.message==null || format.message.equals("")) continue;
+            textComponent.addExtra(parseJson("",null,format.message,format.hover,format.click));
+        }
+        if (server.equalsIgnoreCase("all")){
+            broadcast(null,textComponent);
+        }else {
+            if (server.equalsIgnoreCase("web")){
+                if (plugin.wsIsOn()){
+                    String json = getWebMessage(textComponent);
+                    for (WebSocket webSocket : WsClientHelper.clients()) {
+                        sendWebMessage(webSocket, json);
+                    }
+                }
+            }else {
+                for (ProxiedPlayer p: plugin.getProxy().getPlayers()){
+                    if (p.getServer().getInfo().getName().equalsIgnoreCase(server)){
+                        sendBcMessage(p,textComponent);
+                    }
+                }
+            }
+        }
     }
 
     public void broadcast(ProxiedPlayer player,TextComponent component){
@@ -400,19 +441,65 @@ public class MessageManage {
         return textComponent;
     }
 
-    private BaseComponent formatMessage(String message,BaseComponent item,ProxiedPlayer player){
+    private BaseComponent formatMessage(String message,List<BaseComponent> items,ProxiedPlayer player){
         TextComponent textComponent = new TextComponent();
         message = formatAt(message,player);
-        if (item!=null && message.contains(Const.ITEM_PLACEHOLDER)){
-            int index = message.indexOf(Const.ITEM_PLACEHOLDER);
-            String msg1 = message.substring(0,index);
-            String msg2 = message.substring(index+Const.ITEM_PLACEHOLDER.length());
-            textComponent = formatLink(msg1);
-            textComponent.addExtra(item);
-            textComponent.addExtra(formatLink(msg2));
+        if(items!=null && items.size()>0){
+            textComponent = formatItem(message,items);
         }
         else {
             textComponent = formatLink(message);
+        }
+        return textComponent;
+    }
+
+    private TextComponent formatItem(String message,List<BaseComponent> items){
+        TextComponent textComponent = new TextComponent();
+        Pattern pattern = Pattern.compile(Const.ITEM_PLACEHOLDER);
+        Matcher matcher = pattern.matcher(message);
+        while (matcher.find()){
+            String str = matcher.group(0);
+            if (str==null){
+                break;
+            }
+            String[] arr = message.split(Const.ITEM_PLACEHOLDER,2);
+            if (arr.length==0){
+                message = "";
+            }
+            else if (arr.length==1){
+                if (!message.startsWith(str)){
+                    textComponent.addExtra(formatLink(arr[0]));
+                    message = "";
+                }
+            }
+            else if (arr.length==2){
+                message = arr[1];
+                textComponent.addExtra(formatLink(arr[0]));
+            }
+            else {
+                message = String.join(str,new ArrayList<>(Arrays.asList(arr).subList(1, arr.length)));
+                textComponent.addExtra(formatLink(arr[0]));
+            }
+            if (items.size()>0){
+                BaseComponent item = items.remove(0);
+                if (item==null){
+                    textComponent.addExtra(str);
+                }else {
+                    textComponent.addExtra(item);
+                }
+            }
+
+            if (arr.length==1 && message.startsWith(str)){
+                textComponent.addExtra(formatLink(arr[0]));
+                message = "";
+            }
+            if (message.equals("")){
+                break;
+            }
+            matcher = pattern.matcher(message);
+        }
+        if (!message.equals("")){
+            textComponent.addExtra(formatLink(message));
         }
         return textComponent;
     }

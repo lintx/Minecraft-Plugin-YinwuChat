@@ -112,8 +112,7 @@ public class ItemUtil {
         return component;
     }
 
-    public static BaseComponent componentWithPlayer(Player player){
-        ItemStack itemStack = player.getInventory().getItemInMainHand()==null?player.getInventory().getItemInOffHand():player.getInventory().getItemInMainHand();
+    public static BaseComponent componentWithPlayer(ItemStack itemStack){
         if (itemStack==null || itemStack.getType().equals(Material.AIR)){
             return null;
         }
@@ -179,8 +178,9 @@ public class ItemUtil {
         return component;
     }
 
-    public static String itemJsonWithPlayer(Player player){
-        BaseComponent component = componentWithPlayer(player);
+    public static String itemJsonWithPlayer(ItemStack itemStack){
+        BaseComponent component = componentWithPlayer(itemStack);
+        if (component==null) return null;
         return ComponentSerializer.toString(component);
     }
 }

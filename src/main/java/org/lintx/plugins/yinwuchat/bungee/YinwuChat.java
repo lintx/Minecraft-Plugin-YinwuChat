@@ -2,16 +2,21 @@ package org.lintx.plugins.yinwuchat.bungee;
 
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.plugin.Plugin;
+import net.md_5.bungee.api.scheduler.ScheduledTask;
 import org.lintx.plugins.yinwuchat.Const;
+import org.lintx.plugins.yinwuchat.bungee.announcement.Task;
 import org.lintx.plugins.yinwuchat.bungee.util.WsClientHelper;
 
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.util.ArrayList;
+import java.util.concurrent.TimeUnit;
 
 public class YinwuChat extends Plugin {
     private static YinwuChat plugin;
     private static WSServer server;
     private static BatManage batManage;
+    private ScheduledTask scheduledTask = null;
     private Config config = Config.getInstance();
     public static WSServer getWSServer(){
         return server;
@@ -40,6 +45,7 @@ public class YinwuChat extends Plugin {
         if (config.openwsserver && (!wsopen || wsport!=config.wsport)){
             startWs();
         }
+        org.lintx.plugins.yinwuchat.bungee.announcement.Config.getInstance().load(plugin);
     }
 
     public boolean wsIsOn(){
@@ -62,10 +68,17 @@ public class YinwuChat extends Plugin {
         getProxy().registerChannel(Const.PLUGIN_CHANNEL);
         getProxy().getPluginManager().registerListener(this,new Listeners(this));
         getProxy().getPluginManager().registerCommand(this, new Commands(plugin,"yinwuchat"));
+
+        org.lintx.plugins.yinwuchat.bungee.announcement.Config.getInstance().load(this);
+        Task task = new Task();
+        scheduledTask = getProxy().getScheduler().schedule(this,task, 0L,1L, TimeUnit.SECONDS);
     }
 
     @Override
     public void onDisable() {
+        if (scheduledTask!=null){
+            scheduledTask.cancel();
+        }
         stopWsServer();
         getProxy().unregisterChannel(Const.PLUGIN_CHANNEL);
         getProxy().getPluginManager().unregisterListeners(this);
