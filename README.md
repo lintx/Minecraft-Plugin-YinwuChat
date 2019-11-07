@@ -8,9 +8,31 @@ YinwuChat同时是Bungeecord插件和Spigot插件，主要功能有。
 4. 跨服物品展示（聊天内容中输入`[i]`即可将手中的物品发送到聊天栏，输入`[i:x]`可以展示背包中x对应的物品栏的物品，物品栏为0-8，然后从背包左上角从左至右从上至下为9-35，装备栏为36-39，副手为40，一条消息中可以展示多个物品）
 5. WebSocket，开启WebSocket后配合YinwuChat-Web（Web客户端）可以实现web、游戏内聊天同步
 6. 关键词屏蔽
+7. 使用酷Q和酷Q HTTP API来实现Q群聊天同步
 
 注：你需要在你的Bungee服务端和这个Bungee接入的所有的Spigot服务端都安装这个插件
 
+
+### Q群聊天同步
+1. YinwuChat插件配置
+    1. 需要开启openwsserver
+    2. 将coolQGroup设置为你想同步的Q群的号码
+    3. 将coolQAccessToken设置为一个足够复杂足够长的字符串（推荐32位左右的随机字符串）
+2. 安装酷Q HTTP API插件
+    1. 去 https://github.com/richardchien/coolq-http-api/releases/latest 下载最新版本的coolq-http-api，coolq-http-api具体的安装说明可以到 https://cqhttp.cc/docs/ 或 http://richardchien.gitee.io/coolq-http-api/docs/ 查看
+    2. 将coolq-http-api放到酷Q目录下的app目录下
+    3. 打开酷Q的应用管理界面，点击重载应用按钮
+    4. 找到“[未启用]HTTP API”，点它，然后点右边的启用按钮
+    5. 有提示的全部点“是”
+    6. 到酷Q目录下的“data\app\io.github.richardchien.coolqhttpapi\config”目录，下，打开你登录的QQ号对应的json文件（比如你登录的QQ号是10000，那文件名就是10000.json）
+    7. 将use_http修改为false（如果你没有其他应用需要使用的话）
+    8. 将use_ws_reverse修改为true（必须！）
+    9. 将ws_reverse_url修改为插件的websocket监听地址加端口（比如你端口是9000，酷Q和mc服务器在一台机器上就填 ws://127.0.0.1:9000/）
+    10. post_message_format请务必保证是"string"
+    11. 将enable_heartbeat设置为true
+    12. 增加一行   "ws_reverse_use_universal_client": true,    或者如果你的json文件中有ws_reverse_use_universal_client的话将它改为true（必须！）
+    13. 将access_token修改为和YinwuChat配置中的coolQAccessToken一致的内容
+    14. 右键酷Q主界面，选择应用-HTTP API-重启应用
 
 ### 配置文件
 YinwuChat-Bungeecord的配置文件内容为：
@@ -23,7 +45,16 @@ webBATserver: lobby   #安装了BungeeAdminTools插件时，在WebSocket发送�
 format:               #WebSocket发送过来的消息格式化内容，由list构成，每段内容都分message、hover、click 3项设置
 - message: '&7[Web]'  #直接显示在聊天栏的文字，{displayName}将被替换为玩家名（包括hover和click字段）
   hover: 点击打开YinwuChat网页版           #鼠标移动到这段消息上时显示的悬浮内容
-  click: https://chat.yinwurealm.org     #点击这段消息时的动作，自动识别是否链接，如果是链接则打开链接，否则就将内容填充到聊天框
+  click: https://xxxxxx.xxxx.xxx         #点击这段消息时的动作，自动识别是否链接，如果是链接则打开链接，否则就将内容填充到聊天框
+- message: '&e{displayName}'
+  hover: 点击私聊
+  click: /msg {displayName}
+- message: ' &6>>> '
+- message: '&r{message}'
+qqFormat:             #QQ群群员发送的消息，游戏内展示的样式
+- message: '&b[QQ群]'
+  hover: 点击加入QQ群xxxxx
+  click: https://xxxxxx.xxxx.xxx   #这里可以替换为你QQ群的申请链接
 - message: '&e{displayName}'
   hover: 点击私聊
   click: /msg {displayName}
@@ -49,7 +80,10 @@ fromFormat:           #私聊时，自己收到的消息的格式
 atcooldown: 10        #@玩家时的冷却时间（秒）
 atAllKey: all         #@全体玩家的关键词
 linkRegex: ((https?|ftp|file)://[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|])      #链接识别正则表达式
-linkText: '&7[&f&l链接&r&7]&r'      #聊天内容中的链接将被替换为这个文本
+linkText: '&7[&f&l链接&r&7]&r'      #聊天内容中的链接将被替换为这个文本    #链接识别正则表达式
+qqImageText: '&7[图片]&r'           #QQ群中群员发送的图片将被替换为这个文本
+qqRecordText: '&7[语音]&r'      #QQ群中群员发送的语音将被替换为这个文本
+qqAtText: '&7[@{qq}]&r'      #QQ群中群员发送的@信息将被替换为这个文本，{qq}将被替换为被@的人的QQ号
 atyouselfTip: '&c你不能@你自己'
 atyouTip: '&e{player}&b@了你'
 cooldownTip: '&c每次使用@功能之间需要等待10秒'
@@ -67,6 +101,8 @@ shieldedReplace: 富强、民主、文明、和谐、自由、平等、公正、
 shieldedKickTime: 60      #多少秒内总共发送屏蔽关键词`shieldedKickCount`次就会被踢出服务器(包括web端)
 shieldedKickCount: 3      #`shieldedKickTime`秒内发送屏蔽关键词多少次会被踢出服务器
 shieldedKickTip: 你因为发送屏蔽词语，被踢出服务器     #发送屏蔽次达到次数后被踢出服务器时的提示语
+coolQGroup: 0     #监听的QQ群的群号，酷Q接收到消息时，如果是QQ群，且群号和这里一致，就会转发到游戏中
+coolQAccessToken: ''     #和酷Q HTTP API插件通信时使用的accesstoken，为空时不验证，强烈建议设置为一个复杂的字符串
 ```
 `webBATserver`可以实现WebSocket端的禁言（当你的服务器安装了BungeeAdminTools时，玩家在WebSocket发送信息，会以这个项目的内容作为玩家所在服务器，
 去BungeeAdminTools查询该玩家是否被禁言或被ban，当他被禁言或被ban时无法说话，由于BungeeAdminTools禁言、ban人只能选择Bungee的配置文件中实际存在的服务器，
@@ -125,6 +161,7 @@ fromFormat:
   hover: 点击私聊
   click: /msg {displayName}
 - message: '&r{message}'
+eventDelayTime: 50    #接收消息处理延时，单位为毫秒，用于处理部分需要使用聊天栏信息来交互的插件的运行（比如箱子商店等），延时时间就是等待其他插件处理的时间
 ```
 
 

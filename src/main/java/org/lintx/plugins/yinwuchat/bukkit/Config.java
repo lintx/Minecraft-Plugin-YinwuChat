@@ -25,6 +25,9 @@ public class Config {
     @YamlConfig
     public List<MessageFormat> fromFormat = null;
 
+    @YamlConfig
+    public int eventDelayTime = 50;
+
     private Config(){
 
     }

@@ -16,6 +16,22 @@ import java.util.*;
  */
 public class WsClientHelper {
     private static final HashMap<WebSocket,WsClientUtil> clients = new HashMap<WebSocket,WsClientUtil>();
+    private static WebSocket coolQ = null;
+
+    public static void updateCoolQ(WebSocket socket){
+        if (coolQ!=null){
+            try {
+                coolQ.close();
+            }catch (Exception ignored){
+
+            }
+        }
+        coolQ = socket;
+    }
+
+    public static WebSocket getCoolQ(){
+        return coolQ;
+    }
     
     public static void add(WebSocket socket, WsClientUtil client){
         remove(socket);

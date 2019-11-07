@@ -18,6 +18,14 @@ public class Listeners implements Listener, PluginMessageListener {
 
     @EventHandler(priority = EventPriority.LOWEST,ignoreCancelled = true)
     public void onChat(AsyncPlayerChatEvent event){
+        if (Config.getInstance().eventDelayTime>0){
+            try {
+                Thread.sleep(Config.getInstance().eventDelayTime);
+            } catch (InterruptedException ignored) {
+
+            }
+        }
+        if (event.isCancelled()) return;
         Player player = event.getPlayer();
         String chat = event.getMessage();
 

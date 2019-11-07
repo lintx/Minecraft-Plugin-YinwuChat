@@ -30,6 +30,20 @@ public class WSServer extends WebSocketServer {
 
     @Override
     public void onOpen(WebSocket conn, ClientHandshake handshake) {
+        String qq = handshake.getFieldValue("X-Self-ID");
+        String role = handshake.getFieldValue("X-Client-Role");
+        String authorization = handshake.getFieldValue("Authorization");
+        if (!qq.equals("") && role.equals("Universal")){
+            String token = Config.getInstance().coolQAccessToken;
+            if (!token.equals("")){
+                token = "Token " + token;
+                if (!token.equals(authorization)){
+                    conn.close();
+                    return;
+                }
+            }
+            WsClientHelper.updateCoolQ(conn);
+        }
     }
 
     @Override
@@ -112,6 +126,15 @@ public class WSServer extends WebSocketServer {
                         return;
                     }
                     MessageManage.getInstance().webBroadcastMessage(util.getUuid(),o.getMessage(),conn);
+                }
+            }
+            else if (object instanceof CoolQInputJSON){
+                CoolQInputJSON coolMessage = (CoolQInputJSON)object;
+                if (coolMessage.getPost_type().equalsIgnoreCase("message")
+                && coolMessage.getMessage_type().equalsIgnoreCase("group")
+                && coolMessage.getSub_type().equalsIgnoreCase("normal")
+                && coolMessage.getGroup_id() == Config.getInstance().coolQGroup){
+                    MessageManage.getInstance().qqMessage(coolMessage);
                 }
             }
         });

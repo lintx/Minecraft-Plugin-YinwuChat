@@ -13,6 +13,8 @@ import net.md_5.bungee.api.connection.ProxiedPlayer;
 import net.md_5.bungee.chat.ComponentSerializer;
 import org.java_websocket.WebSocket;
 import org.lintx.plugins.yinwuchat.Const;
+import org.lintx.plugins.yinwuchat.bungee.json.CoolQInputJSON;
+import org.lintx.plugins.yinwuchat.bungee.json.CoolQOutputJSON;
 import org.lintx.plugins.yinwuchat.bungee.json.ServerMessageJSON;
 import org.lintx.plugins.yinwuchat.bungee.util.WsClientUtil;
 import org.lintx.plugins.yinwuchat.json.MessageFormat;
@@ -77,8 +79,7 @@ public class MessageManage {
             for (MessageFormat format:publicMessage.format){
                 textComponent.addExtra(parseJson(publicMessage.player,messageComponent,format.message,format.hover,format.click));
             }
-            broadcast(player,textComponent);
-
+            broadcast(player,textComponent,false);
             plugin.getLogger().info(textComponent.toPlainText());
         }
         else if (Const.PLUGIN_SUB_CHANNEL_MSG.equals(subchannel)){
@@ -343,7 +344,31 @@ public class MessageManage {
             if (format.message==null || format.message.equals("")) continue;
             textComponent.addExtra(parseJson(playerConfig.name,messageComponent,format.message,format.hover,format.click));
         }
-        broadcast(null,textComponent);
+        broadcast(null,textComponent,false);
+        plugin.getLogger().info(textComponent.toPlainText());
+    }
+
+    private String removeEmoji(String str){
+        return str.replaceAll("[^\\p{L}\\p{N}\\p{P}\\p{Z}]","");
+    }
+
+    public void qqMessage(CoolQInputJSON json){
+        TextComponent component = formatCQCode(json);
+        if (component.getExtra()==null || component.getExtra().size()==0){
+            return;
+        }
+        TextComponent textComponent = new TextComponent();
+        String name = json.getSender().getCard();
+        if (name.equals("")){
+            name = json.getSender().getNickname();
+        }
+        name = removeEmoji(name);
+
+        for (MessageFormat format:config.qqFormat){
+            if (format.message==null || format.message.equals("")) continue;
+            textComponent.addExtra(parseJson(name,component,format.message,format.hover,format.click));
+        }
+        broadcast(null,textComponent,true);
         plugin.getLogger().info(textComponent.toPlainText());
     }
 
@@ -354,7 +379,7 @@ public class MessageManage {
             textComponent.addExtra(parseJson("",null,format.message,format.hover,format.click));
         }
         if (server.equalsIgnoreCase("all")){
-            broadcast(null,textComponent);
+            broadcast(null,textComponent,true);
         }else {
             if (server.equalsIgnoreCase("web")){
                 if (plugin.wsIsOn()){
@@ -373,7 +398,7 @@ public class MessageManage {
         }
     }
 
-    public void broadcast(ProxiedPlayer player,TextComponent component){
+    public void broadcast(ProxiedPlayer player,TextComponent component,boolean noqq){
         for (ProxiedPlayer p: plugin.getProxy().getPlayers()){
             PlayerConfig.Player playerConfig = PlayerConfig.getConfig(p);
             if (player!=null && !p.equals(player) && playerConfig.isIgnore(player)){
@@ -385,6 +410,14 @@ public class MessageManage {
         if (plugin.wsIsOn()){
             for (WebSocket webSocket : WsClientHelper.clients()) {
                 sendWebMessage(webSocket, json);
+            }
+        }
+        if (!noqq){
+            WebSocket socket = WsClientHelper.getCoolQ();
+            if (socket!=null){
+                String message = component.toPlainText();
+                message = message.replaceAll("§([0-9a-fklmnor])","");
+                socket.send(new CoolQOutputJSON(message).getJSON());
             }
         }
     }
@@ -449,6 +482,87 @@ public class MessageManage {
         }
         else {
             textComponent = formatLink(message);
+        }
+        return textComponent;
+    }
+
+    private String formatQQMessage(String message){
+        return message.replaceAll("&amp;","& ").replaceAll("&#91;","[").replaceAll("&#93;","]");
+    }
+
+    private TextComponent formatCQCode(CoolQInputJSON json){
+        String regex = "\\[CQ:(.*?),(.*?)\\]";
+        String message = json.getRaw_message().replaceAll("\n"," ").replaceAll("\r"," ");
+        message = removeEmoji(message);
+
+        TextComponent textComponent = new TextComponent();
+//        Pattern pattern = Pattern.compile("\\[i([:：](\\d+))?\\]");
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(message);
+        while (matcher.find()){
+            String str = matcher.group(0);
+            if (str==null){
+                break;
+            }
+            String[] arr = message.split(regex,2);
+            if (arr.length==0){
+                message = "";
+            }
+            String a1 = formatQQMessage(arr[0]);
+            if (arr.length==1){
+                if (!message.startsWith(str)){
+                    textComponent.addExtra(formatLink(a1));
+                    message = "";
+                }
+            }
+            else if (arr.length==2){
+                message = arr[1];
+                textComponent.addExtra(formatLink(a1));
+            }
+            else {
+                message = String.join(str,new ArrayList<>(Arrays.asList(arr).subList(1, arr.length)));
+                textComponent.addExtra(formatLink(a1));
+            }
+            String func = matcher.group(1);
+            String ext = matcher.group(2);
+
+            if (func.equalsIgnoreCase("image")){
+                textComponent.addExtra(formatMessage(config.qqImageText));
+            }else if (func.equalsIgnoreCase("record")){
+                textComponent.addExtra(formatMessage(config.qqRecordText));
+            }else if (func.equalsIgnoreCase("at")){
+                textComponent.addExtra(formatMessage(config.qqAtText.replaceAll("\\{qq\\}",ext.replaceAll("qq=",""))));
+            }else if (func.equalsIgnoreCase("share")){
+                String url = "";
+                String[] a = ext.split(",");
+                for (String kv : a) {
+                    String[] b = kv.split("=",2);
+                    if (b.length==2 && b[0].equalsIgnoreCase("url")){
+                        url = b[1];
+                        break;
+                    }
+                }
+                TextComponent linkComponent = new TextComponent(formatMessage(config.linkText));
+                if (!"".equals(url)){
+                    HoverEvent hoverEvent = new HoverEvent(HoverEvent.Action.SHOW_TEXT,new BaseComponent[]{new TextComponent(url)});
+                    linkComponent.setHoverEvent(hoverEvent);
+                    ClickEvent clickEvent = new ClickEvent(ClickEvent.Action.OPEN_URL,url);
+                    linkComponent.setClickEvent(clickEvent);
+                }
+                textComponent.addExtra(linkComponent);
+            }
+
+            if (arr.length==1 && message.startsWith(str)){
+                textComponent.addExtra(formatLink(a1));
+                message = "";
+            }
+            if (message.equals("")){
+                break;
+            }
+            matcher = pattern.matcher(message);
+        }
+        if (!message.equals("")){
+            textComponent.addExtra(formatLink(formatQQMessage(message)));
         }
         return textComponent;
     }

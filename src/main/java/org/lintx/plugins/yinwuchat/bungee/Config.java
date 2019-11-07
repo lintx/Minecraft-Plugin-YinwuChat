@@ -33,11 +33,18 @@ public class Config {
         }
         if (fromFormat==null || fromFormat.isEmpty()){
             fromFormat = new ArrayList<>();
-            fromFormat.add(new MessageFormat("&b[Web]","点击打开YinwuChat网页","https://chat.yinwurealm.org"));
+            fromFormat.add(new MessageFormat("&b[Web]","点击打开YinwuChat网页","https://xxxxxx.xxxx.xxx"));
             fromFormat.add(new MessageFormat("&e{displayName}","点击私聊","/msg {displayName}"));
             fromFormat.add(new MessageFormat(" &6-> &7我"));
             fromFormat.add(new MessageFormat(" &6>>> "));
             fromFormat.add(new MessageFormat("&r{message}"));
+        }
+        if (qqFormat==null || qqFormat.isEmpty()){
+            qqFormat = new ArrayList<>();
+            qqFormat.add(new MessageFormat("&b[QQ群]","点击加入QQ群xxxxx","https://xxxxxx.xxxx.xxx"));
+            qqFormat.add(new MessageFormat("&e{displayName}"));
+            qqFormat.add(new MessageFormat(" &6>>> "));
+            qqFormat.add(new MessageFormat("&r{message}"));
         }
         File file = new File(plugin.getDataFolder(),"config.yml");
         if (!file.exists()){
@@ -65,6 +72,9 @@ public class Config {
     public List<MessageFormat> format = null;
 
     @YamlConfig
+    public List<MessageFormat> qqFormat = null;
+
+    @YamlConfig
     public List<MessageFormat> toFormat = null;
 
     @YamlConfig
@@ -81,6 +91,15 @@ public class Config {
 
     @YamlConfig
     public String linkText = "&7[&f&l链接&r&7]&r";
+
+    @YamlConfig
+    public String qqImageText = "&7[图片]&r";
+
+    @YamlConfig
+    public String qqRecordText = "&7[语音]&r";
+
+    @YamlConfig
+    public String qqAtText = "&7[@{qq}]&r";
 
     @YamlConfig
     public String atyouselfTip = "&c你不能@你自己";
@@ -129,4 +148,10 @@ public class Config {
 
     @YamlConfig
     public String shieldedKickTip = "你因为发送屏蔽词语，被踢出服务器";
+
+    @YamlConfig
+    public int coolQGroup = 0;
+
+    @YamlConfig
+    public String coolQAccessToken = "";
 }
