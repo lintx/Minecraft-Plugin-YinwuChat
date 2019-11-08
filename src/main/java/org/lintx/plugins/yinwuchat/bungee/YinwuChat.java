@@ -72,6 +72,8 @@ public class YinwuChat extends Plugin {
         org.lintx.plugins.yinwuchat.bungee.announcement.Config.getInstance().load(this);
         Task task = new Task();
         scheduledTask = getProxy().getScheduler().schedule(this,task, 0L,1L, TimeUnit.SECONDS);
+
+        MessageManage.getInstance().sendPlayerList();
     }
 
     @Override

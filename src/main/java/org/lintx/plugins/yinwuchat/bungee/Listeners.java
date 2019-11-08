@@ -4,9 +4,7 @@ import com.google.common.io.ByteArrayDataInput;
 import com.google.common.io.ByteStreams;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
 import net.md_5.bungee.api.connection.Server;
-import net.md_5.bungee.api.event.PlayerDisconnectEvent;
-import net.md_5.bungee.api.event.PluginMessageEvent;
-import net.md_5.bungee.api.event.PostLoginEvent;
+import net.md_5.bungee.api.event.*;
 import net.md_5.bungee.api.plugin.Listener;
 import net.md_5.bungee.event.EventHandler;
 import org.lintx.plugins.yinwuchat.Const;
@@ -26,7 +24,6 @@ public class Listeners implements Listener {
             @Override
             public void run() {
                 if (event.getTag().equals(Const.PLUGIN_CHANNEL)){
-                    event.setCancelled(true);
                     if (event.getReceiver() instanceof ProxiedPlayer && event.getSender() instanceof Server){
                         ProxiedPlayer player = (ProxiedPlayer)event.getReceiver();
                         ByteArrayDataInput input = ByteStreams.newDataInput(event.getData());
@@ -43,6 +40,7 @@ public class Listeners implements Listener {
             PlayerConfig.getConfig(event.getPlayer());
         }
         PlayerListJSON.sendGamePlayerList();
+        MessageManage.getInstance().sendPlayerList();
     }
 
     @EventHandler
@@ -51,5 +49,16 @@ public class Listeners implements Listener {
             PlayerConfig.unloadConfig(event.getPlayer());
         }
         PlayerListJSON.sendGamePlayerList();
+        MessageManage.getInstance().sendPlayerList();
+    }
+
+    @EventHandler
+    public void onServerConnected(ServerConnectedEvent event){
+        MessageManage.getInstance().sendPlayerList(event.getServer());
+    }
+
+    @EventHandler
+    public void onServerSwitch(ServerSwitchEvent event){
+        MessageManage.getInstance().sendPlayerList(event.getPlayer().getServer());
     }
 }

@@ -10,6 +10,7 @@ import net.md_5.bungee.api.chat.HoverEvent;
 import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.config.ServerInfo;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
+import net.md_5.bungee.api.connection.Server;
 import net.md_5.bungee.chat.ComponentSerializer;
 import org.java_websocket.WebSocket;
 import org.lintx.plugins.yinwuchat.Const;
@@ -147,6 +148,9 @@ public class MessageManage {
             if (conf.webSocket!=null){
                 sendWebMessage(conf.webSocket, getWebMessage(fromComponent));
             }
+        }
+        else if (Const.PLUGIN_SUB_CHANNEL_PLAYER_LIST.equals(subchannel)){
+            sendPlayerList(player.getServer());
         }
     }
 
@@ -794,5 +798,42 @@ public class MessageManage {
         output.writeUTF(Const.PLUGIN_SUB_CHANNEL_AT);
         atplayer.getServer().sendData(Const.PLUGIN_CHANNEL,output.toByteArray());
         return true;
+    }
+
+    public void sendPlayerList(){
+        byte[] data = getPlayerListData();
+        for (ServerInfo serverInfo : plugin.getProxy().getServers().values()){
+            sendPlayerList(serverInfo,data);
+        }
+    }
+
+    private byte[] getPlayerListData(){
+        List<String> list = new  ArrayList<>();
+        Iterator<ProxiedPlayer> iterator = plugin.getProxy().getPlayers().iterator();
+        while (iterator.hasNext()){
+            ProxiedPlayer player = iterator.next();
+            list.add(player.getName());
+        }
+        String json = new Gson().toJson(list);
+        ByteArrayDataOutput output = ByteStreams.newDataOutput();
+        output.writeUTF(Const.PLUGIN_SUB_CHANNEL_PLAYER_LIST);
+        output.writeUTF(json);
+        return output.toByteArray();
+    }
+
+    private void sendPlayerList(ServerInfo server,byte[] data){
+        if (server==null) return;
+        Collection<ProxiedPlayer> players = server.getPlayers();
+        if (players==null || players.isEmpty() || !players.iterator().hasNext()) return;
+        ProxiedPlayer player = players.iterator().next();
+        sendPlayerList(player.getServer(),data);
+    }
+
+    public void sendPlayerList(Server server){
+        sendPlayerList(server,getPlayerListData());
+    }
+
+    public void sendPlayerList(Server server,byte[] data){
+        server.sendData(Const.PLUGIN_CHANNEL,data);
     }
 }
