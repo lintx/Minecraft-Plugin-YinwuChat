@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit;
 
 public class YinwuChat extends Plugin {
     private static YinwuChat plugin;
-    private static WSServer server;
+    private static WSServer server = null;
     private static BatManage batManage;
     private ScheduledTask scheduledTask = null;
     private Config config = Config.getInstance();
@@ -36,15 +36,21 @@ public class YinwuChat extends Plugin {
     }
 
     public void reloadConfig(){
+        //重载前是否开启了wsserver
         boolean wsopen = config.openwsserver;
+        //重载前wsserver port
         int wsport = config.wsport;
+        //重新加载配置
         config.load(this);
+        //重载前已开启wsserver且重载后关闭wsserver时关闭wsserver
         if (wsopen && !config.openwsserver){
             stopWsServer();
         }
-        if (config.openwsserver && (!wsopen || wsport!=config.wsport)){
+        //重载后开启wsserver且（重载前关闭wsserver或重载前port和重载后port不一致或wsserver未能成功开启）时启动wsserver
+        if (config.openwsserver && (!wsopen || wsport!=config.wsport || server==null)){
             startWs();
         }
+        //重新加载task
         org.lintx.plugins.yinwuchat.bungee.announcement.Config.getInstance().load(plugin);
     }
 
@@ -58,6 +64,11 @@ public class YinwuChat extends Plugin {
 
     @Override
     public void onEnable() {
+        if (getProxy().getPluginManager().getPlugin("ConfigureCore")==null){
+            getLogger().info("§cDid not find ConfigureCore, YinwuChat has been deactivated!");
+            this.onDisable();
+            return;
+        }
         plugin = this;
         batManage = new BatManage(this);
         config.load(this);
@@ -111,6 +122,7 @@ public class YinwuChat extends Plugin {
                 server.stop();
                 server = null;
                 WsClientHelper.clear();
+                WsClientHelper.updateCoolQ(null);
                 getLogger().info("WebSocket stoped");
             }
         } catch (Exception ignored) {

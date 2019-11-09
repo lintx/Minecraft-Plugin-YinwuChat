@@ -2,26 +2,34 @@ package org.lintx.plugins.yinwuchat.bukkit;
 
 import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
+import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.lintx.plugins.yinwuchat.Const;
+import org.lintx.plugins.yinwuchat.bukkit.commands.PrivateMessage;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
 public class YinwuChat extends JavaPlugin {
-    List<String> bungeePlayerList = new ArrayList<>();
+    public List<String> bungeePlayerList = new ArrayList<>();
 
     @Override
     public void onEnable() {
+        if (getServer().getPluginManager().getPlugin("ConfigureCore")==null){
+            onDisable();
+            getLogger().info(ChatColor.RED + "Did not find ConfigureCore, YinwuChat has been deactivated!");
+            return;
+        }
         Config.getInstance().load(this);
         MessageManage.getInstance().setPlugin(this);
         Listeners listeners = new Listeners(this);
         getServer().getMessenger().registerOutgoingPluginChannel(this, Const.PLUGIN_CHANNEL);
         getServer().getMessenger().registerIncomingPluginChannel(this,Const.PLUGIN_CHANNEL,listeners);
         getServer().getPluginManager().registerEvents(listeners,this);
-        getCommand("msg").setExecutor(new Commands(this));
+        getCommand("msg").setExecutor(new PrivateMessage(this));
+        getCommand("yinwuchat-bukkit").setExecutor(new org.lintx.plugins.yinwuchat.bukkit.commands.YinwuChat(this));
 
         requirePlayerList();
     }

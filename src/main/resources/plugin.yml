@@ -1,8 +1,10 @@
-name: YinwuChat
+name: ${artifactId}
 main: org.lintx.plugins.yinwuchat.bukkit.YinwuChat
-version: 1.3.0
+version: ${version}
 author: LinTx
 api-version: "1.13"
+depend: []
+softdepend: [ConfigureCore, QuickShop]
 commands:
   msg:
     aliases:
@@ -11,3 +13,11 @@ commands:
       - m
     description: Send a private message
     usage: /<command>
+  yinwuchat-bukkit:
+    description: yinwuchat-bukkit command
+    usage: /<command>
+permissions:
+  yinwuchat:
+    children:
+      reload:
+        default: op

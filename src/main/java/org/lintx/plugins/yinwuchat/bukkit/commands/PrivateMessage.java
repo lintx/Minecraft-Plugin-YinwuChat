@@ -1,4 +1,4 @@
-package org.lintx.plugins.yinwuchat.bukkit;
+package org.lintx.plugins.yinwuchat.bukkit.commands;
 
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
@@ -6,15 +6,17 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
 import org.bukkit.entity.Player;
+import org.lintx.plugins.yinwuchat.bukkit.MessageManage;
+import org.lintx.plugins.yinwuchat.bukkit.YinwuChat;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
-public class Commands implements CommandExecutor, TabExecutor {
+public class PrivateMessage implements CommandExecutor, TabExecutor {
     private final YinwuChat plugin;
-    public Commands(YinwuChat plugin){
+    public PrivateMessage(YinwuChat plugin){
         this.plugin = plugin;
     }
 

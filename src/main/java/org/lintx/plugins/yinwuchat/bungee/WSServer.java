@@ -48,15 +48,18 @@ public class WSServer extends WebSocketServer {
 
     @Override
     public void onClose(WebSocket conn, int code, String reason, boolean remote) {
+        if (WsClientHelper.getCoolQ() == conn){
+            WsClientHelper.updateCoolQ(null);
+        }
         //Yinwuchat.getPlugin().getLogger().info("ws on close");
         plugin.getProxy().getScheduler().runAsync(plugin, () -> {
             WsClientUtil util = WsClientHelper.get(conn);
-//            if (util != null && util.getUuid() != null) {
+            if (util != null) {
+                WsClientHelper.remove(conn);
+                PlayerListJSON.sendWebPlayerList();
 //                YinwuChat.getWSServer().broadcast((new PlayerStatusJSON(util.getPlayerName(),PlayerStatusJSON.PlayerStatus.WEB_JOIN)).getWebStatusJSON());
 //                plugin.getProxy().broadcast(ChatUtil.formatLeaveMessage(util.getUuid()));
-//            }
-            WsClientHelper.remove(conn);
-            PlayerListJSON.sendWebPlayerList();
+            }
         });
     }
 

@@ -27,11 +27,11 @@ public class MessageManage {
     void setPlugin(YinwuChat plugin){
         this.plugin = plugin;
     }
-    static MessageManage getInstance(){
+    public static MessageManage getInstance(){
         return instance;
     }
 
-    void sendPrivateMessage(Player player,String toPlayer,String chat){
+    public void sendPrivateMessage(Player player,String toPlayer,String chat){
         PrivateMessage privateMessage = new PrivateMessage();
         privateMessage.toPlayer = toPlayer;
         privateMessage.player = player.getDisplayName();

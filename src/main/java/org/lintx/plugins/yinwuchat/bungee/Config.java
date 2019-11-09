@@ -10,6 +10,7 @@ import java.util.List;
 
 @YamlConfig
 public class Config {
+    private static int version = 1;
     private static Config instance = new Config();
     public static Config getInstance(){
         return instance;
@@ -47,7 +48,8 @@ public class Config {
             qqFormat.add(new MessageFormat("&r{message}"));
         }
         File file = new File(plugin.getDataFolder(),"config.yml");
-        if (!file.exists()){
+        if (!file.exists() || version!=configVersion){
+            configVersion = version;
             save(plugin);
         }
     }
@@ -154,4 +156,13 @@ public class Config {
 
     @YamlConfig
     public String coolQAccessToken = "";
+
+    @YamlConfig
+    public int configVersion = 0;
+
+    @YamlConfig
+    public boolean coolQQQToGame = true;
+
+    @YamlConfig
+    public boolean coolQGameToQQ = true;
 }

@@ -103,6 +103,9 @@ shieldedKickCount: 3      #`shieldedKickTime`秒内发送屏蔽关键词多少�
 shieldedKickTip: 你因为发送屏蔽词语，被踢出服务器     #发送屏蔽次达到次数后被踢出服务器时的提示语
 coolQGroup: 0     #监听的QQ群的群号，酷Q接收到消息时，如果是QQ群，且群号和这里一致，就会转发到游戏中
 coolQAccessToken: ''     #和酷Q HTTP API插件通信时使用的accesstoken，为空时不验证，强烈建议设置为一个复杂的字符串
+configVersion: 1    #配置文件的版本，请勿修改
+coolQQQToGame: true   #qq群有新消息时是否发送到游戏中
+coolQGameToQQ: true   #游戏中有新消息时是否发送到QQ群中
 ```
 `webBATserver`可以实现WebSocket端的禁言（当你的服务器安装了BungeeAdminTools时，玩家在WebSocket发送信息，会以这个项目的内容作为玩家所在服务器，
 去BungeeAdminTools查询该玩家是否被禁言或被ban，当他被禁言或被ban时无法说话，由于BungeeAdminTools禁言、ban人只能选择Bungee的配置文件中实际存在的服务器，
@@ -266,13 +269,19 @@ eventDelayTime: 50    #接收消息处理延时，单位为毫秒，用于处理
 3. WebClient命令
     - `/msg <玩家名> <消息>`：向玩家发送私聊消息
 
-### 权限
+### Bukkit端命令
+`yinwuchat-bukkit reload`: 重新加载配置，需要权限`yinwuchat.reload
+
+### Bungee端权限
 - `yinwuchat.reload`玩家可以在游戏中使用`/yinwuchat reload`命令重新加载插件配置
 - `yinwuchat.cooldown.bypass`@人没有冷却时间
 - `yinwuchat.atall`允许@所有人
 - `yinwuchat.vanish`允许进入聊天隐身模式
 - `yinwuchat.badword`允许编辑聊天系统关键词列表
 * 权限需要在Bungeecord中设置，玩家可以在Bungeecord连接到的任何服务器使用这个命令
+
+### Bukkit端权限
+`yinwuchat.reload`玩家可以在游戏中使用`/yinwuchat-bukkit reload`命令重新加载bukkit端yinwuchat的配置，默认权限：仅OP可以使用
 
 ### @所有人
 @所有人可以@整个服务器所有人（不包括WebSocket），或者分服务器@该服务器所有人（不包括WebSocket）

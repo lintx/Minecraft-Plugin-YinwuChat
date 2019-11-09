@@ -40,6 +40,7 @@ public class MessageManage {
         return instance;
     }
 
+    //处理bukkit发送的插件消息（包括公屏消息、私聊消息、请求玩家列表等）
     public void bukkitMessage(ProxiedPlayer player, ByteArrayDataInput input){
         String subchannel = input.readUTF();
         if (Const.PLUGIN_SUB_CHANNEL_CHAT.equals(subchannel)){
@@ -154,6 +155,7 @@ public class MessageManage {
         }
     }
 
+    //判断bc端登录的玩家是否允许发送消息（判断是否被禁言）
     private boolean canMessage(ProxiedPlayer player){
         try {
             if (YinwuChat.getBatManage().isMute(player,player.getServer().getInfo().getName())){
@@ -172,6 +174,7 @@ public class MessageManage {
         return true;
     }
 
+    //判断web端登录的玩家是否允许发送消息（判断是否被禁言）
     private boolean canMessage(String player,WebSocket webSocket){
         try {
             if (YinwuChat.getBatManage().isMute(player,config.webBATserver)){
@@ -190,6 +193,7 @@ public class MessageManage {
         return true;
     }
 
+    //根据一个名字查找对应的玩家并返回一个私聊消息配置（忽略大小写、前缀匹配）
     private PrivateMessageConf privateMessageConf(String name){
         PrivateMessageConf conf = new PrivateMessageConf();
         ProxiedPlayer toPlayer = null;
@@ -264,6 +268,7 @@ public class MessageManage {
         return conf;
     }
 
+    //web端发送私聊消息的处理
     public void webSendPrivateMessage(WebSocket webSocket,WsClientUtil util,String toName,String message){
         PlayerConfig.Player playerConfig = PlayerConfig.getConfig(util.getUuid());
         if (playerConfig.name==null || playerConfig.name.equals("")){
@@ -320,6 +325,7 @@ public class MessageManage {
         }
     }
 
+    //web端发送广播消息的处理
     public void webBroadcastMessage(UUID uuid, String message,WebSocket webSocket){
         PlayerConfig.Player playerConfig = PlayerConfig.getConfig(uuid);
         if (playerConfig.name==null || playerConfig.name.equals("")){
@@ -352,11 +358,14 @@ public class MessageManage {
         plugin.getLogger().info(textComponent.toPlainText());
     }
 
+    //移除字符串中的emoji表情
     private String removeEmoji(String str){
         return str.replaceAll("[^\\p{L}\\p{N}\\p{P}\\p{Z}]","");
     }
 
+    //qq端发送的消息的处理
     public void qqMessage(CoolQInputJSON json){
+        if (!config.coolQQQToGame) return;
         TextComponent component = formatCQCode(json);
         if (component.getExtra()==null || component.getExtra().size()==0){
             return;
@@ -376,6 +385,7 @@ public class MessageManage {
         plugin.getLogger().info(textComponent.toPlainText());
     }
 
+    //定时任务发送广播消息
     public void broadcast(List<MessageFormat> formats,String server){
         TextComponent textComponent = new TextComponent();
         for (MessageFormat format:formats){
@@ -402,6 +412,7 @@ public class MessageManage {
         }
     }
 
+    //发送广播消息
     public void broadcast(ProxiedPlayer player,TextComponent component,boolean noqq){
         for (ProxiedPlayer p: plugin.getProxy().getPlayers()){
             PlayerConfig.Player playerConfig = PlayerConfig.getConfig(p);
@@ -416,16 +427,21 @@ public class MessageManage {
                 sendWebMessage(webSocket, json);
             }
         }
-        if (!noqq){
+        if (!noqq && config.coolQGameToQQ){
             WebSocket socket = WsClientHelper.getCoolQ();
             if (socket!=null){
                 String message = component.toPlainText();
                 message = message.replaceAll("§([0-9a-fklmnor])","");
-                socket.send(new CoolQOutputJSON(message).getJSON());
+                try {
+                    socket.send(new CoolQOutputJSON(message).getJSON());
+                }catch (Exception e){
+                    e.printStackTrace();
+                }
             }
         }
     }
 
+    //将mc消息转换为web端的消息格式
     private String getWebMessage(BaseComponent component){
         String webmessage = component.toLegacyText();
         JsonObject webjson = new JsonObject();
@@ -435,14 +451,17 @@ public class MessageManage {
         return json;
     }
 
+    //给一个bc端玩家发送消息
     public void sendBcMessage(ProxiedPlayer player,TextComponent component){
         player.sendMessage(component);
     }
 
+    //个一个web端玩家发送消息
     public void sendWebMessage(WebSocket webSocket,String json){
         webSocket.send(json);
     }
 
+    //将消息按照config中的消息块转换为bc端消息
     private BaseComponent parseJson(String playerName, BaseComponent messageComponent,String message,String hover,String click){
         TextComponent textComponent = new TextComponent();
         if (message!=null && !message.equals("")){
@@ -478,6 +497,7 @@ public class MessageManage {
         return textComponent;
     }
 
+    //将消息bukkit端发送的文本消息和物品转换为bc端消息
     private BaseComponent formatMessage(String message,List<BaseComponent> items,ProxiedPlayer player){
         TextComponent textComponent = new TextComponent();
         message = formatAt(message,player);
@@ -490,10 +510,12 @@ public class MessageManage {
         return textComponent;
     }
 
+    //将qq端发送的文本消息处理（反转义&[]）
     private String formatQQMessage(String message){
         return message.replaceAll("&amp;","& ").replaceAll("&#91;","[").replaceAll("&#93;","]");
     }
 
+    //处理qq端发送的文本消息（主要处理cq码）
     private TextComponent formatCQCode(CoolQInputJSON json){
         String regex = "\\[CQ:(.*?),(.*?)\\]";
         String message = json.getRaw_message().replaceAll("\n"," ").replaceAll("\r"," ");
@@ -571,6 +593,7 @@ public class MessageManage {
         return textComponent;
     }
 
+    //处理bukkit端发送的消息中的物品展示部分
     private TextComponent formatItem(String message,List<BaseComponent> items){
         TextComponent textComponent = new TextComponent();
         Pattern pattern = Pattern.compile(Const.ITEM_PLACEHOLDER);
@@ -622,6 +645,7 @@ public class MessageManage {
         return textComponent;
     }
 
+    //处理消息中的链接部分
     private TextComponent formatLink(String message){
         TextComponent textComponent = new TextComponent();
         Pattern pattern = Pattern.compile(config.linkRegex);
@@ -631,7 +655,7 @@ public class MessageManage {
             if (link==null){
                 break;
             }
-            String[] arr = message.split(link);
+            String[] arr = message.split(config.linkRegex,2);
             if (arr.length==0){
                 message = "";
             }
@@ -671,11 +695,13 @@ public class MessageManage {
         return textComponent;
     }
 
+    //将消息中的样式代码所用的&替换为mc锁用的分节符
     String formatMessage(String string){
         string = string.replaceAll("&([0-9a-fklmnor])","§$1");
         return string;
     }
 
+    //处理at消息
     private String formatAt(String message,ProxiedPlayer player){
         if (player.hasPermission(Const.PERMISSION_ATALL)){
             String atall = formatAtAll(message,player);
@@ -722,6 +748,7 @@ public class MessageManage {
         return message;
     }
 
+    //处理at所有人消息
     private String formatAtAll(String message,ProxiedPlayer player){
         Pattern pattern = Pattern.compile("@(\\w*?)("+config.atAllKey+")(?=\\W|$)");
         Matcher matcher = pattern.matcher(message);
@@ -770,6 +797,7 @@ public class MessageManage {
         return message;
     }
 
+    //at单个玩家
     private boolean atPlayer(ProxiedPlayer player,ProxiedPlayer atplayer,boolean atall){
         PlayerConfig.Player config = PlayerConfig.getConfig(atplayer);
         if (!atall){
@@ -800,6 +828,7 @@ public class MessageManage {
         return true;
     }
 
+    //给所有服务器发送玩家列表信息
     public void sendPlayerList(){
         byte[] data = getPlayerListData();
         for (ServerInfo serverInfo : plugin.getProxy().getServers().values()){
@@ -807,6 +836,7 @@ public class MessageManage {
         }
     }
 
+    //获取bc插件消息所用的字节数组格式的玩家列表
     private byte[] getPlayerListData(){
         List<String> list = new  ArrayList<>();
         Iterator<ProxiedPlayer> iterator = plugin.getProxy().getPlayers().iterator();
@@ -821,6 +851,7 @@ public class MessageManage {
         return output.toByteArray();
     }
 
+    //根据服务器信息发送玩家列表信息
     private void sendPlayerList(ServerInfo server,byte[] data){
         if (server==null) return;
         Collection<ProxiedPlayer> players = server.getPlayers();
@@ -829,10 +860,12 @@ public class MessageManage {
         sendPlayerList(player.getServer(),data);
     }
 
+    //根据一个和服务器的connect发送玩家列表信息
     public void sendPlayerList(Server server){
         sendPlayerList(server,getPlayerListData());
     }
 
+    //根据一个和服务器的connect发送玩家列表嘻嘻
     public void sendPlayerList(Server server,byte[] data){
         server.sendData(Const.PLUGIN_CHANNEL,data);
     }
