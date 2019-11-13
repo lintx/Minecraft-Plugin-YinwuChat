@@ -4,7 +4,7 @@ version: ${version}
 author: LinTx
 api-version: "1.13"
 depend: []
-softdepend: [ConfigureCore, QuickShop]
+softdepend: [QuickShop]
 commands:
   msg:
     aliases:
@@ -17,7 +17,55 @@ commands:
     description: yinwuchat-bukkit command
     usage: /<command>
 permissions:
-  yinwuchat:
+  yinwuchat.*:
+    default: op
     children:
-      reload:
+      yinwuchat.reload:
         default: op
+      yinwuchat.style:
+        default: op
+        children:
+          yinwuchat.style.0:
+            default: true
+          yinwuchat.style.1:
+            default: true
+          yinwuchat.style.2:
+            default: true
+          yinwuchat.style.3:
+            default: true
+          yinwuchat.style.4:
+            default: true
+          yinwuchat.style.5:
+            default: true
+          yinwuchat.style.6:
+            default: true
+          yinwuchat.style.7:
+            default: true
+          yinwuchat.style.8:
+            default: true
+          yinwuchat.style.9:
+            default: true
+          yinwuchat.style.a:
+            default: true
+          yinwuchat.style.b:
+            default: true
+          yinwuchat.style.c:
+            default: true
+          yinwuchat.style.d:
+            default: true
+          yinwuchat.style.e:
+            default: true
+          yinwuchat.style.f:
+            default: true
+          yinwuchat.style.k: #随机
+            default: op
+          yinwuchat.style.l: #粗体
+            default: op
+          yinwuchat.style.m: #删除线
+            default: op
+          yinwuchat.style.n: #下划线
+            default: op
+          yinwuchat.style.o: #斜体
+            default: op
+          yinwuchat.style.r: #重置
+            default: true

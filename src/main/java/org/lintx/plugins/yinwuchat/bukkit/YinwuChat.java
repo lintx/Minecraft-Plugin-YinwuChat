@@ -2,7 +2,6 @@ package org.lintx.plugins.yinwuchat.bukkit;
 
 import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.lintx.plugins.yinwuchat.Const;
@@ -17,11 +16,6 @@ public class YinwuChat extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        if (getServer().getPluginManager().getPlugin("ConfigureCore")==null){
-            onDisable();
-            getLogger().info(ChatColor.RED + "Did not find ConfigureCore, YinwuChat has been deactivated!");
-            return;
-        }
         Config.getInstance().load(this);
         MessageManage.getInstance().setPlugin(this);
         Listeners listeners = new Listeners(this);

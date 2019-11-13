@@ -45,7 +45,10 @@ webBATserver: lobby   #安装了BungeeAdminTools插件时，在WebSocket发送�
 format:               #WebSocket发送过来的消息格式化内容，由list构成，每段内容都分message、hover、click 3项设置
 - message: '&7[Web]'  #直接显示在聊天栏的文字，{displayName}将被替换为玩家名（包括hover和click字段）
   hover: 点击打开YinwuChat网页版           #鼠标移动到这段消息上时显示的悬浮内容
-  click: https://xxxxxx.xxxx.xxx         #点击这段消息时的动作，自动识别是否链接，如果是链接则打开链接，否则就将内容填充到聊天框
+  #点击这段消息时的动作，自动识别是否链接，如果是链接则打开链接
+  #否则如果是以!开头就执行命令，否则就将内容填充到聊天框
+  #比如让看到消息的人点击就直接给发消息的人发送tpa请求，就可以写成!/tpa {displayName}（不写斜杠会按发送消息处理）
+  click: https://xxxxxx.xxxx.xxx
 - message: '&e{displayName}'
   hover: 点击私聊
   click: /msg {displayName}
@@ -77,6 +80,11 @@ fromFormat:           #私聊时，自己收到的消息的格式
   click: /msg {displayName}
 - message: ' &6>>> '
 - message: '&r{message}'
+monitorFormat:        #其他玩家私聊时，有权限的玩家看到的监听消息的样式
+- message: '&7{formPlayer} &6-> '
+- message: '&e{toPlayer}'
+- message: ' &6>>> '
+- message: '&r{message}'
 atcooldown: 10        #@玩家时的冷却时间（秒）
 atAllKey: all         #@全体玩家的关键词
 linkRegex: ((https?|ftp|file)://[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|])      #链接识别正则表达式
@@ -106,6 +114,8 @@ coolQAccessToken: ''     #和酷Q HTTP API插件通信时使用的accesstoken，
 configVersion: 1    #配置文件的版本，请勿修改
 coolQQQToGame: true   #qq群有新消息时是否发送到游戏中
 coolQGameToQQ: true   #游戏中有新消息时是否发送到QQ群中
+qqDenyStyle: 0-9a-fklmnor #转发QQ群消息时禁用的样式代码
+webDenyStyle: klmno  #从web页面发送消息时禁用的样式代码
 ```
 `webBATserver`可以实现WebSocket端的禁言（当你的服务器安装了BungeeAdminTools时，玩家在WebSocket发送信息，会以这个项目的内容作为玩家所在服务器，
 去BungeeAdminTools查询该玩家是否被禁言或被ban，当他被禁言或被ban时无法说话，由于BungeeAdminTools禁言、ban人只能选择Bungee的配置文件中实际存在的服务器，
@@ -165,6 +175,16 @@ fromFormat:
   click: /msg {displayName}
 - message: '&r{message}'
 eventDelayTime: 50    #接收消息处理延时，单位为毫秒，用于处理部分需要使用聊天栏信息来交互的插件的运行（比如箱子商店等），延时时间就是等待其他插件处理的时间
+messageHandles:       #自定义消息内容替换，比如下面默认的设置，发送消息时，消息中含有[p]的，[p]会被替换为位置
+- placeholder: \[p\]    #消息中的哪些内容会被替换，写法是正则表达式，所以本来是替换[p]的，由于是正则表达式，两个方括号都需要加反斜杠转义
+  format:               #替换成的消息样式，格式和前面的format格式一致，支持papi变量
+  - message: '&7[位置]'
+    hover: |-
+      所在服务器：ServerName
+      所在世界：%player_world%
+      坐标：X:%player_x% Y:%player_y% Z:%player_z%
+    click: ''
+configVersion: 1  #配置文件的版本，请勿修改
 ```
 
 
@@ -173,14 +193,14 @@ eventDelayTime: 50    #接收消息处理延时，单位为毫秒，用于处理
 本插件所有信息均由WebSocket通信，格式均为JSON格式，具体数据如下：
 #### 发往本插件的数据：
 1. 检查token
-```js
+```json
 {
     "action": "check_token",
     "token": "待检查的token，token由服务器下发，初次连接时可以使用空字符串"
 }
 ```
 2. 发送消息
-```js
+```json
 {
     "action": "send_message",
     "message": "需要发送的消息，注意，格式代码必须使用§"
@@ -189,59 +209,57 @@ eventDelayTime: 50    #接收消息处理延时，单位为毫秒，用于处理
 
 #### 发往Web客户端的数据：
 1. 更新token（接收到客户端发送的check_token数据，然后检查token失败时下发，收到该数据应提醒玩家在游戏内输入/yinwuchat token title命令绑定token）
-```js
+```json
 {
     "action": "update_token",
     "token": "一个随机的token"
 }
 ```
 2. token校验结果（检查token成功后返回，或玩家在游戏内绑定成功后，token对应的WebSocket在线时主动发送，只有接收到了这个数据，且数据中的status为true，且数据中的isbind为true时才可以向服务器发送send_message数据）
-```js
+```json5
 {
     "action": "check_token",
-    "status": true/false,        //表示该token是否有效
+    "status": true,        //表示该token是否有效
     "message": "成功时为success，失败时为原因，并同时发送一个更新token数据",
-    "isbind": false/true         //表示该token是否被玩家绑定
+    "isbind": false         //表示该token是否被玩家绑定
 }
 ```
 3. 玩家在游戏内发送了消息
-```js
+```json
 {
     "action": "send_message",
     "message": "消息内容"
 }
 ```
 4. 游戏玩家列表
-```js
+```json
 {
     "action": "game_player_list",
     "player_list":[
         {
             "player_name": "玩家游戏名",
             "server_name": "玩家所在服务器"
-        },
-        ……
+        }
     ]
 }
 ```
 5. WebClient玩家列表
-```js
+```json
 {
     "action": "web_player_list",
     "player_list":[
         "玩家名1",
-        "玩家名2",
-        ……
+        "玩家名2"
     ]
 }
 ```
 6. 服务器提示消息（一般为和服务器发送数据包后的错误反馈信息）
-```js
+```json5
 {
     "action": "server_message",
     "message": "消息内容",
-    "time": unix时间戳,
-    "status": 状态码，详情见下方表格(int)
+    "time": 1, //unix时间戳,
+    "status": 1 //状态码，详情见下方表格(int)
 }
 ```
 
@@ -282,6 +300,7 @@ eventDelayTime: 50    #接收消息处理延时，单位为毫秒，用于处理
 
 ### Bukkit端权限
 `yinwuchat.reload`玩家可以在游戏中使用`/yinwuchat-bukkit reload`命令重新加载bukkit端yinwuchat的配置，默认权限：仅OP可以使用
+`yinwuchat.style.x`是否允许玩家使用对应的样式代码，`x`为具体样式代码，具体为`0-9`,`a-f`,`klmnor`共22个样式代码，默认设置时`0-9`,`a-f`,`r`为允许，其他为不允许
 
 ### @所有人
 @所有人可以@整个服务器所有人（不包括WebSocket），或者分服务器@该服务器所有人（不包括WebSocket）

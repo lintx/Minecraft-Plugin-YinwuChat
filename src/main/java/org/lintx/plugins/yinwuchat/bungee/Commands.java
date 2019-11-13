@@ -1,22 +1,26 @@
 package org.lintx.plugins.yinwuchat.bungee;
 
+import io.netty.channel.Channel;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.CommandSender;
 import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
 import net.md_5.bungee.api.plugin.Command;
-import net.md_5.bungee.api.plugin.TabExecutor;
-import org.java_websocket.WebSocket;
 import org.lintx.plugins.yinwuchat.Const;
+import org.lintx.plugins.yinwuchat.Util.MessageUtil;
+import org.lintx.plugins.yinwuchat.bungee.config.Config;
+import org.lintx.plugins.yinwuchat.bungee.config.PlayerConfig;
 import org.lintx.plugins.yinwuchat.bungee.json.*;
-import org.lintx.plugins.yinwuchat.bungee.util.*;
+import org.lintx.plugins.yinwuchat.bungee.httpserver.NettyChannelMessageHelper;
+import org.lintx.plugins.yinwuchat.bungee.httpserver.WsClientHelper;
+import org.lintx.plugins.yinwuchat.bungee.httpserver.WsClientUtil;
 
 import java.util.*;
 
 public class Commands extends Command {
     private YinwuChat plugin;
 
-    public Commands(YinwuChat plugin,String name) {
+    Commands(YinwuChat plugin, String name) {
         super(name,null,"yw");
         this.plugin = plugin;
     }
@@ -53,7 +57,7 @@ public class Commands extends Command {
             String first = args[0];
             PlayerConfig.Player playerConfig = PlayerConfig.getConfig(player);
             if (first.equalsIgnoreCase("badword")){
-                if (player.hasPermission(Const.PERMISSION_BADWORD)){
+                if (player.hasPermission(Const.PERMISSION_BAD_WORD)){
                     if (args.length>=3){
                         if (args[1].equalsIgnoreCase("add")){
                             String word = args[2].toLowerCase(Locale.ROOT);
@@ -90,15 +94,15 @@ public class Commands extends Command {
                     if (tokens.bindToken(token,player)){
                         sender.sendMessage(buildMessage(ChatColor.GREEN + "绑定成功"));
                         tokens.save();
-                        WebSocket ws = WsClientHelper.getWebSocket(token);
-                        if (ws != null) {
-                            WsClientHelper.get(ws).setUUID(playerUUID);
-                            ws.send((new InputCheckToken(token,false)).getJSON());
-                            WsClientHelper.kickOtherWS(ws, playerUUID);
+                        Channel channel = WsClientHelper.getWebSocket(token);
+                        if (channel != null) {
+                            WsClientHelper.get(channel).setUUID(playerUUID);
+                            NettyChannelMessageHelper.send(channel,(new InputCheckToken(token,false)).getJSON());
+                            WsClientHelper.kickOtherWS(channel, playerUUID);
                         }
 //                        YinwuChat.getWSServer().broadcast((new PlayerStatusJSON(player.getDisplayName(),PlayerStatusJSON.PlayerStatus.WEB_JOIN)).getWebStatusJSON());
 //                        plugin.getProxy().broadcast(ChatUtil.formatJoinMessage(playerUUID));
-                        PlayerListJSON.sendWebPlayerList();
+                        OutputPlayerList.sendWebPlayerList();
                     }
                     else {
                         sender.sendMessage(buildMessage(ChatColor.RED + "绑定失败，你可以重试几次，如果持续失败，请联系OP，错误代码：002"));
@@ -188,12 +192,12 @@ public class Commands extends Command {
                 if (args.length>=2) {
                     String name = args[1].toLowerCase(Locale.ROOT);
                     for (ProxiedPlayer p:plugin.getProxy().getPlayers()){
-                        if (p.getDisplayName().toLowerCase(Locale.ROOT).equals(name)){
+                        if (p.getName().toLowerCase(Locale.ROOT).equals(name)){
                             if (playerConfig.ignore(p.getUniqueId())){
-                                sender.sendMessage(buildMessage(ChatColor.RED + "你现在忽略了"+p.getDisplayName()+"的信息"));
+                                sender.sendMessage(buildMessage(ChatColor.RED + "你现在忽略了"+p.getName()+"的信息"));
                             }
                             else {
-                                sender.sendMessage(buildMessage(ChatColor.GREEN + "你不再忽略"+p.getDisplayName()+"的信息"));
+                                sender.sendMessage(buildMessage(ChatColor.GREEN + "你不再忽略"+p.getName()+"的信息"));
                             }
                             return;
                         }
@@ -217,58 +221,19 @@ public class Commands extends Command {
                 }
                 return;
             }
-            /*
-            else if (first.equalsIgnoreCase("msg")) {
-                if (args.length>=3) {
-                    //应该加入判断不能对自己发消息
-                    String to_player_name = args[1];
-                    List<String> tmpList = new ArrayList<>(Arrays.asList(args).subList(2, args.length));
-                    String msg = String.join(" ", tmpList);
-                    int message_id = -1;
-
-                    if (to_player_name.equalsIgnoreCase(player.getDisplayName())) {
-                        sender.sendMessage(buildMessage(ChatColor.RED + "你不能向自己发送私聊信息"));
-                        return;
+            else if (first.equalsIgnoreCase("monitor")){
+                if (player.hasPermission(Const.PERMISSION_MONITOR_PRIVATE_MESSAGE)){
+                    playerConfig.monitor = !playerConfig.monitor;
+                    playerConfig.save();
+                    if (playerConfig.monitor){
+                        sender.sendMessage(buildMessage(ChatColor.GREEN + "你现在会监听其他玩家的私聊信息"));
                     }
-
-                    boolean issend = false;
-                    ProxiedPlayer toPlayer = plugin.getProxy().getPlayer(to_player_name);
-                    if (Permission.hidden(toPlayer)){
-                        toPlayer = null;
+                    else {
+                        sender.sendMessage(buildMessage(ChatColor.RED + "你现在不会监听其他玩家的私聊信息"));
                     }
-                    String server_name = "";
-                    try {
-                        server_name = player.getServer().getInfo().getName();
-                    } catch (Exception ignored) {
-                    }
-                    if (toPlayer != null) {
-                        toPlayer.sendMessage(ChatUtil.formatPrivateMessage(playerUUID, msg));
-                        issend = true;
-                        message_id = Chat2SqlUtil.newMessage(playerUUID, toPlayer.getUniqueId(), server_name, msg);
-                    }
-                    WebSocket ws = WsClientHelper.getWebSocketAsPlayerName(to_player_name);
-                    if (ws != null) {
-                        PrivateMessageJSON msgJSON = new PrivateMessageJSON(player.getDisplayName(),to_player_name, msg, server_name);
-                        if (!issend) {
-                            message_id = Chat2SqlUtil.newMessage(playerUUID, WsClientHelper.get(ws).getUuid(), server_name, msg);
-                        }
-                        ws.send(msgJSON.getJSON(message_id));
-                        issend = true;
-                    }
-                    if (!issend) {
-                        sender.sendMessage(buildMessage(ChatColor.RED + "玩家" + to_player_name + "不在线"));
-                    }
-                    else{
-                        sender.sendMessage(ChatUtil.formatMePrivateMessage(to_player_name, msg));
-                    }
+                    return;
                 }
-                else{
-                    sender.sendMessage(buildMessage(ChatColor.RED + "命令格式：/yinwuchat msg 玩家名 消息"));
-                    sender.sendMessage(buildMessage(ChatColor.RED + "缺少玩家名或消息"));
-                }
-                return;
             }
-             */
         }
         sender.sendMessage(buildMessage(ChatColor.GOLD + "YinwuChat Version "+ plugin.getDescription().getVersion() + ",Author:"+plugin.getDescription().getAuthor()));
         sender.sendMessage(buildMessage(ChatColor.GOLD + "插件帮助："));
@@ -284,16 +249,19 @@ public class Commands extends Command {
         if (sender.hasPermission(Const.PERMISSION_RELOAD)){
             sender.sendMessage(buildMessage("&c重新加载插件：&b/yinwuchat reload [config|ws]&c重新加载插件/插件配置/WebSocket"));
         }
-        if (sender.hasPermission(Const.PERMISSION_BADWORD)){
+        if (sender.hasPermission(Const.PERMISSION_BAD_WORD)){
             sender.sendMessage(buildMessage("&c聊天关键词管理：&b/yinwuchat badword <add|remove|list> [word]"));
         }
         if (sender.hasPermission(Const.PERMISSION_VANISH)){
             sender.sendMessage(buildMessage("&c聊天隐身：&b/yinwuchat vanish"));
         }
+        if (sender.hasPermission(Const.PERMISSION_MONITOR_PRIVATE_MESSAGE)){
+            sender.sendMessage(buildMessage("&c切换是否监听其他玩家私聊信息：&b/yinwuchat monitor"));
+        }
     }
 
     private TextComponent buildMessage(String message){
-        return new TextComponent(MessageManage.getInstance().formatMessage(message));
+        return new TextComponent(MessageUtil.replace(message));
     }
 
     private void reload(CommandSender sender, String[] args){
@@ -311,9 +279,4 @@ public class Commands extends Command {
             }
         }
     }
-
-//    @Override
-//    public Iterable<String> onTabComplete(CommandSender sender, String[] args) {
-//        return null;
-//    }
 }

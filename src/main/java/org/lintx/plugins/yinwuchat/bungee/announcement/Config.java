@@ -17,7 +17,7 @@ public class Config {
     }
 
     @YamlConfig
-    public List<TaskConfig> tasks = new ArrayList<>();
+    List<TaskConfig> tasks = new ArrayList<>();
 
     public void load(YinwuChat plugin){
         tasks = new ArrayList<>();

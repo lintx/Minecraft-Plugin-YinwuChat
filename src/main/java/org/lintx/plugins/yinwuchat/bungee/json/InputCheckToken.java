@@ -7,21 +7,20 @@ package org.lintx.plugins.yinwuchat.bungee.json;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import org.lintx.plugins.yinwuchat.bungee.PlayerConfig;
+import org.lintx.plugins.yinwuchat.bungee.config.PlayerConfig;
 import java.util.UUID;
 
 /**
  *
- * @author jjcbw01
+ * @author LinTx
  */
-public class InputCheckToken extends BaseInputJSON{
+public class InputCheckToken extends InputBase {
     private Boolean isvaild = false;
     private Boolean isbind = false;
     private String message = "";
     private String token = "";
     private UUID uuid = null;
-    private PlayerConfig.Tokens tokens = PlayerConfig.getTokens();
-    
+
     public Boolean getIsvaild(){
         return isvaild;
     }
@@ -58,12 +57,13 @@ public class InputCheckToken extends BaseInputJSON{
         return new Gson().toJson(json);
     }
 
-    public InputCheckToken(String token){
+    InputCheckToken(String token){
         this(token,true);
     }
     
     public InputCheckToken(String token,Boolean autoNewToken){
         this.token = token;
+        PlayerConfig.Tokens tokens = PlayerConfig.getTokens();
         if (token==null || token.equalsIgnoreCase("")) {
             if (autoNewToken) {
                 message = "生成了新的token";
@@ -71,7 +71,7 @@ public class InputCheckToken extends BaseInputJSON{
             }
         }
         else{
-            if (!tokens.tokenIsVaild(token)) {
+            if (tokens.tokenNotVaild(token)) {
                 message = "token无效";
                 if (autoNewToken) {
                     message += "，生成了新的token";

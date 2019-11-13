@@ -18,7 +18,7 @@ import java.util.List;
 
 public class Listeners implements Listener, PluginMessageListener {
     private final YinwuChat plugin;
-    public Listeners(YinwuChat plugin){
+    Listeners(YinwuChat plugin){
         this.plugin = plugin;
     }
 
@@ -35,7 +35,7 @@ public class Listeners implements Listener, PluginMessageListener {
         Player player = event.getPlayer();
         String chat = event.getMessage();
 
-        MessageManage.getInstance().sendPublicMessage(player,chat);
+        MessageManage.getInstance().onPublicMessage(player,chat);
 
         event.setCancelled(true);
     }

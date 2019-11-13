@@ -12,7 +12,6 @@ import org.lintx.plugins.yinwuchat.bukkit.YinwuChat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 
 public class PrivateMessage implements CommandExecutor, TabExecutor {
     private final YinwuChat plugin;
@@ -28,19 +27,11 @@ public class PrivateMessage implements CommandExecutor, TabExecutor {
         }
         Player player = (Player)commandSender;
         if (args.length>=2) {
-            //应该加入判断不能对自己发消息
             String to_player_name = args[0];
             List<String> tmpList = new ArrayList<>(Arrays.asList(args).subList(1, args.length));
             String msg = String.join(" ", tmpList);
 
-            String pn = player.getDisplayName().toLowerCase(Locale.ROOT);
-            String tpn = to_player_name.toLowerCase(Locale.ROOT);
-            if (tpn.equals(pn) || (tpn.length()<pn.length() && pn.startsWith(tpn))) {
-                commandSender.sendMessage(ChatColor.RED + "你不能向自己发送私聊信息");
-                return true;
-            }
-
-            MessageManage.getInstance().sendPrivateMessage(player,to_player_name,msg);
+            MessageManage.getInstance().onPrivateMessage(player,to_player_name,msg);
             return true;
         }
         else{

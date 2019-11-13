@@ -8,7 +8,6 @@ import net.md_5.bungee.chat.ComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.block.ShulkerBox;
-import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BlockStateMeta;
 import org.bukkit.inventory.meta.BookMeta;
@@ -84,15 +83,8 @@ public class ItemUtil {
 
     //color:ItemStack.u().e.name();
     private static BaseComponent getItemComponent(ItemStack itemStack){
-        String itemJson = convertItemToJson(itemStack);
-        BaseComponent[] hoverEventComponents = new BaseComponent[]{
-                new TextComponent(itemJson)
-        };
 
-        HoverEvent event = new HoverEvent(HoverEvent.Action.SHOW_ITEM,hoverEventComponents);
-
-        TextComponent component = new TextComponent(itemStack.getAmount() > 1 ? itemStack.getAmount() + "x" : "");
-        component.setHoverEvent(event);
+        TextComponent component = new TextComponent();
         if (itemStack.hasItemMeta()){
             ItemMeta itemMeta = itemStack.getItemMeta();
             if (itemMeta.hasDisplayName()){
@@ -174,7 +166,20 @@ public class ItemUtil {
         catch (Exception | Error e){
             component.addExtra(item.getType().name());
         }
+        if (item.getAmount()>1){
+            component.addExtra(" x" + item.getAmount());
+        }
         component.addExtra("§r§7]§r");
+
+
+        String itemJson = convertItemToJson(itemStack);
+        BaseComponent[] hoverEventComponents = new BaseComponent[]{
+                new TextComponent(itemJson)
+        };
+
+        HoverEvent event = new HoverEvent(HoverEvent.Action.SHOW_ITEM,hoverEventComponents);
+        component.setHoverEvent(event);
+
         return component;
     }
 

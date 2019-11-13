@@ -10,13 +10,13 @@ import java.util.List;
 @YamlConfig
 public class TaskConfig {
     @YamlConfig
-    public boolean enable = false;
+    boolean enable = false;
     @YamlConfig
-    public int interval = 30;
+    int interval = 30;
     @YamlConfig
     public List<MessageFormat> list = new ArrayList<>();
     @YamlConfig
     public String server = "all";
 
-    public LocalDateTime lastTime = null;
+    LocalDateTime lastTime = null;
 }

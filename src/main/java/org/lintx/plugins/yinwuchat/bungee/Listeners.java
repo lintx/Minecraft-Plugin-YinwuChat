@@ -8,13 +8,15 @@ import net.md_5.bungee.api.event.*;
 import net.md_5.bungee.api.plugin.Listener;
 import net.md_5.bungee.event.EventHandler;
 import org.lintx.plugins.yinwuchat.Const;
-import org.lintx.plugins.yinwuchat.bungee.json.PlayerListJSON;
+import org.lintx.plugins.yinwuchat.bungee.config.Config;
+import org.lintx.plugins.yinwuchat.bungee.config.PlayerConfig;
+import org.lintx.plugins.yinwuchat.bungee.json.OutputPlayerList;
 
 public class Listeners implements Listener {
     private final YinwuChat plugin;
     private Config config = Config.getInstance();
 
-    public Listeners(YinwuChat plugin){
+    Listeners(YinwuChat plugin){
         this.plugin = plugin;
     }
 
@@ -27,7 +29,7 @@ public class Listeners implements Listener {
                     if (event.getReceiver() instanceof ProxiedPlayer && event.getSender() instanceof Server){
                         ProxiedPlayer player = (ProxiedPlayer)event.getReceiver();
                         ByteArrayDataInput input = ByteStreams.newDataInput(event.getData());
-                        MessageManage.getInstance().bukkitMessage(player,input);
+                        MessageManage.getInstance().handleBukkitMessage(player,input);
                     }
                 }
             }
@@ -39,8 +41,8 @@ public class Listeners implements Listener {
         if (event.getPlayer() != null) {
             PlayerConfig.getConfig(event.getPlayer());
         }
-        PlayerListJSON.sendGamePlayerList();
-        MessageManage.getInstance().sendPlayerList();
+        OutputPlayerList.sendGamePlayerList();
+        MessageManage.getInstance().sendPlayerListToServer();
     }
 
     @EventHandler
@@ -48,17 +50,17 @@ public class Listeners implements Listener {
         if (event.getPlayer() != null) {
             PlayerConfig.unloadConfig(event.getPlayer());
         }
-        PlayerListJSON.sendGamePlayerList();
-        MessageManage.getInstance().sendPlayerList();
+        OutputPlayerList.sendGamePlayerList();
+        MessageManage.getInstance().sendPlayerListToServer();
     }
 
     @EventHandler
     public void onServerConnected(ServerConnectedEvent event){
-        MessageManage.getInstance().sendPlayerList(event.getServer());
+        MessageManage.getInstance().sendPlayerListToServer(event.getServer());
     }
 
     @EventHandler
     public void onServerSwitch(ServerSwitchEvent event){
-        MessageManage.getInstance().sendPlayerList(event.getPlayer().getServer());
+        MessageManage.getInstance().sendPlayerListToServer(event.getPlayer().getServer());
     }
 }

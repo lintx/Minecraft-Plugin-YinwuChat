@@ -2,6 +2,7 @@ package org.lintx.plugins.yinwuchat.bukkit;
 
 import org.lintx.plugins.modules.configure.Configure;
 import org.lintx.plugins.modules.configure.YamlConfig;
+import org.lintx.plugins.yinwuchat.json.HandleConfig;
 import org.lintx.plugins.yinwuchat.json.MessageFormat;
 
 import java.io.File;
@@ -10,6 +11,7 @@ import java.util.List;
 
 @YamlConfig
 public class Config {
+    private static int version = 1;
     private static Config instance = new Config();
 
     public static Config getInstance(){
@@ -17,16 +19,22 @@ public class Config {
     }
 
     @YamlConfig
-    public List<MessageFormat> format = null;
+    List<MessageFormat> format = null;
 
     @YamlConfig
-    public List<MessageFormat> toFormat = null;
+    List<MessageFormat> toFormat = null;
 
     @YamlConfig
-    public List<MessageFormat> fromFormat = null;
+    List<MessageFormat> fromFormat = null;
 
     @YamlConfig
-    public int eventDelayTime = 0;
+    int eventDelayTime = 0;
+
+    @YamlConfig
+    List<HandleConfig> messageHandles = null;
+
+    @YamlConfig
+    private int configVersion = 0;
 
     private Config(){
 
@@ -56,8 +64,17 @@ public class Config {
             fromFormat.add(new MessageFormat(" &6>>> "));
             fromFormat.add(new MessageFormat("&r{message}"));
         }
+        if (messageHandles==null || messageHandles.isEmpty()){
+            messageHandles = new ArrayList<>();
+            HandleConfig position = new HandleConfig();
+            position.placeholder = "\\[p\\]";
+            position.format = new ArrayList<>();
+            position.format.add(new MessageFormat("&7[位置]","所在服务器：ServerName\n所在世界：%player_world%\n坐标：X:%player_x% Y:%player_y% Z:%player_z%",""));
+            messageHandles.add(position);
+        }
         File file = new File(plugin.getDataFolder(),"config.yml");
-        if (!file.exists()){
+        if (!file.exists() || version!=configVersion){
+            configVersion = version;
             Configure.bukkitSave(plugin,this);
         }
     }

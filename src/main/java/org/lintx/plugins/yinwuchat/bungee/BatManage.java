@@ -3,7 +3,7 @@ package org.lintx.plugins.yinwuchat.bungee;
 import fr.Alphart.BAT.BAT;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
 
-public class BatManage {
+class BatManage {
     private final YinwuChat plugin;
     private boolean hasBAT;
     private BAT bat;

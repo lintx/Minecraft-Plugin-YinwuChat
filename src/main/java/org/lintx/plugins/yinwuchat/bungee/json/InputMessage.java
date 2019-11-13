@@ -7,16 +7,16 @@ package org.lintx.plugins.yinwuchat.bungee.json;
 
 /**
  *
- * @author jjcbw01
+ * @author LinTx
  */
-public class InputMessage extends BaseInputJSON{
+public class InputMessage extends InputBase {
     private final String message;
     
     public String getMessage(){
         return message;
     }
     
-    public InputMessage(String message){
+    InputMessage(String message){
         if (message == null) {
             message = "";
         }

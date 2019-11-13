@@ -1,10 +1,12 @@
 package org.lintx.plugins.yinwuchat.bungee;
 
 
+import io.netty.channel.Channel;
 import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
-import org.java_websocket.WebSocket;
-import org.lintx.plugins.yinwuchat.bungee.json.ServerMessageJSON;
+import org.lintx.plugins.yinwuchat.bungee.config.Config;
+import org.lintx.plugins.yinwuchat.bungee.json.OutputServerMessage;
+import org.lintx.plugins.yinwuchat.bungee.httpserver.NettyChannelMessageHelper;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -18,26 +20,26 @@ public class ShieldedManage {
         return instance;
     }
 
-    Map<String,Man> users = new HashMap<>();
+    private Map<String,Man> users = new HashMap<>();
 
-    private class Man {
+    private static class Man {
         int count = 0;
         LocalDateTime first = null;
     }
 
-    String formatMessage(String string){
+    private String formatMessage(String string){
         string = string.replaceAll("&([0-9a-fklmnor])","§$1");
         return string;
     }
 
-    Result checkShielded(WebSocket webSocket,String uuid,String message){
+    Result checkShielded(Channel channel, String uuid, String message){
         Result result = checkShielded(uuid,message);
         if (result.kick){
-            webSocket.send(ServerMessageJSON.errorJSON(formatMessage(Config.getInstance().shieldedKickTip)).getJSON());
-            webSocket.close();
+            NettyChannelMessageHelper.send(channel, OutputServerMessage.errorJSON(formatMessage(Config.getInstance().shieldedKickTip)).getJSON());
+            channel.close();
         }
         else if (result.shielded){
-            webSocket.send(ServerMessageJSON.errorJSON(formatMessage(Config.getInstance().shieldedTip)).getJSON());
+            NettyChannelMessageHelper.send(channel, OutputServerMessage.errorJSON(formatMessage(Config.getInstance().shieldedTip)).getJSON());
         }
         return result;
     }
@@ -89,7 +91,7 @@ public class ShieldedManage {
         return result;
     }
 
-    class Result{
+    static class Result{
         boolean shielded = false;
         boolean end = false;
         boolean kick = false;

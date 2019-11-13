@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN" ng-app="app">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>YinwuChat</title>
+</head>
+<body>
+<div id="app">
+    <div>
+        <nav class="navbar navbar-light bg-light fixed-top border-bottom">
+            <a class="navbar-brand" href="javascript:void(0)">YinwuChat</a>
+            <div class="ml-2 ml-auto">
+                <button class="btn btn-outline-info" type="button" @click="setting.show_player_list = !setting.show_player_list">
+                    在线玩家
+                </button>
+            </div>
+        </nav>
+        <div class="yinwuchat-content">
+            <div class="yinwuchat-content-warp">
+                <div class="yinwuchat-defaultinfo">
+                    <p>欢迎来到YinwuChat</p>
+                    <p>在这里你可以接收到游戏内玩家的消息，绑定token后可以在这里向游戏内发送消息</p>
+                    <p>在聊天框输入<span class='badge badge-light'>/msg 玩家名 消息</span>向玩家发送私聊消息</p>
+                    <p>YinwuChat Author:LinTx</p>
+                    <p>---</p>
+                </div>
+                <div class="yinwuchat-message">
+                    <p v-for="msg in message">
+                        <span v-if="msg.type==='error'" class="text-danger"> [错误信息] </span>
+                        <span v-if="msg.type==='info'" class="text-info"> [提示信息] </span>
+                        <span v-if="msg.type==='server'" class="text-light"> [提示信息] </span>
+                        <span :class="{'text-danger':msg.type==='error','text-info':msg.type==='info'}" v-html="msg.message"></span>
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="fixed-bottom bg-dark yinwuchat-chat">
+            <form @submit.prevent="onchat()">
+                <input @keyup="chatKeyUp($event)" v-model="chat.text" placeholder="在这里输入文字然后按回车以发送消息到服务器" />
+                <input type="submit" style="position: absolute; left: -9999px; width: 1px; height: 1px;"/>
+            </form>
+        </div>
+        <div class="position-fixed yinwuchat-player-list ng-hide" v-if="setting.show_player_list">
+            <div class="row">
+                <div class="col-lg-9 col-md-8 col-sm-6 col-3 left" @click="setting.show_player_list = false"></div>
+                <div class="col-lg-3 col-md-4 col-sm-6 col-9 right">
+                    <div class="text-center mt-3">
+                        <h5>在线玩家</h5>
+                        <small>点击玩家名可以向玩家发送私聊消息</small>
+                    </div>
+                    <div>
+                        <h6>游戏在线 [{{player_list.game.length}}]</h6>
+                    </div>
+                    <div class="list">
+                        <div class="cursor-hand player_name" v-for="player in player_list.game" @click="setMsgCmd(player.player_name)"><span v-if="player.server_name.length>0" class="server-info">[{{player.server_name}}] </span>{{player.player_name}}</div>
+                    </div>
+                    <div class="mt-3">
+                        <h6>YinwuChat在线 [{{player_list.web.length}}]</h6>
+                    </div>
+                    <div class="list">
+                        <div class="cursor-hand player_name" v-for="player in player_list.web" @click="setMsgCmd(player)">{{player}}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>
