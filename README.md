@@ -34,88 +34,197 @@ YinwuChat同时是Bungeecord插件和Spigot插件，主要功能有。
     13. 将access_token修改为和YinwuChat配置中的coolQAccessToken一致的内容
     14. 右键酷Q主界面，选择应用-HTTP API-重启应用
 
+### 跨BungeeCord聊天
+> 支持公屏聊天、私聊、at等所有功能，但是私聊和at等指定玩家的功能，被拒绝或忽略等情况下，本地提示可能不正确
+1. 将新版本BungeeCord端配置文件的redisConfig.openRedis修改为true
+2. redisConfig.ip修改为redis服务器的ip
+3. redisConfig.port修改为redis服务器的端口
+4. redisConfig.password修改为redis服务器的密码
+5. redisConfig.selfName修改为每个BungeeCord端都不一样的一个字符串（插件内部标记消息来源及消息目的用，每个BungeeCord必须不一样，无其他要求）
+6. 重新加载插件后，在一个BungeeCord端接入的玩家发送的消息可以在其他BungeeCord端接入的玩家处看到
+
+
 ### 配置文件
 YinwuChat-Bungeecord的配置文件内容为：
 
 ```yaml
-openwsserver: false   #是否开启WebSocket
-wsport: 8888          #WebSocket监听端口
-wsCooldown: 1000      #WebSocket发送消息时间间隔（毫秒）
-webBATserver: lobby   #安装了BungeeAdminTools插件时，在WebSocket发送消息，使用哪个服务器作为禁言/ban的服务器
-format:               #WebSocket发送过来的消息格式化内容，由list构成，每段内容都分message、hover、click 3项设置
-- message: '&7[Web]'  #直接显示在聊天栏的文字，{displayName}将被替换为玩家名（包括hover和click字段）
-  hover: 点击打开YinwuChat网页版           #鼠标移动到这段消息上时显示的悬浮内容
-  #点击这段消息时的动作，自动识别是否链接，如果是链接则打开链接
-  #否则如果是以!开头就执行命令，否则就将内容填充到聊天框
-  #比如让看到消息的人点击就直接给发消息的人发送tpa请求，就可以写成!/tpa {displayName}（不写斜杠会按发送消息处理）
-  click: https://xxxxxx.xxxx.xxx
-- message: '&e{displayName}'
-  hover: 点击私聊
-  click: /msg {displayName}
-- message: ' &6>>> '
-- message: '&r{message}'
-qqFormat:             #QQ群群员发送的消息，游戏内展示的样式
-- message: '&b[QQ群]'
-  hover: 点击加入QQ群xxxxx
-  click: https://xxxxxx.xxxx.xxx   #这里可以替换为你QQ群的申请链接
-- message: '&e{displayName}'
-  hover: 点击私聊
-  click: /msg {displayName}
-- message: ' &6>>> '
-- message: '&r{message}'
-toFormat:             #私聊时，对方收到的消息的格式
-- message: '&7[Web]'
-  hover: 点击打开YinwuChat网页
-  click: https://chat.yinwurealm.org
-- message: '&e{displayName}'
-  hover: 点击私聊
-  click: /msg {displayName}
-- message: ' &6-> &7我'
-- message: ' &6>>> '
-- message: '&r{message}'
-fromFormat:           #私聊时，自己收到的消息的格式
-- message: '&7我 &6-> '
-- message: '&e{displayName}'
-  hover: 点击私聊
-  click: /msg {displayName}
-- message: ' &6>>> '
-- message: '&r{message}'
-monitorFormat:        #其他玩家私聊时，有权限的玩家看到的监听消息的样式
-- message: '&7{formPlayer} &6-> '
-- message: '&e{toPlayer}'
-- message: ' &6>>> '
-- message: '&r{message}'
-atcooldown: 10        #@玩家时的冷却时间（秒）
-atAllKey: all         #@全体玩家的关键词
-linkRegex: ((https?|ftp|file)://[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|])      #链接识别正则表达式
-linkText: '&7[&f&l链接&r&7]&r'      #聊天内容中的链接将被替换为这个文本    #链接识别正则表达式
-qqImageText: '&7[图片]&r'           #QQ群中群员发送的图片将被替换为这个文本
-qqRecordText: '&7[语音]&r'      #QQ群中群员发送的语音将被替换为这个文本
-qqAtText: '&7[@{qq}]&r'      #QQ群中群员发送的@信息将被替换为这个文本，{qq}将被替换为被@的人的QQ号
-atyouselfTip: '&c你不能@你自己'
-atyouTip: '&e{player}&b@了你'
-cooldownTip: '&c每次使用@功能之间需要等待10秒'
-ignoreTip: '&c对方忽略了你，并向你仍了一个烤土豆'
-banatTip: '&c对方不想被@，只想安安静静的做一个美男子'
-toPlayerNoOnlineTip: '&c对方不在线，无法发送私聊'
-msgyouselfTip: '&c你不能私聊你自己'
-youismuteTip: '&c你正在禁言中，不能说话'
-youisbanTip: '&c你被ban了，不能说话'
-shieldedTip: '&c发送的信息中有被屏蔽的词语，无法发送，继续发送将被踢出服务器'        #发送的聊天消息中含有屏蔽的关键词时会收到的提醒
-shieldeds:          #聊天内容屏蔽关键词，list格式
+#是否开启WebSocket
+openwsserver: false
+
+#WebSocket监听端口
+wsport: 8888
+
+#WebSocket发送消息时间间隔（毫秒）
+wsCooldown: 1000
+
+#安装了BungeeAdminTools插件时，
+#在Web端发送消息，使用哪个服务器作为禁言/ban的服务器
+webBATserver: lobby
+
+#@玩家时的冷却时间（秒）
+atcooldown: 10
+
+#@全体玩家的关键词
+#默认为all，可以使用@all来@所有人
+#如果你有一个服务器叫做lobby
+#那么可以使用@lobbyall来@lobby服务器的所有人
+#@lobbyall可以简写为@lall或@loball等（服务器名前面一部分）
+atAllKey: all
+
+#链接识别正则表达式，符合该正则的聊天内容会被替换，并且可以点击
+linkRegex: ((https?|ftp|file)://[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|])
+
+#聊天屏蔽模式，目前1为将聊天内容替换为shieldedReplace的内容，其他为直接拦截
+shieldedMode: 1
+
+#多少秒内总共发送屏蔽关键词`shieldedKickCount`次就会被踢出服务器(包括web端)
+shieldedKickTime: 60
+
+#`shieldedKickTime`秒内发送屏蔽关键词多少次会被踢出服务器
+shieldedKickCount: 3
+
+#配置文件的版本，请勿修改
+configVersion: 4
+
+#从web页面发送消息到游戏中时禁用的样式代码
+webDenyStyle: klmnor
+
+#聊天内容屏蔽关键词，list格式，你需要自己添加这个设置
+shieldeds:
+#每个关键词一行
 - keyword
-shieldedMode: 1     #聊天屏蔽模式，目前1为将聊天内容替换为shieldedReplace的内容，其他为直接拦截
-shieldedReplace: 富强、民主、文明、和谐、自由、平等、公正、法治、爱国、敬业、诚信、友善
-shieldedKickTime: 60      #多少秒内总共发送屏蔽关键词`shieldedKickCount`次就会被踢出服务器(包括web端)
-shieldedKickCount: 3      #`shieldedKickTime`秒内发送屏蔽关键词多少次会被踢出服务器
-shieldedKickTip: 你因为发送屏蔽词语，被踢出服务器     #发送屏蔽次达到次数后被踢出服务器时的提示语
-coolQGroup: 0     #监听的QQ群的群号，酷Q接收到消息时，如果是QQ群，且群号和这里一致，就会转发到游戏中
-coolQAccessToken: ''     #和酷Q HTTP API插件通信时使用的accesstoken，为空时不验证，强烈建议设置为一个复杂的字符串
-configVersion: 1    #配置文件的版本，请勿修改
-coolQQQToGame: true   #qq群有新消息时是否发送到游戏中
-coolQGameToQQ: true   #游戏中有新消息时是否发送到QQ群中
-qqDenyStyle: 0-9a-fklmnor #转发QQ群消息时禁用的样式代码
-webDenyStyle: klmno  #从web页面发送消息时禁用的样式代码
+
+tipsConfig:
+  shieldedKickTip: 你因为发送屏蔽词语，被踢出服务器
+  
+  #聊天内容中含有屏蔽关键词时，整个消息会被替换为这个
+  shieldedReplace: 富强、民主、文明、和谐、自由、平等、公正、法治、爱国、敬业、诚信、友善
+  atyouselfTip: '&c你不能@你自己'
+  atyouTip: '&e{player}&b@了你'
+  cooldownTip: '&c每次使用@功能之间需要等待10秒'
+  ignoreTip: '&c对方忽略了你，并向你仍了一个烤土豆'
+  banatTip: '&c对方不想被@，只想安安静静的做一个美男子'
+  toPlayerNoOnlineTip: '&c对方不在线，无法发送私聊'
+  msgyouselfTip: '&c你不能私聊你自己'
+  youismuteTip: '&c你正在禁言中，不能说话'
+  youisbanTip: '&c你被ban了，不能说话'
+  
+  #发送的聊天消息中含有屏蔽的关键词时会收到的提醒
+  shieldedTip: '&c发送的信息中有被屏蔽的词语，无法发送，继续发送将被踢出服务器'
+  
+  #聊天内容中的链接将被替换为这个文本
+  linkText: '&7[&f&l链接&r&7]&r'
+  
+#各种消息的格式化设置
+formatConfig:
+  #WebSocket发送过来的消息格式化内容，
+  #由list构成，每段内容都分message、hover、click 3项设置
+  format:
+  #直接显示在聊天栏的文字，
+  #{displayName}将被替换为玩家名
+  #hover和click字段中的{displayName}也会替换
+  - message: '&b[Web]'
+    #鼠标移动到这段消息上时显示的悬浮内容
+    hover: 点击打开YinwuChat网页
+    #点击这段消息时的动作，自动识别是否链接，如果是链接则打开链接
+    #否则如果是以!开头就执行命令，否则就将内容填充到聊天框
+    #比如让看到消息的人点击就直接给发消息的人发送tpa请求，
+    #就可以写成!/tpa {displayName}（不写斜杠会按发送消息处理）
+    click: https://chat.yinwurealm.org
+  - message: '&e{displayName}'
+    hover: 点击私聊
+    click: /msg {displayName}
+  - message: ' &6>>> '
+  - message: '&r{message}'
+  
+  #QQ群群员发送的消息，游戏内展示的样式
+  qqFormat:
+  - message: '&b[QQ群]'
+    hover: 点击加入QQ群xxxxx
+    #这里可以替换为你QQ群的申请链接
+    click: https://xxxxxx.xxxx.xxx
+  - message: '&e{displayName}'
+  - message: ' &6>>> '
+  - message: '&r{message}'
+  
+  #私聊时，自己收到的消息的格式
+  toFormat:
+  - message: '&7我 &6-> '
+  - message: '&e{displayName}'
+    hover: 点击私聊
+    click: /msg {displayName}
+  - message: ' &6>>> '
+  - message: '&r{message}'
+  
+  #私聊时，对方收到的消息的格式
+  fromFormat:
+  - message: '&b[Web]'
+    hover: 点击打开YinwuChat网页
+    click: https://xxxxxx.xxxx.xxx
+  - message: '&e{displayName}'
+    hover: 点击私聊
+    click: /msg {displayName}
+  - message: ' &6-> &7我'
+  - message: ' &6>>> '
+  - message: '&r{message}'
+  
+  #其他玩家私聊时，有权限的玩家看到的监听消息的样式
+  monitorFormat:
+  - message: '&7{formPlayer} &6-> '
+  - message: '&e{toPlayer}'
+  - message: ' &6>>> '
+  - message: '&r{message}'
+coolQConfig:
+  #qq群有新消息时是否发送到游戏中
+  coolQQQToGame: true
+  
+  #qq群有新消息时，只有开头跟这里一样才发送到游戏中
+  coolqToGameStart: ''
+  
+  #游戏中有新消息时是否发送到QQ群中
+  coolQGameToQQ: true
+  
+  #游戏中有新消息时，只有开头跟这里一样才发送到QQ群中
+  gameToCoolqStart: ''
+  
+  #转发QQ群消息到游戏时禁用的样式代码
+  qqDenyStyle: 0-9a-fklmnor
+  
+  #监听的QQ群的群号，酷Q接收到消息时，如果是QQ群，且群号和这里一致，就会转发到游戏中
+  coolQGroup: 0
+  
+  #和酷Q HTTP API插件通信时使用的accesstoken，为空时不验证，强烈建议设置为一个复杂的字符串
+  coolQAccessToken: ''
+  
+  #QQ群中群员发送的@信息将被替换为这个文本
+  #{qq}将被替换为被@的人的QQ号
+  qqAtText: '&7[@{qq}]&r'
+  
+  #QQ群中群员发送的图片将被替换为这个文本
+  qqImageText: '&7[图片]&r'
+  
+  #QQ群中群员发送的语音将被替换为这个文本
+  qqRecordText: '&7[语音]&r'
+
+#利用redis做跨bc聊天同步的配置
+redisConfig:
+  #是否开启redis聊天同步
+  openRedis: false
+  
+  #redis服务器的ip地址或域名
+  ip: ''
+  
+  #redis的端口
+  port: 0
+  
+  #一般不要修改
+  maxConnection: 8
+  
+  #redis的密码
+  password: ''
+  
+  #服务器标识，每个bc端的YinwuChat插件的标识请设置为不一样
+  selfName: bc1
 ```
 `webBATserver`可以实现WebSocket端的禁言（当你的服务器安装了BungeeAdminTools时，玩家在WebSocket发送信息，会以这个项目的内容作为玩家所在服务器，
 去BungeeAdminTools查询该玩家是否被禁言或被ban，当他被禁言或被ban时无法说话，由于BungeeAdminTools禁言、ban人只能选择Bungee的配置文件中实际存在的服务器，
