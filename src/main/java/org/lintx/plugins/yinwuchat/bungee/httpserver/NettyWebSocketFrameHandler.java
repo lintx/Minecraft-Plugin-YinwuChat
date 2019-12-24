@@ -37,23 +37,24 @@ public class NettyWebSocketFrameHandler extends SimpleChannelInboundHandler<WebS
                     InputCheckToken o = (InputCheckToken)object;
 
                     WsClientUtil clientUtil = new WsClientUtil(o.getToken());
+                    WsClientHelper.add(channel, clientUtil);
+
                     NettyChannelMessageHelper.send(channel,o.getJSON());
                     if (!o.getIsvaild()) {
                         NettyChannelMessageHelper.send(channel,o.getTokenJSON());
                     }
                     else{
                         if (o.getIsbind()) {
-                            OutputPlayerList.sendGamePlayerList();
-                            OutputPlayerList.sendWebPlayerList();
-
                             clientUtil.setUUID(o.getUuid());
                             WsClientHelper.kickOtherWS(channel, o.getUuid());
+
+                            OutputPlayerList.sendGamePlayerList(channel);
+                            OutputPlayerList.sendWebPlayerList();
 //                            String player_name = PlayerConfig.getConfig(o.getUuid()).name;
 //                        YinwuChat.getWSServer().broadcast((new PlayerStatusJSON(player_name,PlayerStatusJSON.PlayerStatus.WEB_JOIN)).getWebStatusJSON());
 //                        plugin.getProxy().broadcast(ChatUtil.formatJoinMessage(o.getUuid()));
                         }
                     }
-                    WsClientHelper.add(channel, clientUtil);
                 }
                 else if (object instanceof InputMessage) {
                     InputMessage o = (InputMessage)object;
@@ -101,7 +102,12 @@ public class NettyWebSocketFrameHandler extends SimpleChannelInboundHandler<WebS
                     if (coolMessage.getPost_type().equalsIgnoreCase("message")
                             && coolMessage.getMessage_type().equalsIgnoreCase("group")
                             && coolMessage.getSub_type().equalsIgnoreCase("normal")
-                            && coolMessage.getGroup_id() == Config.getInstance().coolQGroup){
+                            && coolMessage.getGroup_id() == Config.getInstance().coolQConfig.coolQGroup){
+                        if (!"".equals(Config.getInstance().coolQConfig.coolqToGameStart)){
+                            if (!coolMessage.getMessage().startsWith(Config.getInstance().coolQConfig.coolqToGameStart)){
+                                return;
+                            }
+                        }
                         MessageManage.getInstance().handleQQMessage(coolMessage);
                     }
                 }
@@ -124,8 +130,6 @@ public class NettyWebSocketFrameHandler extends SimpleChannelInboundHandler<WebS
             if (util != null) {
                 WsClientHelper.remove(ctx.channel());
                 OutputPlayerList.sendWebPlayerList();
-//                YinwuChat.getWSServer().broadcast((new PlayerStatusJSON(util.getPlayerName(),PlayerStatusJSON.PlayerStatus.WEB_JOIN)).getWebStatusJSON());
-//                plugin.getProxy().broadcast(ChatUtil.formatLeaveMessage(util.getUuid()));
             }
         });
     }
@@ -140,7 +144,7 @@ public class NettyWebSocketFrameHandler extends SimpleChannelInboundHandler<WebS
             String role = headers.get("X-Client-Role");
             String authorization = headers.get("Authorization");
             if (!"".equals(qq) && "Universal".equals(role)){
-                String token = Config.getInstance().coolQAccessToken;
+                String token = Config.getInstance().coolQConfig.coolQAccessToken;
                 if (!token.equals("")){
                     token = "Token " + token;
                     if (!token.equals(authorization)){
@@ -149,6 +153,10 @@ public class NettyWebSocketFrameHandler extends SimpleChannelInboundHandler<WebS
                     }
                 }
                 WsClientHelper.updateCoolQ(ctx.channel());
+            }
+            else {
+                OutputPlayerList.sendGamePlayerList(ctx.channel());
+                OutputPlayerList.sendWebPlayerList(ctx.channel());
             }
         }
     }

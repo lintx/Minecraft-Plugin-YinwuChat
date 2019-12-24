@@ -7,9 +7,12 @@ import net.md_5.bungee.api.config.ServerInfo;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
 import org.lintx.plugins.yinwuchat.Const;
 import org.lintx.plugins.yinwuchat.Util.MessageUtil;
+import org.lintx.plugins.yinwuchat.bungee.RedisUtil;
 import org.lintx.plugins.yinwuchat.bungee.config.Config;
 import org.lintx.plugins.yinwuchat.bungee.config.PlayerConfig;
 import org.lintx.plugins.yinwuchat.bungee.YinwuChat;
+import org.lintx.plugins.yinwuchat.bungee.json.RedisMessage;
+import org.lintx.plugins.yinwuchat.bungee.json.RedisMessageType;
 import org.lintx.plugins.yinwuchat.chat.struct.Chat;
 import org.lintx.plugins.yinwuchat.chat.struct.BungeeChatPlayer;
 import org.lintx.plugins.yinwuchat.chat.struct.ChatSource;
@@ -55,11 +58,14 @@ public class BungeeAtPlayerHandle extends ChatHandle {
                         if (atPlayers.contains(p)) continue;
                         if (atPlayer(player,p,true)){
                             atPlayers.add(p);
-                            component.setText("§b" + matcher.group(0) + "§r");
-                            return component;
                         }
                     }
                 }
+                if (config.redisConfig.openRedis){
+                    RedisUtil.sendMessage(RedisMessageType.AT_PLAYER_ALL,player.player.getUniqueId(),new TextComponent(MessageUtil.replace(config.tipsConfig.atyouTip.replaceAll("\\{player}",player.playerName))),"");
+                }
+                component.setText("§b" + matcher.group(0) + "§r");
+                return component;
             }
 
             ServerInfo atServer = null;
@@ -83,12 +89,15 @@ public class BungeeAtPlayerHandle extends ChatHandle {
                         if (atPlayers.contains(p)) continue;
                         if (atPlayer(player,p,true)){
                             atPlayers.add(p);
-                            component.setText("§b@" +atServer.getName() + matcher.group(2) + "§r");
-                            return component;
                         }
                     }
                 }
+                if (config.redisConfig.openRedis){
+                    RedisUtil.sendMessage(RedisMessageType.AT_PLAYER_ALL,player.player.getUniqueId(),new TextComponent(MessageUtil.replace(config.tipsConfig.atyouTip.replaceAll("\\{player}",player.playerName))),"");
+                }
 
+                component.setText("§b@" +atServer.getName() + matcher.group(2) + "§r");
+                return component;
             }
             return null;
         });
@@ -122,13 +131,34 @@ public class BungeeAtPlayerHandle extends ChatHandle {
             }
             if (atPlayer!=null){
                 if (atPlayer.equals(player.player)){
-                    atPlayer.sendMessage(new TextComponent(MessageUtil.replace(config.atyouselfTip)));
+                    atPlayer.sendMessage(new TextComponent(MessageUtil.replace(config.tipsConfig.atyouselfTip)));
                     return null;
                 }
                 if (atPlayers.contains(atPlayer)) return null;
                 if (atPlayer(player,atPlayer,false)){
                     atPlayers.add(atPlayer);
                     return new TextComponent("§b@" + atPlayer.getName() + "§r");
+                }
+            }
+            if (config.redisConfig.openRedis){
+                String findPlayerName = null;
+                String toPlayerName = null;
+                for (String rpn : RedisUtil.playerList.keySet()){
+                    String pn = rpn.toLowerCase(Locale.ROOT);
+                    if (pn.equals(str)) {
+                        toPlayerName = rpn;
+                        break;
+                    }
+                    if (pn.startsWith(str)) {
+                        findPlayerName = rpn;
+                    }
+                }
+                if (toPlayerName == null && findPlayerName!=null) {
+                    toPlayerName = findPlayerName;
+                }
+                if (toPlayerName!=null){
+                    RedisUtil.sendMessage(RedisMessageType.AT_PLAYER,player.player.getUniqueId(),new TextComponent(MessageUtil.replace(config.tipsConfig.atyouTip.replaceAll("\\{player}",player.playerName))),toPlayerName);
+                    return new TextComponent("§b@" + toPlayerName + "§r");
                 }
             }
             return null;
@@ -140,25 +170,25 @@ public class BungeeAtPlayerHandle extends ChatHandle {
         Config config = Config.getInstance();
         if (!atAll){
             if (pc.isIgnore(player.player)){
-                player.player.sendMessage(new TextComponent(MessageUtil.replace(config.ignoreTip)));
+                player.player.sendMessage(new TextComponent(MessageUtil.replace(config.tipsConfig.ignoreTip)));
                 return false;
             }
             if (pc.banAt){
-                player.player.sendMessage(new TextComponent(MessageUtil.replace(config.banatTip)));
+                player.player.sendMessage(new TextComponent(MessageUtil.replace(config.tipsConfig.banatTip)));
                 return false;
             }
         }
         if (!player.player.hasPermission(Const.PERMISSION_COOL_DOWN_BYPASS)){
             if (player.config.isCooldown()){
                 if (!isSendPermissionTip)
-                    player.player.sendMessage(new TextComponent(MessageUtil.replace(config.cooldownTip)));
+                    player.player.sendMessage(new TextComponent(MessageUtil.replace(config.tipsConfig.cooldownTip)));
                 isSendPermissionTip = true;
                 return false;
             }
         }
-        atPlayer.sendMessage(new TextComponent(MessageUtil.replace(config.atyouTip.replaceAll("\\{player}",player.playerName))));
+        atPlayer.sendMessage(new TextComponent(MessageUtil.replace(config.tipsConfig.atyouTip.replaceAll("\\{player}",player.playerName))));
 
-        if (pc.muteAt){
+        if (!atAll && pc.muteAt){
             return true;
         }
         ByteArrayDataOutput output = ByteStreams.newDataOutput();

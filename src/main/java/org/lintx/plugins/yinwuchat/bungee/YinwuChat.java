@@ -60,6 +60,7 @@ public class YinwuChat extends Plugin {
         }
         //重新加载task
         org.lintx.plugins.yinwuchat.bungee.announcement.Config.getInstance().load(plugin);
+        redisBungee();
     }
 
     boolean wsIsOn(){
@@ -86,7 +87,15 @@ public class YinwuChat extends Plugin {
 
         MessageManage.getInstance().sendPlayerListToServer();
 
+        redisBungee();
+
         Metrics metrics = new Metrics(this);
+    }
+
+    private void redisBungee(){
+        if (config.redisConfig.openRedis){
+            RedisUtil.init();
+        }
     }
 
     @Override
@@ -98,6 +107,7 @@ public class YinwuChat extends Plugin {
         getProxy().unregisterChannel(Const.PLUGIN_CHANNEL);
         getProxy().getPluginManager().unregisterListeners(this);
         getProxy().getPluginManager().unregisterCommands(this);
+        RedisUtil.unload();
     }
 
     void startWs(){

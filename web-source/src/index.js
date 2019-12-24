@@ -183,10 +183,10 @@ const WsHelper = {
                         onServerMessage(data.message,data.status);
                         break;
                     case "game_player_list":
-                        this.player_list.game = data.player_list;
+                        app.player_list.game = data.player_list;
                         break;
                     case "web_player_list":
-                        this.player_list.web = data.player_list;
+                        app.player_list.web = data.player_list;
                         break;
                 }
             }

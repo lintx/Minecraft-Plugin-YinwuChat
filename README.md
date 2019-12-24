@@ -27,7 +27,7 @@ YinwuChat同时是Bungeecord插件和Spigot插件，主要功能有。
     6. 到酷Q目录下的“data\app\io.github.richardchien.coolqhttpapi\config”目录，下，打开你登录的QQ号对应的json文件（比如你登录的QQ号是10000，那文件名就是10000.json）
     7. 将use_http修改为false（如果你没有其他应用需要使用的话）
     8. 将use_ws_reverse修改为true（必须！）
-    9. 将ws_reverse_url修改为插件的websocket监听地址加端口（比如你端口是9000，酷Q和mc服务器在一台机器上就填 ws://127.0.0.1:9000/）
+    9. 将ws_reverse_url修改为插件的websocket监听地址加端口（比如你端口是9000，酷Q和mc服务器在一台机器上就填 ws://127.0.0.1:9000/ws）
     10. post_message_format请务必保证是"string"
     11. 将enable_heartbeat设置为true
     12. 增加一行   "ws_reverse_use_universal_client": true,    或者如果你的json文件中有ws_reverse_use_universal_client的话将它改为true（必须！）
@@ -284,6 +284,7 @@ configVersion: 1  #配置文件的版本，请勿修改
     - `/yinwuchat ignore <玩家名>`：忽略/取消忽略玩家消息
     - `/yinwuchat noat`：禁止/允许自己被@（@全体除外）
     - `/yinwuchat muteat`：切换自己被@时有没有声音
+    - `/yinwuchat monitor`：切换是否监听其他玩家的私聊消息
 3. WebClient命令
     - `/msg <玩家名> <消息>`：向玩家发送私聊消息
 
@@ -296,6 +297,7 @@ configVersion: 1  #配置文件的版本，请勿修改
 - `yinwuchat.atall`允许@所有人
 - `yinwuchat.vanish`允许进入聊天隐身模式
 - `yinwuchat.badword`允许编辑聊天系统关键词列表
+- `yinwuchat.monitor`允许玩家使用`/yinwuchat monitor`命令，并允许玩家监听其他玩家的私聊消息
 * 权限需要在Bungeecord中设置，玩家可以在Bungeecord连接到的任何服务器使用这个命令
 
 ### Bukkit端权限
@@ -317,16 +319,3 @@ configVersion: 1  #配置文件的版本，请勿修改
 
 ### 其他信息
 本插件由国内正版Minecraft服务器[YinwuRealm](https://www.yinwurealm.org/)玩家[LinTx](https://mine.ly/LinTx.1)为服务器开发
-
-### 更新记录
-2019-04-16 1.0.2版本：
-    1.修复发送的消息只有链接，没有其他内容时，无法识别链接的bug
-    2.关键词屏蔽忽略大小写、忽略样式代码、忽略空格（之前添加到屏蔽词库的关键词，需要手动修改为小写，否则将无法生效）
-    3.修复一些其他bug
-    
-2019-04-13 1.0.1版本：
-    1.修改web端玩家排序方式
-    2.修复bc端插件默认的私聊信息格式不对的问题
-    3.增加发送屏蔽词可以踢出服务器的设置
-    
-2019-04-12 1.0.0版本

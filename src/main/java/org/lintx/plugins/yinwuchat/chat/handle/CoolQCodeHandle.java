@@ -18,11 +18,11 @@ public class CoolQCodeHandle extends ChatHandle {
 
             TextComponent component = new TextComponent();
             if (func.equalsIgnoreCase("image")){
-                component.setText(MessageUtil.replace(config.qqImageText));
+                component.setText(MessageUtil.replace(config.coolQConfig.qqImageText));
             }else if (func.equalsIgnoreCase("record")){
-                component.setText(MessageUtil.replace(config.qqRecordText));
+                component.setText(MessageUtil.replace(config.coolQConfig.qqRecordText));
             }else if (func.equalsIgnoreCase("at")){
-                component.setText(MessageUtil.replace(config.qqAtText.replaceAll("\\{qq}",ext.replaceAll("qq=",""))));
+                component.setText(MessageUtil.replace(config.coolQConfig.qqAtText.replaceAll("\\{qq}",ext.replaceAll("qq=",""))));
             }else if (func.equalsIgnoreCase("share")){
                 String url = "";
                 String[] a = ext.split(",");
@@ -33,7 +33,7 @@ public class CoolQCodeHandle extends ChatHandle {
                         break;
                     }
                 }
-                component.setText(MessageUtil.replace(config.linkText));
+                component.setText(MessageUtil.replace(config.tipsConfig.linkText));
                 if (!"".equals(url)){
                     chat.setHover(component,url);
                     chat.setClick(component,url);

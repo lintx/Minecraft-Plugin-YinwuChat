@@ -19,7 +19,7 @@ public class OutputCoolQ {
             this.message = message;
         }
         @SerializedName("group_id")
-        private int group_id= Config.getInstance().coolQGroup;
+        private int group_id= Config.getInstance().coolQConfig.coolQGroup;
         @SerializedName("message")
         private String message="";
         @SerializedName("auto_escape")

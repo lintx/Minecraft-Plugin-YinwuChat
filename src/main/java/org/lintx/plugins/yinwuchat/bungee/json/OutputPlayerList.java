@@ -8,6 +8,7 @@ package org.lintx.plugins.yinwuchat.bungee.json;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import io.netty.channel.Channel;
 import net.md_5.bungee.api.config.ServerInfo;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
 import org.lintx.plugins.yinwuchat.bungee.config.PlayerConfig;
@@ -22,7 +23,7 @@ import org.lintx.plugins.yinwuchat.bungee.httpserver.WsClientUtil;
  * @author LinTx
  */
 public class OutputPlayerList {
-    public static void sendGamePlayerList(){
+    private static String getGamePlayerList(){
         JsonArray jsonArray = new JsonArray();
         for (ServerInfo serverInfo:YinwuChat.getPlugin().getProxy().getServers().values()){
             for (ProxiedPlayer player : serverInfo.getPlayers()){
@@ -40,14 +41,24 @@ public class OutputPlayerList {
         JsonObject resultJsonObject = new JsonObject();
         resultJsonObject.addProperty("action", "game_player_list");
         resultJsonObject.add("player_list", jsonArray);
-        String json = new Gson().toJson(resultJsonObject);
+        return new Gson().toJson(resultJsonObject);
+    }
+
+    public static void sendGamePlayerList(Channel channel){
         NettyHttpServer server = YinwuChat.getWSServer();
         if (server!=null) {
-            NettyChannelMessageHelper.broadcast(json);
+            NettyChannelMessageHelper.send(channel,getGamePlayerList());
         }
     }
-    
-    public static void sendWebPlayerList(){
+
+    public static void sendGamePlayerList(){
+        NettyHttpServer server = YinwuChat.getWSServer();
+        if (server!=null) {
+            NettyChannelMessageHelper.broadcast(getGamePlayerList());
+        }
+    }
+
+    private static String getWebPlayerList(){
         JsonArray jsonArray = new JsonArray();
         for (WsClientUtil util : WsClientHelper.utils()) {
             if (util.getUuid()==null){
@@ -62,10 +73,20 @@ public class OutputPlayerList {
         JsonObject resultJsonObject = new JsonObject();
         resultJsonObject.addProperty("action", "web_player_list");
         resultJsonObject.add("player_list", jsonArray);
-        String json = new Gson().toJson(resultJsonObject);
+        return new Gson().toJson(resultJsonObject);
+    }
+    
+    public static void sendWebPlayerList(Channel channel){
         NettyHttpServer server = YinwuChat.getWSServer();
         if (server!=null) {
-            NettyChannelMessageHelper.broadcast(json);
+            NettyChannelMessageHelper.send(channel,getWebPlayerList());
+        }
+    }
+
+    public static void sendWebPlayerList(){
+        NettyHttpServer server = YinwuChat.getWSServer();
+        if (server!=null) {
+            NettyChannelMessageHelper.broadcast(getWebPlayerList());
         }
     }
 }

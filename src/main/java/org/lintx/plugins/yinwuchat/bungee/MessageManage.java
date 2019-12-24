@@ -20,6 +20,7 @@ import org.lintx.plugins.yinwuchat.bungee.json.OutputCoolQ;
 import org.lintx.plugins.yinwuchat.bungee.json.OutputServerMessage;
 import org.lintx.plugins.yinwuchat.bungee.httpserver.NettyChannelMessageHelper;
 import org.lintx.plugins.yinwuchat.bungee.httpserver.WsClientUtil;
+import org.lintx.plugins.yinwuchat.bungee.json.RedisMessageType;
 import org.lintx.plugins.yinwuchat.chat.handle.*;
 import org.lintx.plugins.yinwuchat.chat.struct.Chat;
 import org.lintx.plugins.yinwuchat.chat.struct.BungeeChatPlayer;
@@ -133,7 +134,11 @@ public class MessageManage {
                 }
                 TextComponent messageComponent = chat.buildPublicMessage(publicMessage.format);
 
-                broadcast(player, messageComponent, false);
+                boolean notQQ = true;
+                if (!"".equals(Config.getInstance().coolQConfig.coolqToGameStart)){
+                    notQQ = message.startsWith(Config.getInstance().coolQConfig.coolqToGameStart);
+                }
+                broadcast(player.getUniqueId(), messageComponent, notQQ);
                 plugin.getLogger().info(messageComponent.toPlainText());
                 break;
             }
@@ -145,17 +150,22 @@ public class MessageManage {
                 PrivateMessage privateMessage = new Gson().fromJson(json, PrivateMessage.class);
 
                 BungeeChatPlayer toPlayer = getPrivateMessageToPlayer(privateMessage.toPlayer);
-                if (toPlayer.playerName == null) {
-                    player.sendMessage(new TextComponent(MessageUtil.replace(config.toPlayerNoOnlineTip)));
-                    return;
+                if (toPlayer.redisPlayerName==null){
+                    if (toPlayer.playerName == null) {
+                        player.sendMessage(new TextComponent(MessageUtil.replace(config.tipsConfig.toPlayerNoOnlineTip)));
+                        return;
+                    }
+                    if (toPlayer.playerName.equalsIgnoreCase(privateMessage.player)) {
+                        player.sendMessage(new TextComponent(MessageUtil.replace(config.tipsConfig.msgyouselfTip)));
+                        return;
+                    }
+                    if (toPlayer.config.isIgnore(player)) {
+                        player.sendMessage(new TextComponent(MessageUtil.replace(config.tipsConfig.ignoreTip)));
+                        return;
+                    }
                 }
-                if (toPlayer.playerName.equalsIgnoreCase(privateMessage.player)) {
-                    player.sendMessage(new TextComponent(MessageUtil.replace(config.msgyouselfTip)));
-                    return;
-                }
-                if (toPlayer.config.isIgnore(player)) {
-                    player.sendMessage(new TextComponent(MessageUtil.replace(config.ignoreTip)));
-                    return;
+                else {
+                    toPlayer.playerName = toPlayer.redisPlayerName;
                 }
 
                 String message = handleShielded(player,privateMessage.chat);
@@ -182,7 +192,7 @@ public class MessageManage {
 
                 TextComponent toComponent = chat.buildPrivateToMessage(privateMessage.toFormat);
                 TextComponent fromComponent = chat.buildPrivateFormMessage(privateMessage.fromFormat);
-                TextComponent monitorComponent = chat.buildPrivateMonitorMessage(config.monitorFormat);
+                TextComponent monitorComponent = chat.buildPrivateMonitorMessage(config.formatConfig.monitorFormat);
 
                 player.sendMessage(toComponent);
                 if (toPlayer.player != null) {
@@ -190,6 +200,9 @@ public class MessageManage {
                 }
                 if (toPlayer.channel != null) {
                     sendWebMessage(toPlayer.channel, toWebMessage(fromComponent));
+                }
+                if (toPlayer.redisPlayerName != null){
+                    RedisUtil.sendMessage(player.getUniqueId(),fromComponent,toPlayer.redisPlayerName);
                 }
                 monitorPrivateMessage(monitorComponent,privateMessage.player,toPlayer.playerName);
                 plugin.getLogger().info(monitorComponent.toPlainText());
@@ -205,14 +218,14 @@ public class MessageManage {
     private boolean cantMessage(ProxiedPlayer player){
         try {
             if (YinwuChat.getBatManage().isMute(player,player.getServer().getInfo().getName())){
-                player.sendMessage(new TextComponent(MessageUtil.replace(config.youismuteTip)));
+                player.sendMessage(new TextComponent(MessageUtil.replace(config.tipsConfig.youismuteTip)));
                 return true;
             }
         }
         catch (Exception ignored){}
         try {
             if (YinwuChat.getBatManage().isBan(player,player.getServer().getInfo().getName())){
-                player.sendMessage(new TextComponent(MessageUtil.replace(config.youisbanTip)));
+                player.sendMessage(new TextComponent(MessageUtil.replace(config.tipsConfig.youisbanTip)));
                 return true;
             }
         }
@@ -224,14 +237,14 @@ public class MessageManage {
     private boolean cantMessage(String player, Channel channel){
         try {
             if (YinwuChat.getBatManage().isMute(player,config.webBATserver)){
-                sendWebMessage(channel, OutputServerMessage.errorJSON(MessageUtil.replace(config.youismuteTip)).getJSON());
+                sendWebMessage(channel, OutputServerMessage.errorJSON(MessageUtil.replace(config.tipsConfig.youismuteTip)).getJSON());
                 return true;
             }
         }
         catch (Exception ignored){}
         try {
             if (YinwuChat.getBatManage().isBan(player,config.webBATserver)){
-                sendWebMessage(channel, OutputServerMessage.errorJSON(MessageUtil.replace(config.youisbanTip)).getJSON());
+                sendWebMessage(channel, OutputServerMessage.errorJSON(MessageUtil.replace(config.tipsConfig.youisbanTip)).getJSON());
                 return true;
             }
         }
@@ -311,6 +324,29 @@ public class MessageManage {
                 bungeeChatPlayer.channel = channel;
             }
         }
+
+        if (bungeeChatPlayer.playerName==null){
+            if (config.redisConfig.openRedis) {
+                String findPlayerName = null;
+                for (String rpn : RedisUtil.playerList.keySet()){
+                    String pn = rpn.toLowerCase(Locale.ROOT);
+                    if (pn.equals(name)) {
+                        toPlayerName = rpn;
+                        break;
+                    }
+                    if (pn.startsWith(name)) {
+                        findPlayerName = rpn;
+                    }
+                }
+                if (toPlayerName == null && findPlayerName!=null) {
+                    toPlayerName = findPlayerName;
+                }
+                if (toPlayerName!=null){
+                    bungeeChatPlayer.redisPlayerName = toPlayerName;
+                }
+            }
+        }
+
         return bungeeChatPlayer;
     }
 
@@ -338,17 +374,22 @@ public class MessageManage {
         }
 
         BungeeChatPlayer toPlayer = getPrivateMessageToPlayer(toName);
-        if (toPlayer.playerName == null) {
-            sendWebMessage(channel, OutputServerMessage.errorJSON(config.toPlayerNoOnlineTip).getJSON());
-            return;
+        if (toPlayer.redisPlayerName==null){
+            if (toPlayer.playerName == null) {
+                sendWebMessage(channel, OutputServerMessage.errorJSON(config.tipsConfig.toPlayerNoOnlineTip).getJSON());
+                return;
+            }
+            if (toPlayer.playerName.equalsIgnoreCase(playerConfig.name)) {
+                sendWebMessage(channel, OutputServerMessage.errorJSON(config.tipsConfig.msgyouselfTip).getJSON());
+                return;
+            }
+            if (toPlayer.config.isIgnore(util.getUuid())) {
+                sendWebMessage(channel, OutputServerMessage.errorJSON(config.tipsConfig.ignoreTip).getJSON());
+                return;
+            }
         }
-        if (toPlayer.playerName.equalsIgnoreCase(playerConfig.name)) {
-            sendWebMessage(channel, OutputServerMessage.errorJSON(config.msgyouselfTip).getJSON());
-            return;
-        }
-        if (toPlayer.config.isIgnore(util.getUuid())) {
-            sendWebMessage(channel, OutputServerMessage.errorJSON(config.ignoreTip).getJSON());
-            return;
+        else {
+            toPlayer.playerName = toPlayer.redisPlayerName;
         }
 
         if ("".equals(message)) return;
@@ -369,9 +410,9 @@ public class MessageManage {
             handle.handle(chat);
         }
 
-        TextComponent toComponent = chat.buildPrivateToMessage(config.toFormat);
-        TextComponent fromComponent = chat.buildPrivateFormMessage(config.fromFormat);
-        TextComponent monitorComponent = chat.buildPrivateMonitorMessage(config.monitorFormat);
+        TextComponent toComponent = chat.buildPrivateToMessage(config.formatConfig.toFormat);
+        TextComponent fromComponent = chat.buildPrivateFormMessage(config.formatConfig.fromFormat);
+        TextComponent monitorComponent = chat.buildPrivateMonitorMessage(config.formatConfig.monitorFormat);
 
         sendWebMessage(channel, toWebMessage(toComponent));
         if (toPlayer.player!=null){
@@ -379,6 +420,9 @@ public class MessageManage {
         }
         if (toPlayer.channel!=null){
             sendWebMessage(toPlayer.channel, toWebMessage(fromComponent));
+        }
+        if (toPlayer.redisPlayerName != null){
+            RedisUtil.sendMessage(util.getUuid(),fromComponent,toPlayer.redisPlayerName);
         }
 
         //监听消息
@@ -425,16 +469,20 @@ public class MessageManage {
         for (ChatHandle handle:handles){
             handle.handle(chat);
         }
-        TextComponent messageComponent = chat.buildPublicMessage(config.format);
+        TextComponent messageComponent = chat.buildPublicMessage(config.formatConfig.format);
 
-        broadcast(null,messageComponent,false);
+        boolean notQQ = true;
+        if (!"".equals(Config.getInstance().coolQConfig.coolqToGameStart)){
+            notQQ = message.startsWith(Config.getInstance().coolQConfig.coolqToGameStart);
+        }
+        broadcast(uuid,messageComponent,notQQ);
         plugin.getLogger().info(messageComponent.toPlainText());
     }
 
 
     //qq端发送的消息的处理
     public void handleQQMessage(InputCoolQ json){
-        if (!config.coolQQQToGame) return;
+        if (!config.coolQConfig.coolQQQToGame) return;
 
         String name = json.getSender().getCard();
         if (name.equals("")){
@@ -455,7 +503,7 @@ public class MessageManage {
         for (ChatHandle handle:handles){
             handle.handle(chat);
         }
-        TextComponent messageComponent = chat.buildPublicMessage(config.qqFormat);
+        TextComponent messageComponent = chat.buildPublicMessage(config.formatConfig.qqFormat);
 
         if (messageComponent.getExtra()==null || messageComponent.getExtra().size()==0){
             return;
@@ -491,26 +539,34 @@ public class MessageManage {
                         sendBcMessage(p,messageComponent);
                     }
                 }
+                if (config.redisConfig.openRedis){
+                    RedisUtil.sendMessage(RedisMessageType.PUBLIC_MESSAGE,null,messageComponent,"",server);
+                }
             }
         }
     }
 
     //发送广播消息
-    private void broadcast(ProxiedPlayer player, TextComponent component, boolean noqq){
+    private void broadcast(UUID playerUUID, TextComponent component, boolean noqq){
         for (ProxiedPlayer p: plugin.getProxy().getPlayers()){
             PlayerConfig.Player playerConfig = PlayerConfig.getConfig(p);
-            if (player!=null && !p.equals(player) && playerConfig.isIgnore(player)){
+            if (playerUUID!=null && !p.getUniqueId().equals(playerUUID) && playerConfig.isIgnore(playerUUID)){
                 continue;
             }
             sendBcMessage(p,component);
         }
+
+        if (config.redisConfig.openRedis){
+            RedisUtil.sendMessage(playerUUID,component);
+        }
+
         String json = toWebMessage(component);
         if (plugin.wsIsOn()){
             for (Channel channel : WsClientHelper.channels()) {
                 sendWebMessage(channel, json);
             }
         }
-        if (!noqq && config.coolQGameToQQ){
+        if (!noqq && config.coolQConfig.coolQGameToQQ){
             Channel channel = WsClientHelper.getCoolQ();
             if (channel!=null){
                 String message = component.toPlainText();
@@ -557,6 +613,9 @@ public class MessageManage {
         for (ProxiedPlayer player : plugin.getProxy().getPlayers()) {
             list.add(player.getName());
         }
+        if (config.redisConfig.openRedis){
+            list.addAll(RedisUtil.playerList.keySet());
+        }
         String json = new Gson().toJson(list);
         ByteArrayDataOutput output = ByteStreams.newDataOutput();
         output.writeUTF(Const.PLUGIN_SUB_CHANNEL_PLAYER_LIST);
@@ -578,7 +637,7 @@ public class MessageManage {
         sendPlayerListToServer(server, getPlayerListByteData());
     }
 
-    //根据一个和服务器的connect发送玩家列表嘻嘻
+    //根据一个和服务器的connect发送玩家列表信息
     private void sendPlayerListToServer(Server server, byte[] data){
         server.sendData(Const.PLUGIN_CHANNEL,data);
     }

@@ -35,11 +35,11 @@ public class ShieldedManage {
     Result checkShielded(Channel channel, String uuid, String message){
         Result result = checkShielded(uuid,message);
         if (result.kick){
-            NettyChannelMessageHelper.send(channel, OutputServerMessage.errorJSON(formatMessage(Config.getInstance().shieldedKickTip)).getJSON());
+            NettyChannelMessageHelper.send(channel, OutputServerMessage.errorJSON(formatMessage(Config.getInstance().tipsConfig.shieldedKickTip)).getJSON());
             channel.close();
         }
         else if (result.shielded){
-            NettyChannelMessageHelper.send(channel, OutputServerMessage.errorJSON(formatMessage(Config.getInstance().shieldedTip)).getJSON());
+            NettyChannelMessageHelper.send(channel, OutputServerMessage.errorJSON(formatMessage(Config.getInstance().tipsConfig.shieldedTip)).getJSON());
         }
         return result;
     }
@@ -47,10 +47,10 @@ public class ShieldedManage {
     Result checkShielded(ProxiedPlayer player,String message){
         Result result = checkShielded(player.getUniqueId().toString(),message);
         if (result.kick){
-            player.disconnect(new TextComponent(formatMessage(Config.getInstance().shieldedKickTip)));
+            player.disconnect(new TextComponent(formatMessage(Config.getInstance().tipsConfig.shieldedKickTip)));
         }
         else if (result.shielded){
-            player.sendMessage(new TextComponent(formatMessage(Config.getInstance().shieldedTip)));
+            player.sendMessage(new TextComponent(formatMessage(Config.getInstance().tipsConfig.shieldedTip)));
         }
         return result;
     }
@@ -82,7 +82,7 @@ public class ShieldedManage {
             }
 
             if (config.shieldedMode==1){
-                result.msg = config.shieldedReplace;
+                result.msg = config.tipsConfig.shieldedReplace;
             }
             else {
                 result.end = true;

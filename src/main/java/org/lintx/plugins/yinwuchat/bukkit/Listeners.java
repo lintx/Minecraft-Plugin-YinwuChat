@@ -22,7 +22,7 @@ public class Listeners implements Listener, PluginMessageListener {
         this.plugin = plugin;
     }
 
-    @EventHandler(priority = EventPriority.LOWEST,ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.MONITOR,ignoreCancelled = true)
     public void onChat(AsyncPlayerChatEvent event){
         if (event.isAsynchronous() && Config.getInstance().eventDelayTime>0){
             try {

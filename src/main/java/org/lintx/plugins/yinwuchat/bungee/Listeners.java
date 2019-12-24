@@ -43,6 +43,9 @@ public class Listeners implements Listener {
         }
         OutputPlayerList.sendGamePlayerList();
         MessageManage.getInstance().sendPlayerListToServer();
+        if (config.redisConfig.openRedis){
+            RedisUtil.sendPlayerList();
+        }
     }
 
     @EventHandler
@@ -52,6 +55,9 @@ public class Listeners implements Listener {
         }
         OutputPlayerList.sendGamePlayerList();
         MessageManage.getInstance().sendPlayerListToServer();
+        if (config.redisConfig.openRedis){
+            RedisUtil.sendPlayerList();
+        }
     }
 
     @EventHandler

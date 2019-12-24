@@ -43,20 +43,6 @@ public class PrivateMessage implements CommandExecutor, TabExecutor {
 
     @Override
     public List<String> onTabComplete(CommandSender commandSender, Command command, String alias, String[] args) {
-        boolean showPlayers = args.length==1;
-        if (args.length>=2){
-            boolean empty = true;
-            for (int i=0;i<args.length-1;i++){
-                if (!args[i].trim().isEmpty()){
-                    empty = false;
-                    break;
-                }
-            }
-            if (empty) showPlayers = true;
-        }
-        if (showPlayers){
-            return plugin.bungeePlayerList;
-        }
-        return new ArrayList<>();
+        return plugin.bungeePlayerList;
     }
 }

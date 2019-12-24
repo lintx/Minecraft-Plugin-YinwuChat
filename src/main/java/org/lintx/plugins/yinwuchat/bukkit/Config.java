@@ -64,8 +64,8 @@ public class Config {
             fromFormat.add(new MessageFormat(" &6>>> "));
             fromFormat.add(new MessageFormat("&r{message}"));
         }
-        if (messageHandles==null || messageHandles.isEmpty()){
-            messageHandles = new ArrayList<>();
+        if (messageHandles==null) messageHandles = new ArrayList<>();
+        if (configVersion==0 && messageHandles.isEmpty()){
             HandleConfig position = new HandleConfig();
             position.placeholder = "\\[p\\]";
             position.format = new ArrayList<>();

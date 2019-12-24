@@ -12,7 +12,7 @@ public class LinkHandle extends ChatHandle {
         String regexp = config.linkRegex;
         handle(chat, regexp, (matcher) -> {
             String link = matcher.group(0);
-            TextComponent component = new TextComponent(MessageUtil.replace(config.linkText));
+            TextComponent component = new TextComponent(MessageUtil.replace(config.tipsConfig.linkText));
             chat.setHover(component,link);
             chat.setClick(component,link);
             return component;
