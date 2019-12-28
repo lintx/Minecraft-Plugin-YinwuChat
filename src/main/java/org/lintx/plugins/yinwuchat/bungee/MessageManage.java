@@ -39,7 +39,7 @@ public class MessageManage {
     private static final Config config = Config.getInstance();
     private static List<ChatHandle> handles = new ArrayList<>();
     static {
-        handles.add(new EmojiHandle());
+//        handles.add(new EmojiHandle());
         handles.add(new CoolQCodeHandle());
         handles.add(new CoolQEscapeHandle());
         handles.add(new ItemShowHandle());
@@ -136,7 +136,7 @@ public class MessageManage {
 
                 boolean notQQ = true;
                 if (!"".equals(Config.getInstance().coolQConfig.coolqToGameStart)){
-                    notQQ = message.startsWith(Config.getInstance().coolQConfig.coolqToGameStart);
+                    notQQ = !message.startsWith(Config.getInstance().coolQConfig.coolqToGameStart);
                 }
                 broadcast(player.getUniqueId(), messageComponent, notQQ);
                 plugin.getLogger().info(messageComponent.toPlainText());
@@ -473,7 +473,7 @@ public class MessageManage {
 
         boolean notQQ = true;
         if (!"".equals(Config.getInstance().coolQConfig.coolqToGameStart)){
-            notQQ = message.startsWith(Config.getInstance().coolQConfig.coolqToGameStart);
+            notQQ = !message.startsWith(Config.getInstance().coolQConfig.coolqToGameStart);
         }
         broadcast(uuid,messageComponent,notQQ);
         plugin.getLogger().info(messageComponent.toPlainText());

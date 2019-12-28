@@ -62,9 +62,7 @@ public class MessageManage {
             privateMessage.handles.add(handleConfig);
         }
 
-        if (chat.contains(Const.ITEM_PLACEHOLDER)){
-            privateMessage.items = getMessageItems(chat,player);
-        }
+        privateMessage.items = getMessageItems(chat,player);
         sendPluginMessage(player,Const.PLUGIN_SUB_CHANNEL_PRIVATE_MESSAGE,privateMessage);
     }
 
