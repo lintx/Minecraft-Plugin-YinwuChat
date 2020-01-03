@@ -26,9 +26,11 @@ public class RedisUtil {
     private static final String REDIS_SUBSCRIBE_CHANNEL = "yinwuchat-redis-subscribe-channel";
     private static JedisPool jedisPool;
     private static Subscribe subscribe;
+    private static YinwuChat plugin;
     public static Map<String,String> playerList = new HashMap<>();//player-server
 
-    static void init(){
+    static void init(YinwuChat plugin){
+        RedisUtil.plugin = plugin;
         RedisConfig config = Config.getInstance().redisConfig;
         if (!config.openRedis) return;
         if (jedisPool != null || subscribe != null){
@@ -36,15 +38,16 @@ public class RedisUtil {
         }
         JedisPoolConfig poolConfig = new JedisPoolConfig();
         poolConfig.setMaxTotal(Config.getInstance().redisConfig.maxConnection);
-        jedisPool = new JedisPool(poolConfig,config.ip,config.port,0,config.password);
+        String password = config.password;
+        if (password!=null && password.isEmpty()) password = null;
+        jedisPool = new JedisPool(poolConfig,config.ip,config.port,0,password);
         subscribe = new Subscribe();
 
-        final Jedis jedis = jedisPool.getResource();
-        new Thread(() -> {
-            try {
+        plugin.getProxy().getScheduler().runAsync(plugin,()->{
+            try (Jedis jedis = jedisPool.getResource())  {
                 jedis.subscribe(subscribe,REDIS_SUBSCRIBE_CHANNEL);
             }catch (Exception ignored){}
-        }).start();
+        });
     }
 
     static void unload(){
@@ -58,92 +61,103 @@ public class RedisUtil {
     private static class Subscribe extends JedisPubSub {
         @Override
         public void onMessage(String channel, String message) {
-            super.onMessage(channel, message);
-            if (channel.equals(REDIS_SUBSCRIBE_CHANNEL)){
-                try {
-                    RedisConfig config = Config.getInstance().redisConfig;
-                    Gson gson = new Gson();
-                    RedisMessage obj = gson.fromJson(message,RedisMessage.class);
+            plugin.getProxy().getScheduler().runAsync(plugin,()->{
+//                String messageId = UUID.randomUUID().toString();
+//                long time1 = System.nanoTime();
+//                plugin.getLogger().info("Start processing redis messages[" + messageId + "],nanoTime:" + time1 + ",message:" + message);
+                if (channel.equals(REDIS_SUBSCRIBE_CHANNEL)){
+                    try {
+                        Gson gson = new Gson();
+                        RedisMessage obj = gson.fromJson(message,RedisMessage.class);
 
-                    //自己服务器发送的消息不执行后续动作
-                    if (obj.fromServer.equals(config.selfName)){
-                        return;
+                        RedisUtil.onMessage(obj);
+                    }catch (Exception ignored){
+                        ignored.printStackTrace();
                     }
-
-                    //对单个服务器发送的消息，如果目标不是自己，则不执行后续动作
-                    if (!"".equals(obj.toServer) && !obj.toServer.equals(config.selfName)){
-                        return;
-                    }
-
-                    ProxiedPlayer player = null;
-                    PlayerConfig.Player pc = null;
-
-                    //对单个玩家发送的消息的前期处理
-                    if (!"".equals(obj.toPlayerName)){
-                        player = YinwuChat.getPlugin().getProxy().getPlayer(obj.toPlayerName);
-                        if (player==null) return;
-                        pc = PlayerConfig.getConfig(player);
-                        //如果该玩家忽略了发送消息的玩家的消息，则退出
-                        if (pc.isIgnore(obj.fromPlayerUUID)) return;
-                    }
-
-                    if (!"".equals(obj.message)) obj.chat = ComponentSerializer.parse(obj.message)[0];
-
-                    switch (obj.type){
-                        case AT_PLAYER:
-                            //AT单个玩家
-                            if (player==null) return;
-                            if (pc.banAt) return;
-                            player.sendMessage(obj.chat);
-
-                            if (pc.muteAt) return;
-                            ByteArrayDataOutput output = ByteStreams.newDataOutput();
-                            output.writeUTF(Const.PLUGIN_SUB_CHANNEL_AT);
-                            player.getServer().sendData(Const.PLUGIN_CHANNEL,output.toByteArray());
-                            break;
-                        case AT_PLAYER_ALL:
-                            //AT 所有人
-                            ByteArrayDataOutput output1 = ByteStreams.newDataOutput();
-                            output1.writeUTF(Const.PLUGIN_SUB_CHANNEL_AT);
-                            for (ProxiedPlayer p : YinwuChat.getPlugin().getProxy().getPlayers()){
-                                p.sendMessage(obj.chat);
-                                p.getServer().sendData(Const.PLUGIN_CHANNEL,output1.toByteArray());
-                            }
-                            break;
-                        case PUBLIC_MESSAGE:
-                            //公屏消息
-                            for (ProxiedPlayer p : YinwuChat.getPlugin().getProxy().getPlayers()){
-                                if (!"".equals(obj.toMCServer)){
-                                    if (!p.getServer().getInfo().getName().equalsIgnoreCase(obj.toMCServer)){
-                                        continue;
-                                    }
-                                }
-                                PlayerConfig.Player pc2 = PlayerConfig.getConfig(p);
-                                if (pc2.isIgnore(obj.fromPlayerUUID)) continue;
-                                p.sendMessage(obj.chat);
-                            }
-                            break;
-                        case PRIVATE_MESSAGE:
-                            //私聊消息
-                            if (player==null) return;
-                            player.sendMessage(obj.chat);
-                            break;
-                        case PLAYER_LIST:
-                            //玩家列表
-                            Collection<String> col = playerList.values();
-                            while (col.contains(obj.fromServer)){
-                                col.remove(obj.fromServer);
-                            }
-                            for (String playerName:obj.playerList){
-                                playerList.put(playerName,obj.fromServer);
-                            }
-                            MessageManage.getInstance().sendPlayerListToServer();
-                            break;
-                    }
-                }catch (Exception ignored){
-                    ignored.printStackTrace();
                 }
-            }
+//                long time2 = System.nanoTime();
+//                long usageTime = time2 - time1;
+//                plugin.getLogger().info("redis message processed[" + messageId + "],nanoTime:" + time2 + ",usage time:" + usageTime);
+            });
+        }
+    }
+
+    private static void onMessage(RedisMessage message){
+        RedisConfig config = Config.getInstance().redisConfig;
+        //自己服务器发送的消息不执行后续动作
+        if (message.fromServer.equals(config.selfName)){
+            return;
+        }
+
+        //对单个服务器发送的消息，如果目标不是自己，则不执行后续动作
+        if (!"".equals(message.toServer) && !message.toServer.equals(config.selfName)){
+            return;
+        }
+
+        ProxiedPlayer player = null;
+        PlayerConfig.Player pc = null;
+
+        //对单个玩家发送的消息的前期处理
+        if (!"".equals(message.toPlayerName)){
+            player = YinwuChat.getPlugin().getProxy().getPlayer(message.toPlayerName);
+            if (player==null) return;
+            pc = PlayerConfig.getConfig(player);
+            //如果该玩家忽略了发送消息的玩家的消息，则退出
+            if (pc.isIgnore(message.fromPlayerUUID)) return;
+        }
+
+        if (!"".equals(message.message)) message.chat = ComponentSerializer.parse(message.message)[0];
+
+        switch (message.type){
+            case AT_PLAYER:
+                //AT单个玩家
+                if (player==null) return;
+                if (pc.banAt) return;
+                player.sendMessage(message.chat);
+
+                if (pc.muteAt) return;
+                ByteArrayDataOutput output = ByteStreams.newDataOutput();
+                output.writeUTF(Const.PLUGIN_SUB_CHANNEL_AT);
+                player.getServer().sendData(Const.PLUGIN_CHANNEL,output.toByteArray());
+                break;
+            case AT_PLAYER_ALL:
+                //AT 所有人
+                ByteArrayDataOutput output1 = ByteStreams.newDataOutput();
+                output1.writeUTF(Const.PLUGIN_SUB_CHANNEL_AT);
+                for (ProxiedPlayer p : YinwuChat.getPlugin().getProxy().getPlayers()){
+                    p.sendMessage(message.chat);
+                    p.getServer().sendData(Const.PLUGIN_CHANNEL,output1.toByteArray());
+                }
+                break;
+            case PUBLIC_MESSAGE:
+                //公屏消息
+                for (ProxiedPlayer p : YinwuChat.getPlugin().getProxy().getPlayers()){
+                    if (!"".equals(message.toMCServer)){
+                        if (!p.getServer().getInfo().getName().equalsIgnoreCase(message.toMCServer)){
+                            continue;
+                        }
+                    }
+                    PlayerConfig.Player pc2 = PlayerConfig.getConfig(p);
+                    if (pc2.isIgnore(message.fromPlayerUUID)) continue;
+                    p.sendMessage(message.chat);
+                }
+                break;
+            case PRIVATE_MESSAGE:
+                //私聊消息
+                if (player==null) return;
+                player.sendMessage(message.chat);
+                break;
+            case PLAYER_LIST:
+                //玩家列表
+                Collection<String> col = playerList.values();
+                while (col.contains(message.fromServer)){
+                    col.remove(message.fromServer);
+                }
+                for (String playerName:message.playerList){
+                    playerList.put(playerName,message.fromServer);
+                }
+                MessageManage.getInstance().sendPlayerListToServer();
+                break;
         }
     }
 
@@ -186,8 +200,13 @@ public class RedisUtil {
     }
 
     private static void sendMessage(RedisMessage message){
-        if (jedisPool==null) return;
-        final Jedis jedis = jedisPool.getResource();
-        jedis.publish(REDIS_SUBSCRIBE_CHANNEL,new Gson().toJson(message));
+        if (jedisPool==null){
+            return;
+        }
+        plugin.getProxy().getScheduler().runAsync(plugin, () -> {
+            try (Jedis jedis = jedisPool.getResource()) {
+                jedis.publish(REDIS_SUBSCRIBE_CHANNEL, new Gson().toJson(message));
+            }
+        });
     }
 }

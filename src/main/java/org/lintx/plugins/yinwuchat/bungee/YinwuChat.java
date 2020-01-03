@@ -94,7 +94,7 @@ public class YinwuChat extends Plugin {
 
     private void redisBungee(){
         if (config.redisConfig.openRedis){
-            RedisUtil.init();
+            RedisUtil.init(this);
         }
     }
 
