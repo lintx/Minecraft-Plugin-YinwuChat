@@ -111,14 +111,19 @@ public class MessageManage {
                 }
                 String json = input.readUTF();
                 PublicMessage publicMessage = new Gson().fromJson(json, PublicMessage.class);
-
-                String message = handleShielded(player,publicMessage.chat);
-                if ("".equals(message)) return;
+                if ("".equals(publicMessage.chat)) return;
 
                 BungeeChatPlayer fromPlayer = new BungeeChatPlayer();
                 fromPlayer.playerName = player.getName();
                 fromPlayer.player = player;
                 fromPlayer.config = PlayerConfig.getConfig(player);
+
+                if (config.allowPlayerFormatPrefixSuffix && null!=fromPlayer.config.publicPrefix && !"".equals(fromPlayer.config.publicPrefix)) publicMessage.chat = fromPlayer.config.publicPrefix + publicMessage.chat;
+                if (config.allowPlayerFormatPrefixSuffix && null!=fromPlayer.config.publicSuffix && !"".equals(fromPlayer.config.publicSuffix)) publicMessage.chat = publicMessage.chat + fromPlayer.config.publicSuffix;
+
+                String message = handleShielded(player,publicMessage.chat);
+                if ("".equals(message)) return;
+
 
                 ChatStruct struct = new ChatStruct();
                 struct.chat = message;
@@ -148,6 +153,15 @@ public class MessageManage {
                 }
                 String json = input.readUTF();
                 PrivateMessage privateMessage = new Gson().fromJson(json, PrivateMessage.class);
+                if ("".equals(privateMessage.chat)) return;
+
+                BungeeChatPlayer fromPlayer = new BungeeChatPlayer();
+                fromPlayer.playerName = player.getName();
+                fromPlayer.player = player;
+                fromPlayer.config = PlayerConfig.getConfig(player);
+
+                if (config.allowPlayerFormatPrefixSuffix && null!=fromPlayer.config.privatePrefix && !"".equals(fromPlayer.config.privatePrefix)) privateMessage.chat = fromPlayer.config.privatePrefix + privateMessage.chat;
+                if (config.allowPlayerFormatPrefixSuffix && null!=fromPlayer.config.privateSuffix && !"".equals(fromPlayer.config.privateSuffix)) privateMessage.chat = privateMessage.chat + fromPlayer.config.privateSuffix;
 
                 BungeeChatPlayer toPlayer = getPrivateMessageToPlayer(privateMessage.toPlayer);
                 if (toPlayer.redisPlayerName==null){
@@ -170,11 +184,6 @@ public class MessageManage {
 
                 String message = handleShielded(player,privateMessage.chat);
                 if ("".equals(message)) return;
-
-                BungeeChatPlayer fromPlayer = new BungeeChatPlayer();
-                fromPlayer.playerName = player.getName();
-                fromPlayer.player = player;
-                fromPlayer.config = PlayerConfig.getConfig(player);
 
 
                 ChatStruct struct = new ChatStruct();
@@ -362,6 +371,9 @@ public class MessageManage {
             return;
         }
 
+        if (config.allowPlayerFormatPrefixSuffix && null!=playerConfig.privatePrefix && !"".equals(playerConfig.privatePrefix)) message = playerConfig.privatePrefix + message;
+        if (config.allowPlayerFormatPrefixSuffix && null!=playerConfig.privateSuffix && !"".equals(playerConfig.privateSuffix)) message = message + playerConfig.privateSuffix;
+
         ShieldedManage.Result result = ShieldedManage.getInstance().checkShielded(channel,util.getUuid().toString(),message);
         if (result.kick){
             return;
@@ -441,6 +453,9 @@ public class MessageManage {
         if (cantMessage(playerConfig.name, channel)){
             return;
         }
+
+        if (config.allowPlayerFormatPrefixSuffix && null!=playerConfig.publicPrefix && !"".equals(playerConfig.publicPrefix)) message = playerConfig.publicPrefix + message;
+        if (config.allowPlayerFormatPrefixSuffix && null!=playerConfig.publicSuffix && !"".equals(playerConfig.publicSuffix)) message = message + playerConfig.publicSuffix;
 
         ShieldedManage.Result result = ShieldedManage.getInstance().checkShielded(channel,uuid.toString(),message);
         if (result.kick){

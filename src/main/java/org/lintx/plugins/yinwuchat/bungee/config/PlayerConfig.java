@@ -144,6 +144,18 @@ public class PlayerConfig {
 
         @YamlConfig
         public String name = "";
+
+        @YamlConfig
+        public String publicPrefix = "";
+
+        @YamlConfig
+        public String publicSuffix = "";
+
+        @YamlConfig
+        public String privatePrefix = "";
+
+        @YamlConfig
+        public String privateSuffix = "";
     }
 
     @YamlConfig(path = "tokens.yml")

@@ -16,6 +16,7 @@ import org.lintx.plugins.yinwuchat.bungee.json.RedisMessageType;
 import org.lintx.plugins.yinwuchat.chat.struct.Chat;
 import org.lintx.plugins.yinwuchat.chat.struct.BungeeChatPlayer;
 import org.lintx.plugins.yinwuchat.chat.struct.ChatSource;
+import org.lintx.plugins.yinwuchat.chat.struct.ChatType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,6 +31,7 @@ public class BungeeAtPlayerHandle extends ChatHandle {
     @Override
     public void handle(Chat chat) {
         if (chat.source!= ChatSource.GAME) return;
+        if (chat.type!= ChatType.PUBLIC) return;
         if (!(chat.fromPlayer instanceof BungeeChatPlayer)) return;
         player = (BungeeChatPlayer)chat.fromPlayer;
         if (player.player==null) return;

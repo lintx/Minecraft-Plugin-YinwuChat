@@ -153,6 +153,85 @@ public class Commands extends Command {
                 }
                 return;
             }
+            else if (first.equalsIgnoreCase("format") && Config.getInstance().allowPlayerFormatPrefixSuffix){
+                if (args.length>=4){
+                    String namespace = args[1].toLowerCase(Locale.ROOT);
+                    String position = args[2].toLowerCase(Locale.ROOT);
+                    String action = args[3].toLowerCase(Locale.ROOT);
+                    String str = "";
+                    if (args.length>=5){
+                        str = MessageUtil.filter(args[4],Config.getInstance().playerFormatPrefixSuffixDenyStyle);
+                    }
+                    if (namespace.equals("public")){
+                        if (position.equals("prefix")){
+                            if ("view".equals(action)){
+                                if ("".equals(playerConfig.publicPrefix)){
+                                    sender.sendMessage(buildMessage(ChatColor.GREEN + "你没有设置公共消息前缀"));
+                                }else {
+                                    sender.sendMessage(buildMessage(ChatColor.GREEN + "你的公共消息前缀是:"+playerConfig.publicPrefix.replaceAll("([&§])([0-9a-fklmnor])","$1&a$2")));
+                                }
+                                return;
+                            }
+                            else if ("set".equals(action)) {
+                                playerConfig.publicPrefix = str;
+                                playerConfig.save();
+                                sender.sendMessage(buildMessage(ChatColor.GREEN + "你的公共消息前缀已设置为:"+playerConfig.publicPrefix.replaceAll("([&§])([0-9a-fklmnor])","$1&a$2")));
+                                return;
+                            }
+                        }
+                        else if (position.equals("suffix")){
+                            if ("view".equals(action)){
+                                if ("".equals(playerConfig.publicSuffix)){
+                                    sender.sendMessage(buildMessage(ChatColor.GREEN + "你没有设置公共消息后缀"));
+                                }else {
+                                    sender.sendMessage(buildMessage(ChatColor.GREEN + "你的公共消息后缀是:"+playerConfig.publicSuffix.replaceAll("([&§])([0-9a-fklmnor])","$1&a$2")));
+                                }
+                                return;
+                            }
+                            else if ("set".equals(action))  {
+                                playerConfig.publicSuffix = str;
+                                playerConfig.save();
+                                sender.sendMessage(buildMessage(ChatColor.GREEN + "你的公共消息后缀已设置为:"+playerConfig.publicSuffix.replaceAll("([&§])([0-9a-fklmnor])","$1&a$2")));
+                                return;
+                            }
+                        }
+                    }
+                    else if (namespace.equals("private")){
+                        if (position.equals("prefix")){
+                            if ("view".equals(action)){
+                                if ("".equals(playerConfig.privatePrefix)){
+                                    sender.sendMessage(buildMessage(ChatColor.GREEN + "你没有设置私聊消息前缀"));
+                                }else {
+                                    sender.sendMessage(buildMessage(ChatColor.GREEN + "你的私聊消息前缀是:"+playerConfig.privatePrefix.replaceAll("([&§])([0-9a-fklmnor])","$1&a$2")));
+                                }
+                                return;
+                            }
+                            else if ("set".equals(action))  {
+                                playerConfig.privatePrefix = str;
+                                playerConfig.save();
+                                sender.sendMessage(buildMessage(ChatColor.GREEN + "你的私聊消息前缀已设置为:"+playerConfig.privatePrefix.replaceAll("([&§])([0-9a-fklmnor])","$1&a$2")));
+                                return;
+                            }
+                        }
+                        else if (position.equals("suffix")){
+                            if ("view".equals(action)){
+                                if ("".equals(playerConfig.privateSuffix)){
+                                    sender.sendMessage(buildMessage(ChatColor.GREEN + "你没有设置私聊消息后缀"));
+                                }else {
+                                    sender.sendMessage(buildMessage(ChatColor.GREEN + "你的私聊消息后缀是:"+playerConfig.privateSuffix.replaceAll("([&§])([0-9a-fklmnor])","$1&a$2")));
+                                }
+                                return;
+                            }
+                            else if ("set".equals(action))  {
+                                playerConfig.privateSuffix = str;
+                                playerConfig.save();
+                                sender.sendMessage(buildMessage(ChatColor.GREEN + "你的私聊消息后缀已设置为:"+playerConfig.privateSuffix.replaceAll("([&§])([0-9a-fklmnor])","$1&a$2")));
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
             else if (first.equalsIgnoreCase("vanish")){
                 if (player.hasPermission(Const.PERMISSION_VANISH)){
                     playerConfig.vanish = !playerConfig.vanish;
@@ -243,6 +322,9 @@ public class Commands extends Command {
         sender.sendMessage(buildMessage(ChatColor.GOLD + "解绑：&b/yinwuchat unbind <token>"));
         sender.sendMessage(buildMessage(ChatColor.GOLD + "可以解绑对应的token，token为查询结果中的token,可以只输入前面的部分"));
         sender.sendMessage(buildMessage(ChatColor.GOLD + "发送私聊消息：&b/msg <player_name> <message>&6，例：&b/msg LinTx 一条私聊消息"));
+        if (Config.getInstance().allowPlayerFormatPrefixSuffix){
+            sender.sendMessage(buildMessage(ChatColor.GOLD + "查看/设置聊天前后缀：&b/yinwuchat format public/private prefix/suffix view/set [prefix/suffix]"));
+        }
         sender.sendMessage(buildMessage(ChatColor.GOLD + "被@时静音：&b/yinwuchat muteat"));
         sender.sendMessage(buildMessage(ChatColor.GOLD + "阻止自己被@：&b/yinwuchat noat&6（无法阻止被管理@全体）"));
         sender.sendMessage(buildMessage(ChatColor.GOLD + "忽略某人的消息：&b/yinwuchat ignore <player_name>&6（再输入一次不再忽略）"));

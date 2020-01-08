@@ -13,7 +13,7 @@ import java.util.List;
 
 @YamlConfig
 public class Config {
-    private static int version = 4;
+    private static int version = 5;
     private static Config instance = new Config();
     public static Config getInstance(){
         return instance;
@@ -114,6 +114,12 @@ public class Config {
 
     @YamlConfig
     public String webDenyStyle = "klmnor";
+
+    @YamlConfig
+    public boolean allowPlayerFormatPrefixSuffix = true;
+
+    @YamlConfig
+    public String playerFormatPrefixSuffixDenyStyle = "klmnor";
 
     @YamlConfig
     public TipsConfig tipsConfig = new TipsConfig();
