@@ -3,6 +3,8 @@ package org.lintx.plugins.yinwuchat.bungee;
 import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import io.netty.channel.Channel;
 import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
 import net.md_5.bungee.chat.ComponentSerializer;
@@ -10,6 +12,9 @@ import org.lintx.plugins.yinwuchat.Const;
 import org.lintx.plugins.yinwuchat.bungee.config.Config;
 import org.lintx.plugins.yinwuchat.bungee.config.PlayerConfig;
 import org.lintx.plugins.yinwuchat.bungee.config.RedisConfig;
+import org.lintx.plugins.yinwuchat.bungee.httpserver.NettyChannelMessageHelper;
+import org.lintx.plugins.yinwuchat.bungee.httpserver.WsClientHelper;
+import org.lintx.plugins.yinwuchat.bungee.json.OutputCoolQ;
 import org.lintx.plugins.yinwuchat.bungee.json.RedisMessage;
 import org.lintx.plugins.yinwuchat.bungee.json.RedisMessageType;
 import redis.clients.jedis.Jedis;
@@ -140,6 +145,30 @@ public class RedisUtil {
                     PlayerConfig.Player pc2 = PlayerConfig.getConfig(p);
                     if (pc2.isIgnore(message.fromPlayerUUID)) continue;
                     p.sendMessage(message.chat);
+
+                    if (plugin.wsIsOn()){
+                        String webmessage = message.chat.toLegacyText();
+                        JsonObject webjson = new JsonObject();
+                        webjson.addProperty("action", "send_message");
+                        webjson.addProperty("message", webmessage);
+                        String json = new Gson().toJson(webjson);
+
+                        for (Channel channel : WsClientHelper.channels()) {
+                            NettyChannelMessageHelper.send(channel,json);
+                        }
+                    }
+                    if (Config.getInstance().coolQConfig.coolQGameToQQ){
+                        Channel channel = WsClientHelper.getCoolQ();
+                        if (channel!=null){
+                            String qqmessage = message.chat.toPlainText();
+                            qqmessage = qqmessage.replaceAll("§([0-9a-fklmnor])","");
+                            try {
+                                NettyChannelMessageHelper.send(channel,new OutputCoolQ(qqmessage).getJSON());
+                            }catch (Exception e){
+                                e.printStackTrace();
+                            }
+                        }
+                    }
                 }
                 break;
             case PRIVATE_MESSAGE:

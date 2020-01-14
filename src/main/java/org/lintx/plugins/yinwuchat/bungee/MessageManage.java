@@ -118,6 +118,11 @@ public class MessageManage {
                 fromPlayer.player = player;
                 fromPlayer.config = PlayerConfig.getConfig(player);
 
+                boolean notQQ = true;
+                if (!"".equals(Config.getInstance().coolQConfig.gameToCoolqStart)){
+                    notQQ = !publicMessage.chat.startsWith(Config.getInstance().coolQConfig.gameToCoolqStart);
+                }
+
                 if (config.allowPlayerFormatPrefixSuffix && null!=fromPlayer.config.publicPrefix && !"".equals(fromPlayer.config.publicPrefix)) publicMessage.chat = fromPlayer.config.publicPrefix + publicMessage.chat;
                 if (config.allowPlayerFormatPrefixSuffix && null!=fromPlayer.config.publicSuffix && !"".equals(fromPlayer.config.publicSuffix)) publicMessage.chat = publicMessage.chat + fromPlayer.config.publicSuffix;
 
@@ -139,10 +144,6 @@ public class MessageManage {
                 }
                 TextComponent messageComponent = chat.buildPublicMessage(publicMessage.format);
 
-                boolean notQQ = true;
-                if (!"".equals(Config.getInstance().coolQConfig.coolqToGameStart)){
-                    notQQ = !message.startsWith(Config.getInstance().coolQConfig.coolqToGameStart);
-                }
                 broadcast(player.getUniqueId(), messageComponent, notQQ);
                 plugin.getLogger().info(messageComponent.toPlainText());
                 break;
@@ -454,6 +455,11 @@ public class MessageManage {
             return;
         }
 
+        boolean notQQ = true;
+        if (!"".equals(Config.getInstance().coolQConfig.gameToCoolqStart)){
+            notQQ = !message.startsWith(Config.getInstance().coolQConfig.gameToCoolqStart);
+        }
+
         if (config.allowPlayerFormatPrefixSuffix && null!=playerConfig.publicPrefix && !"".equals(playerConfig.publicPrefix)) message = playerConfig.publicPrefix + message;
         if (config.allowPlayerFormatPrefixSuffix && null!=playerConfig.publicSuffix && !"".equals(playerConfig.publicSuffix)) message = message + playerConfig.publicSuffix;
 
@@ -485,11 +491,6 @@ public class MessageManage {
             handle.handle(chat);
         }
         TextComponent messageComponent = chat.buildPublicMessage(config.formatConfig.format);
-
-        boolean notQQ = true;
-        if (!"".equals(Config.getInstance().coolQConfig.coolqToGameStart)){
-            notQQ = !message.startsWith(Config.getInstance().coolQConfig.coolqToGameStart);
-        }
         broadcast(uuid,messageComponent,notQQ);
         plugin.getLogger().info(messageComponent.toPlainText());
     }
