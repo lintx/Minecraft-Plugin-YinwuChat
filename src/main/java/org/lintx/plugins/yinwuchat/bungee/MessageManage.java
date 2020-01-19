@@ -118,7 +118,7 @@ public class MessageManage {
                 fromPlayer.player = player;
                 fromPlayer.config = PlayerConfig.getConfig(player);
 
-                boolean notQQ = true;
+                boolean notQQ = false;
                 if (!"".equals(Config.getInstance().coolQConfig.gameToCoolqStart)){
                     notQQ = !publicMessage.chat.startsWith(Config.getInstance().coolQConfig.gameToCoolqStart);
                 }
@@ -455,7 +455,7 @@ public class MessageManage {
             return;
         }
 
-        boolean notQQ = true;
+        boolean notQQ = false;
         if (!"".equals(Config.getInstance().coolQConfig.gameToCoolqStart)){
             notQQ = !message.startsWith(Config.getInstance().coolQConfig.gameToCoolqStart);
         }
