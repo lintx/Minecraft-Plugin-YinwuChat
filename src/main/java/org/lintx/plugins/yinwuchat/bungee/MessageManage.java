@@ -556,7 +556,7 @@ public class MessageManage {
                     }
                 }
                 if (config.redisConfig.openRedis){
-                    RedisUtil.sendMessage(RedisMessageType.PUBLIC_MESSAGE,null,messageComponent,"",server);
+                    RedisUtil.sendMessage(RedisMessageType.TASK,null,messageComponent,"",server);
                 }
             }
         }

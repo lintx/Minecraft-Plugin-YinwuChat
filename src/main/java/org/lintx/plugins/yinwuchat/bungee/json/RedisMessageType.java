@@ -6,5 +6,6 @@ public enum  RedisMessageType {
     PRIVATE_MESSAGE,
     AT_PLAYER,
     AT_PLAYER_ALL,
-    PLAYER_LIST
+    PLAYER_LIST,
+    TASK
 }

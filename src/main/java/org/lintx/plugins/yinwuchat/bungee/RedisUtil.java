@@ -6,6 +6,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import io.netty.channel.Channel;
 import net.md_5.bungee.api.chat.BaseComponent;
+import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
 import net.md_5.bungee.chat.ComponentSerializer;
 import org.lintx.plugins.yinwuchat.Const;
@@ -17,15 +18,14 @@ import org.lintx.plugins.yinwuchat.bungee.httpserver.WsClientHelper;
 import org.lintx.plugins.yinwuchat.bungee.json.OutputCoolQ;
 import org.lintx.plugins.yinwuchat.bungee.json.RedisMessage;
 import org.lintx.plugins.yinwuchat.bungee.json.RedisMessageType;
+import org.lintx.plugins.yinwuchat.chat.struct.Chat;
+import org.lintx.plugins.yinwuchat.json.MessageFormat;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.JedisPubSub;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 public class RedisUtil {
     private static final String REDIS_SUBSCRIBE_CHANNEL = "yinwuchat-redis-subscribe-channel";
@@ -116,17 +116,19 @@ public class RedisUtil {
         switch (message.type){
             case AT_PLAYER:
                 //AT单个玩家
-                if (player==null) return;
-                if (pc.banAt) return;
+                if (!config.forwardBcAtOne) break;
+                if (player==null) break;
+                if (pc.banAt) break;
                 player.sendMessage(message.chat);
 
-                if (pc.muteAt) return;
+                if (pc.muteAt) break;
                 ByteArrayDataOutput output = ByteStreams.newDataOutput();
                 output.writeUTF(Const.PLUGIN_SUB_CHANNEL_AT);
                 player.getServer().sendData(Const.PLUGIN_CHANNEL,output.toByteArray());
                 break;
             case AT_PLAYER_ALL:
                 //AT 所有人
+                if (!config.forwardBcAtAll) break;
                 ByteArrayDataOutput output1 = ByteStreams.newDataOutput();
                 output1.writeUTF(Const.PLUGIN_SUB_CHANNEL_AT);
                 for (ProxiedPlayer p : YinwuChat.getPlugin().getProxy().getPlayers()){
@@ -135,7 +137,9 @@ public class RedisUtil {
                 }
                 break;
             case PUBLIC_MESSAGE:
+            case TASK:
                 //公屏消息
+                if (message.type==RedisMessageType.TASK && !config.forwardBcTask) break;
                 for (ProxiedPlayer p : YinwuChat.getPlugin().getProxy().getPlayers()){
                     if (!"".equals(message.toMCServer)){
                         if (!p.getServer().getInfo().getName().equalsIgnoreCase(message.toMCServer)){
@@ -146,7 +150,7 @@ public class RedisUtil {
                     if (pc2.isIgnore(message.fromPlayerUUID)) continue;
                     p.sendMessage(message.chat);
 
-                    if (plugin.wsIsOn()){
+                    if (plugin.wsIsOn() && config.forwardBcMessageToWeb){
                         String webmessage = message.chat.toLegacyText();
                         JsonObject webjson = new JsonObject();
                         webjson.addProperty("action", "send_message");
@@ -157,7 +161,7 @@ public class RedisUtil {
                             NettyChannelMessageHelper.send(channel,json);
                         }
                     }
-                    if (Config.getInstance().coolQConfig.coolQGameToQQ){
+                    if (Config.getInstance().coolQConfig.coolQGameToQQ && config.forwardBcMessageToQQ){
                         Channel channel = WsClientHelper.getCoolQ();
                         if (channel!=null){
                             String qqmessage = message.chat.toPlainText();
@@ -203,10 +207,21 @@ public class RedisUtil {
     }
 
     public static void sendMessage(RedisMessageType type, UUID uuid, BaseComponent chat, String toPlayer, String mcServer){
+        Chat prefix = new Chat();
+        TextComponent messageComponent = new TextComponent();
+        List<MessageFormat> formats = Config.getInstance().redisConfig.selfPrefixFormat;
+        if (formats!=null && !formats.isEmpty()){
+            for (MessageFormat format:Config.getInstance().redisConfig.selfPrefixFormat){
+                if (format.message==null || format.message.equals("")) continue;
+                messageComponent.addExtra(prefix.buildFormat(format));
+            }
+        }
+        messageComponent.addExtra(chat);
+
         RedisMessage message = new RedisMessage();
 //        message.chat = chat;
         message.toMCServer = mcServer;
-        message.message = ComponentSerializer.toString(chat);
+        message.message = ComponentSerializer.toString(messageComponent);
         message.toPlayerName = toPlayer;
         message.fromServer = Config.getInstance().redisConfig.selfName;
         message.type = type;

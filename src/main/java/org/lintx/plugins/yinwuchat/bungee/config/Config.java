@@ -13,7 +13,7 @@ import java.util.List;
 
 @YamlConfig
 public class Config {
-    private static int version = 5;
+    private static int version = 6;
     private static Config instance = new Config();
     public static Config getInstance(){
         return instance;
@@ -56,6 +56,10 @@ public class Config {
             formatConfig.qqFormat.add(new MessageFormat("&e{displayName}"));
             formatConfig.qqFormat.add(new MessageFormat(" &6>>> "));
             formatConfig.qqFormat.add(new MessageFormat("&r{message}"));
+        }
+        if (configVersion<6){
+            redisConfig.selfPrefixFormat = new ArrayList<>();
+            redisConfig.selfPrefixFormat.add(new MessageFormat("&8[其他群组]&r","来自其他群组的消息",""));
         }
         File file = new File(plugin.getDataFolder(),"config.yml");
         if (!file.exists() || version!=configVersion){
