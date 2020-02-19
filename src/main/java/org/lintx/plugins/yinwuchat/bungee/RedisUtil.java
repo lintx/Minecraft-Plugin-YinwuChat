@@ -149,28 +149,27 @@ public class RedisUtil {
                     PlayerConfig.Player pc2 = PlayerConfig.getConfig(p);
                     if (pc2.isIgnore(message.fromPlayerUUID)) continue;
                     p.sendMessage(message.chat);
+                }
+                if (plugin.wsIsOn() && config.forwardBcMessageToWeb){
+                    String webmessage = message.chat.toLegacyText();
+                    JsonObject webjson = new JsonObject();
+                    webjson.addProperty("action", "send_message");
+                    webjson.addProperty("message", webmessage);
+                    String json = new Gson().toJson(webjson);
 
-                    if (plugin.wsIsOn() && config.forwardBcMessageToWeb){
-                        String webmessage = message.chat.toLegacyText();
-                        JsonObject webjson = new JsonObject();
-                        webjson.addProperty("action", "send_message");
-                        webjson.addProperty("message", webmessage);
-                        String json = new Gson().toJson(webjson);
-
-                        for (Channel channel : WsClientHelper.channels()) {
-                            NettyChannelMessageHelper.send(channel,json);
-                        }
+                    for (Channel channel : WsClientHelper.channels()) {
+                        NettyChannelMessageHelper.send(channel,json);
                     }
-                    if (Config.getInstance().coolQConfig.coolQGameToQQ && config.forwardBcMessageToQQ){
-                        Channel channel = WsClientHelper.getCoolQ();
-                        if (channel!=null){
-                            String qqmessage = message.chat.toPlainText();
-                            qqmessage = qqmessage.replaceAll("§([0-9a-fklmnor])","");
-                            try {
-                                NettyChannelMessageHelper.send(channel,new OutputCoolQ(qqmessage).getJSON());
-                            }catch (Exception e){
-                                e.printStackTrace();
-                            }
+                }
+                if (Config.getInstance().coolQConfig.coolQGameToQQ && config.forwardBcMessageToQQ){
+                    Channel channel = WsClientHelper.getCoolQ();
+                    if (channel!=null){
+                        String qqmessage = message.chat.toPlainText();
+                        qqmessage = qqmessage.replaceAll("§([0-9a-fklmnor])","");
+                        try {
+                            NettyChannelMessageHelper.send(channel,new OutputCoolQ(qqmessage).getJSON());
+                        }catch (Exception e){
+                            e.printStackTrace();
                         }
                     }
                 }

@@ -176,7 +176,7 @@ public class Chat {
             setHover(text,format.hover);
         }
         if (null!=format.click && !"".equals(format.click)){
-            format.click = MessageUtil.replace(format.click);
+//            format.click = MessageUtil.replace(format.click);
             setClick(text,format.click);
         }
     }
