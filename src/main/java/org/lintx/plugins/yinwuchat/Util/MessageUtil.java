@@ -78,6 +78,7 @@ public class MessageUtil {
                     String s1 = iterator.next();
                     if (s1.length()!=7 || !s1.startsWith("#")){
                         c.setText(s1);
+                        break;
                     }
                 }
             }else {
