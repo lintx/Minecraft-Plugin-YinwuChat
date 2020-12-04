@@ -117,13 +117,13 @@ public class Config {
     private int configVersion = 0;
 
     @YamlConfig
-    public String webDenyStyle = "klmnor";
+    public String webDenyStyle = "klmnorxKLMNORX";
 
     @YamlConfig
     public boolean allowPlayerFormatPrefixSuffix = true;
 
     @YamlConfig
-    public String playerFormatPrefixSuffixDenyStyle = "klmnor";
+    public String playerFormatPrefixSuffixDenyStyle = "klmnorxKLMNORX";
 
     @YamlConfig
     public TipsConfig tipsConfig = new TipsConfig();

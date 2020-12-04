@@ -2,8 +2,8 @@ package org.lintx.plugins.yinwuchat.bungee;
 
 
 import io.netty.channel.Channel;
-import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
+import org.lintx.plugins.yinwuchat.Util.MessageUtil;
 import org.lintx.plugins.yinwuchat.bungee.config.Config;
 import org.lintx.plugins.yinwuchat.bungee.json.OutputServerMessage;
 import org.lintx.plugins.yinwuchat.bungee.httpserver.NettyChannelMessageHelper;
@@ -47,10 +47,10 @@ public class ShieldedManage {
     Result checkShielded(ProxiedPlayer player,String message){
         Result result = checkShielded(player.getUniqueId().toString(),message);
         if (result.kick){
-            player.disconnect(new TextComponent(formatMessage(Config.getInstance().tipsConfig.shieldedKickTip)));
+            player.disconnect(MessageUtil.newTextComponent(formatMessage(Config.getInstance().tipsConfig.shieldedKickTip)));
         }
         else if (result.shielded){
-            player.sendMessage(new TextComponent(formatMessage(Config.getInstance().tipsConfig.shieldedTip)));
+            player.sendMessage(MessageUtil.newTextComponent(formatMessage(Config.getInstance().tipsConfig.shieldedTip)));
         }
         return result;
     }

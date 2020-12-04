@@ -101,12 +101,15 @@ public class Chat {
             int index = format.message.indexOf("{message}");
             String msg1 = format.message.substring(0,index);
             String msg2 = format.message.substring(index+"{message}".length());
-            text.setText(msg1);
+//            text.setText(msg1);
+            text.addExtra(MessageUtil.newTextComponent(msg1));
             text.addExtra(message);
-            text.addExtra(msg2);
+//            text.addExtra(msg2);
+            text.addExtra(MessageUtil.newTextComponent(msg2));
         }
         else {
-            text.setText(format.message);
+//            text.setText(format.message);
+            text.addExtra(MessageUtil.newTextComponent(format.message));
         }
 
         textComponent.addExtra(text);
@@ -117,7 +120,7 @@ public class Chat {
         if (this.component!=null) return this.component;
         TextComponent component = new TextComponent();
         for (ChatStruct chat:this.chat){
-            if (null!=chat.chat && !"".equals(chat.chat)) component.addExtra(chat.chat);
+            if (null!=chat.chat && !"".equals(chat.chat)) component.addExtra(MessageUtil.newTextComponent(chat.chat));
             if (null!=chat.component) component.addExtra(chat.component);
         }
         this.component = component;
@@ -132,7 +135,8 @@ public class Chat {
 
         setComponentEvent(newFormat, component);
 
-        component.setText(newFormat.message);
+//        component.setText(newFormat.message);
+        component.addExtra(MessageUtil.newTextComponent(newFormat.message));
         return component;
     }
 
@@ -181,9 +185,9 @@ public class Chat {
         }
     }
 
-    //个component设置hover
+    //给component设置hover
     public void setHover(TextComponent component,String hover){
-        HoverEvent event = new HoverEvent(HoverEvent.Action.SHOW_TEXT,new BaseComponent[]{new TextComponent(hover)});
+        HoverEvent event = new HoverEvent(HoverEvent.Action.SHOW_TEXT,new BaseComponent[]{MessageUtil.newTextComponent(hover)});
         component.setHoverEvent(event);
     }
 

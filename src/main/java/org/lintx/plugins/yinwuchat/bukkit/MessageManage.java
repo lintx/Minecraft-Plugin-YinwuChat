@@ -31,16 +31,19 @@ public class MessageManage {
 
     private String filterStyle(Player player,String chat){
         String permissions = "0123456789abcdefklmnor";
-        String deny = "";
+        StringBuilder deny = new StringBuilder();
         for (int i=0;i<permissions.length();i++){
             String p = permissions.substring(i, i+1);
             String permission = "yinwuchat.style." + p;
             if (!player.hasPermission(permission)){
-                deny += p;
+                deny.append(p);
             }
         }
-        if (!"".equals(deny)){
-            return MessageUtil.filter(chat,deny);
+        if (!"".equals(deny.toString())){
+            chat = MessageUtil.filter(chat, deny.toString());
+        }
+        if (!player.hasPermission("yinwuchat.style.rgb")){
+            chat = MessageUtil.filterRGB(chat);
         }
         return chat;
     }

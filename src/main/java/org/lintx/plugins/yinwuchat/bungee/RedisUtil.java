@@ -2,7 +2,6 @@ package org.lintx.plugins.yinwuchat.bungee;
 
 import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
-import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import io.netty.channel.Channel;
 import net.md_5.bungee.api.chat.BaseComponent;
@@ -10,6 +9,7 @@ import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
 import net.md_5.bungee.chat.ComponentSerializer;
 import org.lintx.plugins.yinwuchat.Const;
+import org.lintx.plugins.yinwuchat.Util.Gson;
 import org.lintx.plugins.yinwuchat.bungee.config.Config;
 import org.lintx.plugins.yinwuchat.bungee.config.PlayerConfig;
 import org.lintx.plugins.yinwuchat.bungee.config.RedisConfig;
@@ -72,8 +72,7 @@ public class RedisUtil {
 //                plugin.getLogger().info("Start processing redis messages[" + messageId + "],nanoTime:" + time1 + ",message:" + message);
                 if (channel.equals(REDIS_SUBSCRIBE_CHANNEL)){
                     try {
-                        Gson gson = new Gson();
-                        RedisMessage obj = gson.fromJson(message,RedisMessage.class);
+                        RedisMessage obj = Gson.gson().fromJson(message,RedisMessage.class);
 
                         RedisUtil.onMessage(obj);
                     }catch (Exception ignored){
@@ -155,7 +154,7 @@ public class RedisUtil {
                     JsonObject webjson = new JsonObject();
                     webjson.addProperty("action", "send_message");
                     webjson.addProperty("message", webmessage);
-                    String json = new Gson().toJson(webjson);
+                    String json = Gson.gson().toJson(webjson);
 
                     for (Channel channel : WsClientHelper.channels()) {
                         NettyChannelMessageHelper.send(channel,json);
@@ -248,7 +247,7 @@ public class RedisUtil {
         }
         plugin.getProxy().getScheduler().runAsync(plugin, () -> {
             try (Jedis jedis = jedisPool.getResource()) {
-                jedis.publish(REDIS_SUBSCRIBE_CHANNEL, new Gson().toJson(message));
+                jedis.publish(REDIS_SUBSCRIBE_CHANNEL, Gson.gson().toJson(message));
             }
         });
     }

@@ -69,6 +69,18 @@ public class YinwuChat extends Plugin {
 
     @Override
     public void onEnable() {
+//        System.out.println("test show item start");
+//        try {
+//            String json = "{\"extra\":[{\"text\":\"§r§7[§r\"},{\"extra\":[{\"translate\":\"block.minecraft.dirt\"}],\"text\":\"\"},{\"text\":\"§r§7]§r\"}],\"hoverEvent\":{\"action\":\"show_item\",\"value\":[{\"text\":\"{id:\\\"minecraft:dirt\\\",Count:1b}\"}]},\"text\":\"\"}";
+//            System.out.println(json);
+//            BaseComponent[] component = ComponentSerializer.parse(json);
+//            if (component.length>0){
+//                System.out.println(component[0].toLegacyText());
+//            }
+//        }catch (Exception e){
+//            e.printStackTrace();
+//        }
+//        System.out.println("test show item end");
         autoFreedWeb();
         plugin = this;
         batManage = new BatManage(this);

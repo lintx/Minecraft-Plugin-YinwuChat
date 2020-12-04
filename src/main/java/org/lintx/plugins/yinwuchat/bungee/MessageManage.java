@@ -110,6 +110,7 @@ public class MessageManage {
                     return;
                 }
                 String json = input.readUTF();
+//                System.out.println(json);
                 PublicMessage publicMessage = new Gson().fromJson(json, PublicMessage.class);
                 if ("".equals(publicMessage.chat)) return;
 
@@ -138,11 +139,14 @@ public class MessageManage {
                 Chat chat = new Chat(fromPlayer,list, ChatSource.GAME);
                 chat.extraData = publicMessage.handles;
                 chat.items = getItems(publicMessage.items);
+//                System.out.println(publicMessage.items.get(0));
+//                System.out.println(chat.items.get(0).toLegacyText());
 
                 for (ChatHandle handle:handles){
                     handle.handle(chat);
                 }
                 TextComponent messageComponent = chat.buildPublicMessage(publicMessage.format);
+//                messageComponent.setColor(ChatColor.of("#123456"));
 
                 broadcast(player.getUniqueId(), messageComponent, notQQ);
                 plugin.getLogger().info(messageComponent.toPlainText());
@@ -167,15 +171,15 @@ public class MessageManage {
                 BungeeChatPlayer toPlayer = getPrivateMessageToPlayer(privateMessage.toPlayer);
                 if (toPlayer.redisPlayerName==null){
                     if (toPlayer.playerName == null) {
-                        player.sendMessage(new TextComponent(MessageUtil.replace(config.tipsConfig.toPlayerNoOnlineTip)));
+                        player.sendMessage(MessageUtil.newTextComponent(MessageUtil.replace(config.tipsConfig.toPlayerNoOnlineTip)));
                         return;
                     }
                     if (toPlayer.playerName.equalsIgnoreCase(privateMessage.player)) {
-                        player.sendMessage(new TextComponent(MessageUtil.replace(config.tipsConfig.msgyouselfTip)));
+                        player.sendMessage(MessageUtil.newTextComponent(MessageUtil.replace(config.tipsConfig.msgyouselfTip)));
                         return;
                     }
                     if (toPlayer.config.isIgnore(player)) {
-                        player.sendMessage(new TextComponent(MessageUtil.replace(config.tipsConfig.ignoreTip)));
+                        player.sendMessage(MessageUtil.newTextComponent(MessageUtil.replace(config.tipsConfig.ignoreTip)));
                         return;
                     }
                 }
@@ -228,14 +232,14 @@ public class MessageManage {
     private boolean cantMessage(ProxiedPlayer player){
         try {
             if (YinwuChat.getBatManage().isMute(player,player.getServer().getInfo().getName())){
-                player.sendMessage(new TextComponent(MessageUtil.replace(config.tipsConfig.youismuteTip)));
+                player.sendMessage(MessageUtil.newTextComponent(MessageUtil.replace(config.tipsConfig.youismuteTip)));
                 return true;
             }
         }
         catch (Exception ignored){}
         try {
             if (YinwuChat.getBatManage().isBan(player,player.getServer().getInfo().getName())){
-                player.sendMessage(new TextComponent(MessageUtil.replace(config.tipsConfig.youisbanTip)));
+                player.sendMessage(MessageUtil.newTextComponent(MessageUtil.replace(config.tipsConfig.youisbanTip)));
                 return true;
             }
         }

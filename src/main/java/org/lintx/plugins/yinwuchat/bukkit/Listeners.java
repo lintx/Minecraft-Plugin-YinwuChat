@@ -2,7 +2,6 @@ package org.lintx.plugins.yinwuchat.bukkit;
 
 import com.google.common.io.ByteArrayDataInput;
 import com.google.common.io.ByteStreams;
-import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
@@ -13,6 +12,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.plugin.messaging.PluginMessageListener;
 import org.lintx.plugins.yinwuchat.Const;
+import org.lintx.plugins.yinwuchat.Util.Gson;
 
 import java.util.List;
 
@@ -52,8 +52,7 @@ public class Listeners implements Listener, PluginMessageListener {
         }
         else if (Const.PLUGIN_SUB_CHANNEL_PLAYER_LIST.equals(subchannel)){
             try {
-                Gson gson = new Gson();
-                plugin.bungeePlayerList = gson.fromJson(input.readUTF(),new TypeToken<List<String>>(){}.getType());
+                plugin.bungeePlayerList = Gson.gson().fromJson(input.readUTF(),new TypeToken<List<String>>(){}.getType());
             }catch (Exception ignored){
 
             }

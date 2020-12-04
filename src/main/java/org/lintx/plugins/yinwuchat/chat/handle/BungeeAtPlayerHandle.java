@@ -11,7 +11,6 @@ import org.lintx.plugins.yinwuchat.bungee.RedisUtil;
 import org.lintx.plugins.yinwuchat.bungee.config.Config;
 import org.lintx.plugins.yinwuchat.bungee.config.PlayerConfig;
 import org.lintx.plugins.yinwuchat.bungee.YinwuChat;
-import org.lintx.plugins.yinwuchat.bungee.json.RedisMessage;
 import org.lintx.plugins.yinwuchat.bungee.json.RedisMessageType;
 import org.lintx.plugins.yinwuchat.chat.struct.Chat;
 import org.lintx.plugins.yinwuchat.chat.struct.BungeeChatPlayer;
@@ -172,23 +171,23 @@ public class BungeeAtPlayerHandle extends ChatHandle {
         Config config = Config.getInstance();
         if (!atAll){
             if (pc.isIgnore(player.player)){
-                player.player.sendMessage(new TextComponent(MessageUtil.replace(config.tipsConfig.ignoreTip)));
+                player.player.sendMessage(MessageUtil.newTextComponent(MessageUtil.replace(config.tipsConfig.ignoreTip)));
                 return false;
             }
             if (pc.banAt){
-                player.player.sendMessage(new TextComponent(MessageUtil.replace(config.tipsConfig.banatTip)));
+                player.player.sendMessage(MessageUtil.newTextComponent(MessageUtil.replace(config.tipsConfig.banatTip)));
                 return false;
             }
         }
         if (!player.player.hasPermission(Const.PERMISSION_COOL_DOWN_BYPASS)){
             if (player.config.isCooldown()){
                 if (!isSendPermissionTip)
-                    player.player.sendMessage(new TextComponent(MessageUtil.replace(config.tipsConfig.cooldownTip)));
+                    player.player.sendMessage(MessageUtil.newTextComponent(MessageUtil.replace(config.tipsConfig.cooldownTip)));
                 isSendPermissionTip = true;
                 return false;
             }
         }
-        atPlayer.sendMessage(new TextComponent(MessageUtil.replace(config.tipsConfig.atyouTip.replaceAll("\\{player}",player.playerName))));
+        atPlayer.sendMessage(MessageUtil.newTextComponent(MessageUtil.replace(config.tipsConfig.atyouTip.replaceAll("\\{player}",player.playerName))));
 
         if (!atAll && pc.muteAt){
             return true;

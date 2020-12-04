@@ -1,7 +1,7 @@
 package org.lintx.plugins.yinwuchat.chat.handle;
 
 import net.md_5.bungee.api.chat.BaseComponent;
-import net.md_5.bungee.api.chat.TextComponent;
+import org.lintx.plugins.yinwuchat.Util.MessageUtil;
 import org.lintx.plugins.yinwuchat.chat.struct.Chat;
 import org.lintx.plugins.yinwuchat.chat.struct.ChatStruct;
 
@@ -22,7 +22,7 @@ public abstract class ChatHandle {
 
                 BaseComponent component = callback.handle(matcher);
                 if (component==null){
-                    component = new TextComponent(matcher.group(0));
+                    component = MessageUtil.newTextComponent(matcher.group(0));
                 }
 
                 ChatStruct child = new ChatStruct();

@@ -8,8 +8,8 @@ package org.lintx.plugins.yinwuchat.bungee.json;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import org.lintx.plugins.yinwuchat.Util.Gson;
 
 /**
  *
@@ -37,8 +37,7 @@ public class InputBase {
                     if (postTypeElement!=null){
                         InputCoolQ inputModel;
                         try {
-                            Gson gson = new Gson();
-                            inputModel = gson.fromJson(json,new TypeToken<InputCoolQ>(){}.getType());
+                            inputModel = Gson.gson().fromJson(json,new TypeToken<InputCoolQ>(){}.getType());
                             return inputModel;
                         }catch (Exception ignored){
                         }

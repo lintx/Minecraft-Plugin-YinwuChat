@@ -17,7 +17,7 @@ public class CoolQConfig {
     public String gameToCoolqStart = "";
 
     @YamlConfig
-    public String qqDenyStyle = "0-9a-fklmnor";
+    public String qqDenyStyle = "0-9a-fA-Fk-oK-OrRxX";
 
     @YamlConfig
     public int coolQGroup = 0;

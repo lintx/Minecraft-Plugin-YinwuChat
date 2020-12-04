@@ -9,9 +9,7 @@ import org.bukkit.entity.Player;
 import org.lintx.plugins.yinwuchat.bukkit.MessageManage;
 import org.lintx.plugins.yinwuchat.bukkit.YinwuChat;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 public class PrivateMessage implements CommandExecutor, TabExecutor {
     private final YinwuChat plugin;
@@ -43,6 +41,12 @@ public class PrivateMessage implements CommandExecutor, TabExecutor {
 
     @Override
     public List<String> onTabComplete(CommandSender commandSender, Command command, String alias, String[] args) {
-        return plugin.bungeePlayerList;
+        List<String> players = new ArrayList<>(plugin.bungeePlayerList);
+        if (args.length>0){
+            String name = args[0];
+            String n = name.toLowerCase(Locale.ROOT);
+            players.removeIf(s -> !s.toLowerCase(Locale.ROOT).contains(n)); //移除无相关性的玩家
+        }
+        return players;
     }
 }

@@ -4,7 +4,7 @@ version: ${version}
 author: LinTx
 api-version: "1.13"
 depend: []
-softdepend: [QuickShop]
+softdepend: [PlaceholderAPI]
 commands:
   msg:
     aliases:
@@ -69,3 +69,5 @@ permissions:
             default: op
           yinwuchat.style.r: #重置
             default: true
+          yinwuchat.style.rgb:  #RGB颜色
+            default: op
