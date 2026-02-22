@@ -1,4 +1,5 @@
 {
+  "modelVersion": "5.0.0",
   "name": "entry",
   "version": "2.12.76",
   "description": "YinwuChat Entry Module",

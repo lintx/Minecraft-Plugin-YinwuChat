@@ -50,6 +50,9 @@ public class MainActivity extends BridgeActivity {
             WebView webView = bridge.getWebView();
             WebSettings settings = webView.getSettings();
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+            // 禁用 WebView 缓存，确保每次都加载最新资源
+            settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
+            webView.clearCache(true);
 
             // 覆盖 WebViewClient 以接受 SSL 证书
             bridge.setWebViewClient(new BridgeWebViewClient(bridge) {
