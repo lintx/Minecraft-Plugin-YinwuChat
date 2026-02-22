@@ -1,0 +1,23 @@
+# DevEco Studio
+.idea/
+*.iml
+
+# Build outputs
+build/
+entry/build/
+oh_modules/
+node_modules/
+
+# Local configuration
+local.properties
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp

@@ -178,6 +178,10 @@ public class RedisUtil {
                 if (player==null) return;
                 player.sendMessage(message.chat);
                 break;
+            case UNKNOWN:
+            default:
+                // Unknown or unhandled message type
+                break;
             case PLAYER_LIST:
                 //玩家列表
                 Collection<String> col = playerList.values();

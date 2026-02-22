@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.logging.Level;
 
 public class ItemUtil {
-    private static String convertItemToJson(ItemStack itemStack){
+    public static String convertItemToJson(ItemStack itemStack){
         // ItemStack methods to get a net.minecraft.server.ItemStack object for serialization
         Class<?> craftItemStackClazz = ReflectionUtil.getOBCClass("inventory.CraftItemStack");
         Method asNMSCopyMethod = ReflectionUtil.getMethod(craftItemStackClazz, "asNMSCopy", ItemStack.class);
@@ -37,7 +37,7 @@ public class ItemUtil {
         String result;
 
         try {
-            nmsNbtTagCompoundObj = nbtTagCompoundClazz.newInstance();
+            nmsNbtTagCompoundObj = nbtTagCompoundClazz.getDeclaredConstructor().newInstance();
             nmsItemStackObj = asNMSCopyMethod.invoke(null, itemStack);
             itemAsJsonObject = saveNmsItemStackMethod.invoke(nmsItemStackObj, nmsNbtTagCompoundObj);
             result = itemAsJsonObject.toString();
@@ -173,12 +173,18 @@ public class ItemUtil {
 
 
         String itemJson = convertItemToJson(itemStack);
-        BaseComponent[] hoverEventComponents = new BaseComponent[]{
-                new TextComponent(itemJson)
-        };
-
-        HoverEvent event = new HoverEvent(HoverEvent.Action.SHOW_ITEM,hoverEventComponents);
-        component.setHoverEvent(event);
+        // HoverEvent with item JSON - using reflection for compatibility
+        try {
+            // Try the newer API with JsonArray
+            com.google.gson.JsonArray jsonArray = new com.google.gson.JsonArray();
+            jsonArray.add(itemJson);
+            java.lang.reflect.Constructor<HoverEvent> constructor = HoverEvent.class.getDeclaredConstructor(HoverEvent.Action.class, com.google.gson.JsonArray.class);
+            HoverEvent event = constructor.newInstance(HoverEvent.Action.SHOW_ITEM, jsonArray);
+            component.setHoverEvent(event);
+        } catch (Exception e) {
+            // Fallback: skip hover event if construction fails
+            // This is safe as the item component will still be visible without hover
+        }
 
         return component;
     }

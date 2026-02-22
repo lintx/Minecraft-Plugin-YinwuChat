@@ -40,8 +40,9 @@ public class Listeners implements Listener {
     public void onPostLogin(PostLoginEvent event){
         if (event.getPlayer() != null) {
             PlayerConfig.getConfig(event.getPlayer());
+            MessageManage.getInstance().deliverOfflineMessagesToPlayer(event.getPlayer());
         }
-        OutputPlayerList.sendGamePlayerList();
+        OutputPlayerList.sendPlayerStatusList();
         MessageManage.getInstance().sendPlayerListToServer();
         if (config.redisConfig.openRedis){
             RedisUtil.sendPlayerList();
@@ -53,7 +54,7 @@ public class Listeners implements Listener {
         if (event.getPlayer() != null) {
             PlayerConfig.unloadConfig(event.getPlayer());
         }
-        OutputPlayerList.sendGamePlayerList();
+        OutputPlayerList.sendPlayerStatusList();
         MessageManage.getInstance().sendPlayerListToServer();
         if (config.redisConfig.openRedis){
             RedisUtil.sendPlayerList();
@@ -67,6 +68,7 @@ public class Listeners implements Listener {
 
     @EventHandler
     public void onServerSwitch(ServerSwitchEvent event){
+        OutputPlayerList.sendPlayerStatusList();
         MessageManage.getInstance().sendPlayerListToServer(event.getPlayer().getServer());
     }
 }

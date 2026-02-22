@@ -15,6 +15,7 @@ import java.util.UUID;
 public class WsClientUtil {
     private UUID uuid = null;
     private String token;
+    private String account = "";
     private LocalDateTime lastDate;
     
     private WsClientUtil(String token, UUID uuid){
@@ -33,6 +34,14 @@ public class WsClientUtil {
     
     public UUID getUuid(){
         return uuid;
+    }
+
+    public void setAccount(String account) {
+        this.account = account == null ? "" : account;
+    }
+
+    public String getAccount() {
+        return account;
     }
     
     String getToken(){

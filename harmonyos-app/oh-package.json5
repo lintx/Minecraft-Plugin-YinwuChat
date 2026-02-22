@@ -1,0 +1,12 @@
+{
+  "name": "yinwuchat",
+  "version": "2.12.76",
+  "description": "YinwuChat - Minecraft 跨服聊天插件鸿蒙客户端",
+  "main": "",
+  "author": "lintx",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "@ohos/hypium": "1.0.6"
+  }
+}

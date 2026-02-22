@@ -1,0 +1,3384 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>YinwuChat Web - 跨服同步聊天</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Forge (Crypto Fallback) -->
+    <script src="./forge.min.js"></script>
+    <style>
+        @font-face {
+            font-family: 'YinwuHarmonySans';
+            src: url('./fonts/HarmonyOS_Sans_SC_Thin.ttf') format('truetype');
+            font-style: normal;
+            font-weight: 100;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: 'YinwuHarmonySans';
+            src: url('./fonts/HarmonyOS_Sans_SC_Light.ttf') format('truetype');
+            font-style: normal;
+            font-weight: 300;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: 'YinwuHarmonySans';
+            src: url('./fonts/HarmonyOS_Sans_SC_Regular.ttf') format('truetype');
+            font-style: normal;
+            font-weight: 400;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: 'YinwuHarmonySans';
+            src: url('./fonts/HarmonyOS_Sans_SC_Medium.ttf') format('truetype');
+            font-style: normal;
+            font-weight: 500;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: 'YinwuHarmonySans';
+            src: url('./fonts/HarmonyOS_Sans_SC_Bold.ttf') format('truetype');
+            font-style: normal;
+            font-weight: 700;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: 'YinwuHarmonySans';
+            src: url('./fonts/HarmonyOS_Sans_SC_Black.ttf') format('truetype');
+            font-style: normal;
+            font-weight: 900;
+            font-display: swap;
+        }
+        body { font-family: 'YinwuHarmonySans', 'HarmonyOS Sans SC', 'HarmonyOS Sans', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
+        .fade-enter-from, .fade-leave-to { opacity: 0; }
+        .slide-enter-active, .slide-leave-active { transition: transform 0.3s ease; }
+        .slide-enter-from, .slide-leave-to { transform: translateX(-100%); }
+        .chat-scroll::-webkit-scrollbar { width: 4px; }
+        .chat-scroll::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.5); border-radius: 2px; }
+        .dark .chat-scroll::-webkit-scrollbar-thumb { background: rgba(75, 85, 99, 0.5); }
+        
+        /* Custom scrollbar for item preview */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.5);
+            border-radius: 3px;
+        }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(75, 85, 99, 0.6);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(156, 163, 175, 0.8);
+        }
+            [v-cloak] { display: none; }
+            
+            /* 处理移动端键盘弹出时的滚动 */
+            @media (max-width: 640px) {
+                .auth-scroll-container {
+                    overflow-y: auto !important;
+                    -webkit-overflow-scrolling: touch;
+                    padding-bottom: 250px !important;
+                }
+            }
+        .panel-enter-active, .panel-leave-active { transition: all 0.35s ease; }
+        .panel-enter-from { opacity: 0; transform: translateY(20px) scale(0.98); }
+        .panel-leave-to { opacity: 0; transform: translateY(-10px) scale(0.98); }
+        .drawer-enter-active, .drawer-leave-active { transition: all 0.35s ease; }
+        .drawer-enter-from { opacity: 0; transform: translateX(60px); }
+        .drawer-leave-to { opacity: 0; transform: translateX(-60px); }
+        .hero-shift { transition: all 0.35s ease; }
+        .hero-top { transform: translateY(-6px); }
+        .hero-center { transform: translateY(6px); }
+        .btn-shift { transition: all 0.35s ease; }
+        .btn-row-top { transform: translateY(-10px); }
+        .btn-row-bottom { transform: translateY(10px); }
+        .sidebar-panel { transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); will-change: transform; }
+        .sidebar-panel.dragging { transition: none; }
+        .sidebar-overlay { transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .chat-window { transition: filter 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+    </style>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd', 400: '#60a5fa',
+                            500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a',
+                        },
+                        beige: {
+                            50: '#faf7f0',
+                            100: '#f2ece0',
+                            200: '#e6decb',
+                            300: '#d9ceb6',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-beige-100 dark:bg-gray-900 transition-colors duration-300 overflow-hidden">
+    <div id="app" v-cloak>
+        <!-- 欢迎页面 -->
+        <transition name="fade">
+            <div v-if="!isConnected" class="fixed inset-0 z-50 overflow-y-auto bg-beige-100 dark:bg-gray-900 scroll-smooth">
+                <div class="min-h-full w-full flex items-center justify-center p-6">
+                    <div class="w-full max-w-md text-center py-8">
+                        <div :class="['mb-8 flex flex-col items-center hero-shift', authStep === 'connect' ? 'hero-top' : 'hero-center']">
+                        <div class="w-20 h-20 rounded-2xl flex items-center justify-center shadow-lg mb-4 animate-bounce overflow-hidden"
+                            style="background-color: #FBD26A; box-shadow: 0 10px 25px rgba(251, 210, 106, 0.4);">
+                            <img src="./logo.png" class="w-full h-full object-cover">
+                        </div>
+                        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">YinwuChat</h1>
+                        <p class="text-gray-500 dark:text-gray-400 mt-2">Chat with you</p>
+                    </div>
+
+                    <transition name="panel" mode="out-in">
+                    <div class="space-y-4" v-if="authStep === 'login'" key="panel-login">
+                        <transition-group name="drawer" tag="div" class="space-y-4">
+                        <div class="relative group" key="login-username">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-primary-500 transition-colors">
+                                <i data-lucide="user" class="w-5 h-5"></i>
+                            </div>
+                            <input v-model="loginForm.username" type="text" placeholder="用户名" 
+                                class="w-full pl-12 pr-5 py-4 bg-beige-50 dark:bg-gray-800 border-none rounded-xl focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white transition-all outline-none"
+                                @keyup.enter="submitLogin">
+                        </div>
+                        <div class="relative group" key="login-password">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-primary-500 transition-colors">
+                                <i data-lucide="lock" class="w-5 h-5"></i>
+                            </div>
+                            <input v-model="loginForm.password" type="password" placeholder="密码" 
+                                class="w-full pl-12 pr-5 py-4 bg-beige-50 dark:bg-gray-800 border-none rounded-xl focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white transition-all outline-none"
+                                @keyup.enter="submitLogin">
+                        </div>
+                        <button @click="submitLogin" :disabled="authLoading" key="login-submit"
+                            class="w-full py-4 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl transition-all shadow-lg shadow-primary-500/30 active:scale-[0.98] disabled:opacity-50">
+                            {{ authLoading ? '登录中...' : '登录' }}
+                        </button>
+                        <div class="flex items-center justify-between px-1">
+                            <button @click="goToRegister" key="login-switch" class="py-2 text-primary-600 hover:text-primary-700 text-sm font-medium">
+                                未注册？点击这里注册
+                            </button>
+                            <button @click="goToForgot" key="login-forgot" class="py-2 text-gray-500 hover:text-gray-600 text-sm font-medium">
+                                忘记密码？
+                            </button>
+                        </div>
+                        </transition-group>
+                    </div>
+
+                    <div class="space-y-4" v-else-if="authStep === 'forgot_request'" key="panel-forgot-request">
+                        <transition-group name="drawer" tag="div" class="space-y-4">
+                        <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-2" key="forgot-title">找回密码</h2>
+                        <p class="text-xs text-gray-500 mb-4" key="forgot-desc">请输入你的 Web 账户名和绑定的游戏玩家名以验证身份。</p>
+                        <div class="relative group" key="forgot-username">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
+                                <i data-lucide="user" class="w-5 h-5"></i>
+                            </div>
+                            <input v-model="forgotForm.username" type="text" placeholder="Web 账户名" 
+                                class="w-full pl-12 pr-5 py-4 bg-beige-50 dark:bg-gray-800 border-none rounded-xl focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white transition-all outline-none">
+                        </div>
+                        <div class="relative group" key="forgot-player">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
+                                <i data-lucide="gamepad-2" class="w-5 h-5"></i>
+                            </div>
+                            <input v-model="forgotForm.playerName" type="text" placeholder="绑定的 Minecraft 玩家名" 
+                                class="w-full pl-12 pr-5 py-4 bg-beige-50 dark:bg-gray-800 border-none rounded-xl focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white transition-all outline-none">
+                        </div>
+                        <button @click="submitForgotRequest" :disabled="authLoading" key="forgot-submit"
+                            class="w-full py-4 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl transition-all shadow-lg shadow-primary-500/30 active:scale-[0.98] disabled:opacity-50">
+                            {{ authLoading ? '申请中...' : '提交申请' }}
+                        </button>
+                        <button @click="goToLogin" key="forgot-back" class="w-full py-2 text-gray-500 hover:text-gray-700 text-sm font-medium">
+                            返回登录
+                        </button>
+                        </transition-group>
+                    </div>
+
+                    <div class="space-y-4" v-else-if="authStep === 'forgot_verify'" key="panel-forgot-verify">
+                        <transition-group name="drawer" tag="div" class="space-y-4">
+                        <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-2" key="verify-title">等待验证</h2>
+                        <div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-left border border-blue-100 dark:border-blue-800" key="verify-box">
+                            <p class="text-sm text-blue-800 dark:text-blue-300 font-medium mb-2">请在游戏中输入以下指令：</p>
+                            <code class="block p-3 bg-white dark:bg-gray-900 rounded-lg text-primary-600 dark:text-primary-400 font-mono text-xs break-all border border-blue-100 dark:border-blue-800 mb-2">
+                                /yinwuchat reset {{ forgotForm.username }} {{ resetCode }}
+                            </code>
+                            <p class="text-[10px] text-blue-600 dark:text-blue-400">重置码有效期为 10 分钟。验证成功后，本页面将自动跳转。</p>
+                        </div>
+                        <div class="flex flex-col items-center py-4" key="verify-loader">
+                            <div class="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+                            <span class="text-xs text-gray-400 mt-3 animate-pulse">正在等待游戏内确认...</span>
+                        </div>
+                        <button @click="goToLogin" key="verify-cancel" class="w-full py-2 text-gray-500 hover:text-gray-700 text-sm font-medium">
+                            取消重置
+                        </button>
+                        </transition-group>
+                    </div>
+
+                    <div class="space-y-4" v-else-if="authStep === 'forgot_submit'" key="panel-forgot-submit">
+                        <transition-group name="drawer" tag="div" class="space-y-4">
+                        <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-2" key="reset-title">设置新密码</h2>
+                        <div class="relative group" key="reset-password">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
+                                <i data-lucide="lock" class="w-5 h-5"></i>
+                            </div>
+                            <input v-model="resetPasswordForm.password" type="password" placeholder="新密码" 
+                                class="w-full pl-12 pr-5 py-4 bg-beige-50 dark:bg-gray-800 border-none rounded-xl focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white transition-all outline-none">
+                        </div>
+                        <div class="relative group" key="reset-confirm">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
+                                <i data-lucide="shield-check" class="w-5 h-5"></i>
+                            </div>
+                            <input v-model="resetPasswordForm.confirm" type="password" placeholder="确认新密码" 
+                                class="w-full pl-12 pr-5 py-4 bg-beige-50 dark:bg-gray-800 border-none rounded-xl focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white transition-all outline-none">
+                        </div>
+                        <button @click="submitResetPassword" :disabled="authLoading" key="reset-submit"
+                            class="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition-all shadow-lg shadow-green-500/30 active:scale-[0.98] disabled:opacity-50">
+                            {{ authLoading ? '重置中...' : '重置密码' }}
+                        </button>
+                        </transition-group>
+                    </div>
+
+                    <div class="space-y-4" v-else-if="authStep === 'register'" key="panel-register">
+                        <transition-group name="drawer" tag="div" class="space-y-4">
+                        <div class="relative group" key="register-username">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-primary-500 transition-colors">
+                                <i data-lucide="user-plus" class="w-5 h-5"></i>
+                            </div>
+                            <input v-model="registerForm.username" type="text" placeholder="用户名（3-16位字母数字下划线）" 
+                                class="w-full pl-12 pr-5 py-4 bg-beige-50 dark:bg-gray-800 border-none rounded-xl focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white transition-all outline-none">
+                        </div>
+                        <div class="relative group" key="register-password">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-primary-500 transition-colors">
+                                <i data-lucide="lock" class="w-5 h-5"></i>
+                            </div>
+                            <input v-model="registerForm.password" type="password" placeholder="密码" 
+                                class="w-full pl-12 pr-5 py-4 bg-beige-50 dark:bg-gray-800 border-none rounded-xl focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white transition-all outline-none">
+                        </div>
+                        <div class="relative group" key="register-confirm">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-primary-500 transition-colors">
+                                <i data-lucide="shield-check" class="w-5 h-5"></i>
+                            </div>
+                            <input v-model="registerForm.confirm" type="password" placeholder="确认密码" 
+                                class="w-full pl-12 pr-5 py-4 bg-beige-50 dark:bg-gray-800 border-none rounded-xl focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white transition-all outline-none">
+                        </div>
+                        <div class="flex items-center gap-3" key="register-captcha">
+                            <div class="flex-1 relative group">
+                                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-primary-500 transition-colors">
+                                    <i data-lucide="image" class="w-5 h-5"></i>
+                                </div>
+                                <input v-model="registerForm.captcha" type="text" placeholder="图片验证码" 
+                                    class="w-full pl-12 pr-5 py-4 bg-beige-50 dark:bg-gray-800 border-none rounded-xl focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white transition-all outline-none">
+                            </div>
+                            <button @click="refreshCaptcha" class="shrink-0 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 flex items-center justify-center min-w-[112px] h-12">
+                                <img v-if="captchaImage" :src="captchaImage" alt="验证码" class="h-full w-full object-cover">
+                                <div v-else class="text-[10px] text-gray-400 flex flex-col items-center">
+                                    <i data-lucide="refresh-cw" class="w-4 h-4 mb-1 animate-spin" v-if="authLoading"></i>
+                                    <span>点击重试</span>
+                                </div>
+                            </button>
+                        </div>
+                        <button @click="submitRegister" :disabled="authLoading" key="register-submit"
+                            class="w-full py-4 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl transition-all shadow-lg shadow-primary-500/30 active:scale-[0.98] disabled:opacity-50">
+                            {{ authLoading ? '注册中...' : '注册并继续' }}
+                        </button>
+                        <button @click="goToLogin" key="register-switch" class="w-full py-3 text-gray-500 hover:text-gray-700 text-sm font-medium">
+                            已有账号？返回登录
+                        </button>
+                        </transition-group>
+                    </div>
+
+                    <div class="space-y-4" v-else key="panel-connect">
+                        <transition-group name="drawer" tag="div" class="space-y-4">
+                        <div class="text-sm text-gray-500 dark:text-gray-400" key="connect-user">已登录：{{ currentUser || '未知用户' }}</div>
+                        <div class="relative group" key="connect-token">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-primary-500 transition-colors">
+                                <i data-lucide="key" class="w-5 h-5"></i>
+                            </div>
+                            <input v-model="token" type="text" placeholder="输入连接 Token" 
+                                class="w-full pl-12 pr-5 py-4 bg-beige-50 dark:bg-gray-800 border-none rounded-xl focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white transition-all outline-none"
+                                @keyup.enter="connect">
+                        </div>
+                        <button @click="connect" :disabled="connecting" key="connect-submit"
+                            class="w-full py-4 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl transition-all shadow-lg shadow-primary-500/30 active:scale-[0.98] disabled:opacity-50">
+                            {{ connecting ? '连接中...' : '进入聊天' }}
+                        </button>
+                        <button @click="goToLogin" key="connect-switch" class="w-full py-3 text-gray-500 hover:text-gray-700 text-sm font-medium">
+                            切换账号
+                        </button>
+                        </transition-group>
+                    </div>
+                    </transition>
+
+                    <!-- 高级配置：移动到外层，确保在登录/注册阶段也能手动设置 IP -->
+                    <div class="mt-6 border-t border-beige-200 dark:border-gray-800 pt-4 space-y-4">
+                        <div class="flex items-center justify-between">
+                            <button @click="advancedOpen = !advancedOpen" class="text-sm text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1">
+                                <i :data-lucide="advancedOpen ? 'chevron-up' : 'settings'" class="w-4 h-4"></i>
+                                {{ advancedOpen ? '收起高级配置' : '高级配置' }}
+                            </button>
+                            <span class="text-[11px] text-gray-400">ws地址自动跟随服务器网址变化</span>
+                        </div>
+                        
+                        <transition name="panel">
+                            <div v-if="advancedOpen" class="space-y-3 text-left">
+                                <div class="relative group">
+                                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-primary-500 transition-colors">
+                                        <i data-lucide="link" class="w-5 h-5"></i>
+                                    </div>
+                                    <input v-model="manualWsUrl" type="text" placeholder="手动输入 WebSocket 地址 (例如 192.168.1.5:8888)" 
+                                        class="w-full pl-12 pr-5 py-4 bg-beige-50 dark:bg-gray-800 border-none rounded-xl focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white transition-all outline-none">
+                                </div>
+                                <div class="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
+                                    <span v-if="savedManualWsUrl" class="truncate max-w-[200px]">已保存地址：{{ savedManualWsUrl }}</span>
+                                    <span v-else>暂无已保存地址</span>
+                                    <button v-if="savedManualWsUrl" @click="fillSavedWsUrl" class="text-primary-600 hover:text-primary-700 font-medium">
+                                        一键填充
+                                    </button>
+                                </div>
+                                <div class="text-[11px] text-gray-500 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 p-2 rounded-lg">
+                                    <i data-lucide="info" class="w-3 h-3 inline mr-1"></i>
+                                    若自动识别失败（如 App 连接本地电脑服务器），请在此输入电脑的局域网 IP。
+                                </div>
+                                <div class="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
+                                    <span class="truncate max-w-[200px]">默认域名：{{ defaultDomain || '未设置' }}</span>
+                                    <button @click="showSettings = true" class="text-primary-600 hover:text-primary-700 font-medium">
+                                        配置页
+                                    </button>
+                                </div>
+                                <div class="mt-4 border-t border-beige-200 dark:border-gray-800 pt-3">
+                                    <button @click="messages = []; saveLocalMessages(); showToast('历史记录已清空')" 
+                                        class="text-[11px] text-gray-400 hover:text-red-500 font-medium flex items-center gap-1">
+                                        <i data-lucide="trash-2" class="w-3 h-3"></i>
+                                        清空本地历史记录
+                                    </button>
+                                </div>
+                            </div>
+                        </transition>
+                    </div>
+
+                    <div :class="['mt-8 flex justify-center gap-4 btn-shift', authStep === 'connect' ? 'btn-row-top' : 'btn-row-bottom']">
+                        <button @click="toggleDarkMode" class="p-3 rounded-full bg-beige-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:scale-110 transition-transform">
+                            <span :key="isDark" class="flex items-center justify-center">
+                                <i :data-lucide="isDark ? 'moon' : 'sun'" class="w-6 h-6"></i>
+                            </span>
+                        </button>
+                    </div>
+                    </div>
+                </div>
+            </div>
+        </transition>
+
+        <!-- 重置 Token 弹窗 -->
+        <transition name="fade">
+            <div v-if="showResetToken" class="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                <div class="w-full max-w-sm bg-beige-100 dark:bg-gray-900 rounded-2xl shadow-2xl border border-beige-200 dark:border-gray-700 p-6 space-y-4 animate-in zoom-in-95 duration-200">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                            <i data-lucide="key" class="w-5 h-5 text-amber-500"></i>
+                            重置 Token
+                        </h3>
+                        <button @click="showResetToken = false" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                        重置后当前 Token 将失效，你需要重新连接并在游戏内执行 <code class="text-amber-600 dark:text-amber-400">/yinwuchat bind</code> 绑定新 Token。
+                    </p>
+                    <div class="space-y-3">
+                        <div class="relative group">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                                <i data-lucide="lock" class="w-4 h-4"></i>
+                            </div>
+                            <input v-model="resetTokenPassword" type="password" placeholder="输入账户密码以确认" 
+                                class="w-full pl-10 pr-4 py-3 bg-beige-50 dark:bg-gray-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-amber-500 text-gray-900 dark:text-white transition-all outline-none">
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 pt-2">
+                        <button @click="submitResetToken" :disabled="authLoading"
+                            class="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-amber-500/30 active:scale-95 disabled:opacity-50">
+                            {{ authLoading ? '重置中...' : '确认重置' }}
+                        </button>
+                        <button @click="showResetToken = false" class="flex-1 py-3 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-sm font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">
+                            取消
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </transition>
+
+        <!-- 注销账户弹窗 -->
+        <transition name="fade">
+            <div v-if="showDeleteAccount" class="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                <div class="w-full max-w-sm bg-beige-100 dark:bg-gray-900 rounded-2xl shadow-2xl border border-beige-200 dark:border-gray-700 p-6 space-y-4 animate-in zoom-in-95 duration-200">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                            <i data-lucide="alert-triangle" class="w-5 h-5 text-red-500"></i>
+                            注销账户
+                        </h3>
+                        <button @click="showDeleteAccount = false" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                        此操作将永久删除该 Web 账户的信息，并使绑定的游戏 Token 失效。你需要提供账户名、密码以及绑定的玩家名以确认。
+                    </p>
+                    <div class="space-y-3">
+                        <div class="relative group">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                                <i data-lucide="user" class="w-4 h-4"></i>
+                            </div>
+                            <input v-model="deleteAccountForm.username" type="text" placeholder="Web 账户名" 
+                                class="w-full pl-10 pr-4 py-3 bg-beige-50 dark:bg-gray-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-red-500 text-gray-900 dark:text-white transition-all outline-none">
+                        </div>
+                        <div class="relative group">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                                <i data-lucide="lock" class="w-4 h-4"></i>
+                            </div>
+                            <input v-model="deleteAccountForm.password" type="password" placeholder="Web 账户密码" 
+                                class="w-full pl-10 pr-4 py-3 bg-beige-50 dark:bg-gray-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-red-500 text-gray-900 dark:text-white transition-all outline-none">
+                        </div>
+                        <div class="relative group">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                                <i data-lucide="gamepad-2" class="w-4 h-4"></i>
+                            </div>
+                            <input v-model="deleteAccountForm.playerName" type="text" placeholder="绑定的 Minecraft 玩家名" 
+                                class="w-full pl-10 pr-4 py-3 bg-beige-50 dark:bg-gray-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-red-500 text-gray-900 dark:text-white transition-all outline-none">
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 pt-2">
+                        <button @click="submitDeleteAccount" :disabled="authLoading"
+                            class="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-red-500/30 active:scale-95 disabled:opacity-50">
+                            {{ authLoading ? '注销中...' : '确认注销' }}
+                        </button>
+                        <button @click="showDeleteAccount = false" class="flex-1 py-3 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-sm font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">
+                            取消
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </transition>
+
+        <!-- App 后台保持运行提示弹窗 -->
+        <transition name="fade">
+            <div v-if="showAppKeepAliveTips" class="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                <div class="w-full max-w-sm bg-beige-100 dark:bg-gray-900 rounded-2xl shadow-2xl border border-beige-200 dark:border-gray-700 p-6 space-y-4 animate-in zoom-in-95 duration-200">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                            <i data-lucide="alert-circle" class="w-5 h-5 text-amber-500"></i>
+                            后台保持运行 (App)
+                        </h3>
+                        <button @click="showAppKeepAliveTips = false" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                    <div class="text-[11px] text-gray-500 dark:text-gray-400 bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-100 dark:border-amber-800">
+                        <p class="font-bold mb-1"><i data-lucide="alert-circle" class="w-3 h-3 inline mr-1"></i> 提示：</p>
+                        <p>由于移动系统限制，为确保能持续接收消息，请：</p>
+                        <ul class="list-disc ml-4 mt-1 space-y-1">
+                            <li>在手机设置中将本 App 设为“不限制电池使用”</li>
+                            <li>在任务管理器中将本 App “加锁”锁定</li>
+                            <li>开启“允许后台活动”权限</li>
+                        </ul>
+                    </div>
+                    <button @click="showAppKeepAliveTips = false"
+                        class="w-full py-3 bg-beige-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm font-bold rounded-xl hover:bg-beige-300 dark:hover:bg-gray-700 transition-all">
+                        知道了
+                    </button>
+                </div>
+            </div>
+        </transition>
+
+        <!-- 清除缓存确认弹窗 -->
+        <transition name="fade">
+            <div v-if="showClearCacheConfirm" class="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                <div class="w-full max-w-sm bg-beige-100 dark:bg-gray-900 rounded-2xl shadow-2xl border border-beige-200 dark:border-gray-700 p-6 space-y-4 animate-in zoom-in-95 duration-200">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                            <i data-lucide="trash-2" class="w-5 h-5 text-red-500"></i>
+                            清除缓存
+                        </h3>
+                        <button @click="showClearCacheConfirm = false" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                        确定要清除缓存的消息和设置吗？此操作将清空本地聊天记录和部分个性化配置。
+                    </p>
+                    <div class="flex items-center gap-3 pt-2">
+                        <button @click="confirmClearCache"
+                            class="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-red-500/30 active:scale-95">
+                            确认清除
+                        </button>
+                        <button @click="showClearCacheConfirm = false" class="flex-1 py-3 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-sm font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">
+                            取消
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </transition>
+
+        <!-- Web 封禁确认弹窗 -->
+        <transition name="fade">
+            <div v-if="banNotice" class="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                <div class="w-full max-w-sm bg-beige-100 dark:bg-gray-900 rounded-2xl shadow-2xl border border-beige-200 dark:border-gray-700 p-6 space-y-4 animate-in zoom-in-95 duration-200">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                            <i data-lucide="shield-alert" class="w-5 h-5 text-red-500"></i>
+                            Web 封禁确认
+                        </h3>
+                        <button @click="closeBanNotice" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                    <div class="text-sm text-gray-600 dark:text-gray-300 space-y-2">
+                        <div v-if="banNotice.player">玩家：<span class="font-semibold text-gray-900 dark:text-white">{{ banNotice.player }}</span></div>
+                        <div>账号：<span class="font-semibold text-gray-900 dark:text-white">{{ banNotice.target || '-' }}</span></div>
+                        <div>时长：<span class="font-semibold text-gray-900 dark:text-white">{{ banNotice.duration || '永久' }}</span></div>
+                        <div v-if="banNotice.reason">理由：<span class="font-semibold text-gray-900 dark:text-white">{{ banNotice.reason }}</span></div>
+                        <div v-if="banNotice.by">操作人：<span class="font-semibold text-gray-900 dark:text-white">{{ banNotice.by }}</span></div>
+                    </div>
+                    <button @click="closeBanNotice"
+                        class="w-full py-3 bg-beige-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm font-bold rounded-xl hover:bg-beige-300 dark:hover:bg-gray-700 transition-all">
+                        知道了
+                    </button>
+                </div>
+            </div>
+        </transition>
+
+        <!-- atalladmin 确认弹窗 -->
+        <transition name="fade">
+            <div v-if="atAllAdminConfirm" class="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                <div class="w-full max-w-sm bg-beige-100 dark:bg-gray-900 rounded-2xl shadow-2xl border border-beige-200 dark:border-gray-700 p-6 space-y-4 animate-in zoom-in-95 duration-200">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                            <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-500"></i>
+                            突发事件提醒确认
+                        </h3>
+                        <button @click="closeAtAllAdminConfirm" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                    <p class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                        {{ atAllAdminConfirm.message || '请确认是否提醒所有管理员' }}
+                    </p>
+                    <div class="flex items-center gap-3 pt-2">
+                        <button @click="sendAtAllAdminExecute"
+                            class="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-red-500/30 active:scale-95">
+                            确认发送
+                        </button>
+                        <button @click="closeAtAllAdminConfirm"
+                            class="flex-1 py-3 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-sm font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">
+                            取消
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </transition>
+
+        <!-- 管理员紧急提醒弹窗 -->
+        <transition name="fade">
+            <div v-if="adminAlert" class="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+                <div class="w-full max-w-sm bg-red-50 dark:bg-red-950 rounded-2xl shadow-2xl border border-red-200 dark:border-red-800 p-6 space-y-4 animate-in zoom-in-95 duration-200">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-bold text-red-700 dark:text-red-200 flex items-center gap-2">
+                            <i data-lucide="siren" class="w-5 h-5 text-red-500"></i>
+                            管理员紧急提醒
+                        </h3>
+                        <button @click="closeAdminAlert" class="text-red-400 hover:text-red-600 dark:hover:text-red-300">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                    <div class="text-sm text-red-700 dark:text-red-200 space-y-2">
+                        <div>发起人：<span class="font-semibold">{{ adminAlert.player || '-' }}</span></div>
+                        <div>内容：<span class="font-semibold">{{ adminAlert.message || '存在需要立即处理的服务器风险' }}</span></div>
+                    </div>
+                    <button @click="closeAdminAlert"
+                        class="w-full py-3 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-red-500/30 active:scale-95">
+                        知道了
+                    </button>
+                </div>
+            </div>
+        </transition>
+
+        <!-- 物品详情弹窗 -->
+        <transition name="fade">
+            <div v-if="itemPreview" class="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" @click.self="closeItemPreview">
+                <div class="w-auto max-w-[90vw] bg-gray-900 rounded-2xl shadow-2xl border border-gray-700 p-6 space-y-4 animate-in zoom-in-95 duration-200">
+                    <div class="flex items-center justify-between gap-4">
+                        <h3 class="text-lg font-bold text-white flex items-center gap-2 shrink-0">
+                            <i data-lucide="package-search" class="w-5 h-5 text-primary-500"></i>
+                            物品详情
+                        </h3>
+                        <button @click="closeItemPreview" class="text-gray-400 hover:text-gray-300">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                    <div class="text-sm text-gray-300 space-y-2">
+                        <div class="flex items-center gap-3">
+                            <img :src="getItemIconUrl(itemPreview)" @error="handleItemIconError"
+                                class="w-12 h-12 rounded-lg border border-gray-700 bg-gray-800 p-1 object-contain shrink-0"
+                                alt="物品图标" />
+                            <div class="min-w-0">
+                                <div>名称：<span class="font-semibold text-white break-all" v-html="formatMinecraftInline(itemPreview.name || '物品')"></span></div>
+                                <div class="mt-1">数量：<span class="font-semibold text-white">{{ itemPreview.count || 1 }}</span></div>
+                            </div>
+                        </div>
+                        <div v-if="itemPreview.enchantments && itemPreview.enchantments.length > 0">
+                            附魔：
+                            <ul class="mt-1 space-y-1 pl-4 list-disc max-h-40 overflow-auto pr-1 custom-scrollbar">
+                                <li v-for="(ench, idx) in itemPreview.enchantments" :key="'ench-' + idx" class="text-gray-200 whitespace-nowrap" v-html="formatMinecraftInline(ench)"></li>
+                            </ul>
+                        </div>
+                        <div v-if="itemPreview.lore && itemPreview.lore.length > 0">
+                            描述：
+                            <ul class="mt-1 space-y-1 pl-4 list-disc max-h-[60vh] overflow-auto pr-1 custom-scrollbar">
+                                <li v-for="(line, idx) in itemPreview.lore" :key="'lore-' + idx" class="text-gray-200 whitespace-nowrap" v-html="formatMinecraftInline(line)"></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <button @click="closeItemPreview"
+                        class="w-full py-3 bg-gray-800 text-gray-300 text-sm font-bold rounded-xl hover:bg-gray-700 transition-all">
+                        关闭
+                    </button>
+                </div>
+            </div>
+        </transition>
+
+                <!-- 主聊天界面 -->
+        <div v-if="isConnected" class="flex h-screen w-full overflow-hidden">
+            <!-- 左侧玩家列表 (电脑端常驻 / 手机端侧滑) -->
+            <div v-show="!isMobile || showSidebar || sidebarDragging || sidebarAnimationActive" 
+                :class="['fixed inset-y-0 left-0 z-40 w-72 bg-beige-100 dark:bg-gray-800 border-r border-beige-200 dark:border-gray-700 flex flex-col lg:static sidebar-panel', sidebarDragging ? 'dragging' : '']"
+                :style="isMobile ? { width: `${sidebarWidth}px`, transform: `translateX(${sidebarTranslateX}px)` } : {}"
+                @touchstart="onSidebarTouchStart"
+                @touchmove="onSidebarTouchMove"
+                @touchend="onSidebarTouchEnd">
+                
+                <div class="p-4 border-b border-beige-200 dark:border-gray-700 flex items-center justify-between">
+                    <h2 class="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <i data-lucide="users" class="w-5 h-5 text-primary-500"></i>
+                        玩家列表 ({{ playerRoster.length }})
+                    </h2>
+                    <button @click="showSidebar = false" class="lg:hidden p-1 rounded-full hover:bg-beige-200 dark:hover:bg-gray-700 transition-colors">
+                        <i data-lucide="x" class="w-5 h-5 text-gray-500"></i>
+                    </button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto chat-scroll p-2 space-y-1">
+                    <!-- 公共聊天频道 -->
+                    <div @click="selectChat('public')" 
+                        :class="['p-3 rounded-xl cursor-pointer flex items-center gap-3 transition-all duration-200', 
+                                currentChat === 'public' ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/20' : 'text-gray-600 dark:text-gray-400 hover:bg-beige-200 dark:hover:bg-gray-700/50']">
+                        <div :class="['w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors', currentChat === 'public' ? 'bg-white/20' : 'bg-primary-500 text-white']">
+                            <i data-lucide="globe" class="w-5 h-5"></i>
+                        </div>
+                        <span class="font-bold text-sm">服务器公屏聊天</span>
+                    </div>
+                    
+                    <!-- 玩家条目 -->
+                    <div v-for="player in playerRoster" :key="player.name"
+                        @click="selectChat(player.name)"
+                        @touchstart="handleTouchStart(player.name)"
+                        @touchend="handleTouchEnd"
+                        @contextmenu.prevent="mentionPlayer(player.name)"
+                        @dblclick="mentionPlayer(player.name)"
+                        class="group p-3 rounded-xl cursor-pointer flex items-center gap-3 transition-all duration-200 relative overflow-hidden"
+                        :class="[
+                            currentChat === player.name ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/20' : 'text-gray-600 dark:text-gray-400 hover:bg-beige-200 dark:hover:bg-gray-700/50',
+                            player.isSelf ? 'cursor-not-allowed opacity-60 hover:bg-transparent dark:hover:bg-transparent' : ''
+                        ]">
+                        <div class="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center font-bold text-sm overflow-hidden shrink-0 border-2 transition-colors"
+                            :class="currentChat === player.name ? 'border-white/30' : 'border-transparent'">
+                            <img v-if="player.name" :src="'https://minotar.net/helm/' + player.name + '/40'" class="w-full h-full" loading="lazy">
+                            <span v-else>{{ player.name[0].toUpperCase() }}</span>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="font-bold text-sm truncate">{{ player.name }}</div>
+                            <div class="text-[10px] opacity-70 truncate uppercase tracking-wider font-medium mt-0.5">
+                                <span :class="[player.status === 'game' ? (currentChat === player.name ? 'text-white' : 'text-green-500') : (player.status === 'web' ? (currentChat === player.name ? 'text-white' : 'text-blue-500') : 'text-gray-400')]">
+                                    {{ player.status === 'game' ? '游戏在线' : (player.status === 'web' ? 'Web在线' : '离线') }}
+                                </span>
+                                <span v-if="player.status === 'game' && player.server" class="ml-1 opacity-50">· {{ player.server }}</span>
+                            </div>
+                        </div>
+                        <div v-if="player.displayCount" class="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                            {{ player.displayCount }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 底部操作栏 -->
+                <div class="p-4 border-t border-beige-200 dark:border-gray-700 space-y-2">
+                    <button @click="toggleDarkMode" class="w-full py-2.5 flex items-center justify-center gap-2 bg-beige-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-xs font-bold transition-all active:scale-95">
+                        <span :key="isDark" class="flex items-center gap-2">
+                            <i :data-lucide="isDark ? 'moon' : 'sun'" class="w-4 h-4"></i>
+                            {{ isDark ? '夜间' : '日间' }}
+                        </span>
+                    </button>
+                    <button @click="clearCache" class="w-full py-2.5 flex items-center justify-center gap-2 bg-beige-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-xs font-bold transition-all active:scale-95">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        清除缓存
+                    </button>
+                    <button @click="showAppKeepAliveTips = true" class="w-full py-2.5 flex items-center justify-center gap-2 bg-beige-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-xs font-bold transition-all active:scale-95">
+                        <i data-lucide="alert-circle" class="w-4 h-4 text-amber-500"></i>
+                        后台保持运行
+                    </button>
+                    <button @click="showResetToken = true" class="w-full py-2.5 flex items-center justify-center gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/40 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded-xl text-xs font-bold transition-all active:scale-95">
+                        <i data-lucide="key" class="w-4 h-4"></i>
+                        重置 Token
+                    </button>
+                    <button @click="showDeleteAccount = true" class="w-full py-2.5 flex items-center justify-center gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-xl text-xs font-bold transition-all active:scale-95">
+                        <i data-lucide="user-x" class="w-4 h-4"></i>
+                        注销指定账户
+                    </button>
+                    <button @click="logout" class="w-full py-2.5 flex items-center justify-center gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-xl text-xs font-bold transition-all active:scale-95">
+                        <i data-lucide="log-out" class="w-4 h-4"></i>
+                        断开连接
+                    </button>
+                </div>
+            </div>
+
+            <!-- 右侧聊天内容区域 -->
+            <div class="flex-1 flex flex-col bg-beige-100 dark:bg-gray-900 min-w-0 relative transition-all chat-window"
+                :style="isMobile ? { filter: `blur(${sidebarBlur}px)` } : {}"
+                @touchstart="onChatTouchStart"
+                @touchmove="onChatTouchMove"
+                @touchend="onChatTouchEnd">
+                
+                <!-- 顶部栏 -->
+                <header class="h-16 border-b border-beige-200 dark:border-gray-700 flex items-center px-4 justify-between bg-beige-100/80 dark:bg-gray-900/80 backdrop-blur-md sticky top-0 z-20">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <!-- 手机端呼出菜单按钮 -->
+                        <button @click="showSidebar = true" class="lg:hidden p-2 -ml-2 rounded-lg hover:bg-beige-200 dark:hover:bg-gray-800 transition-colors">
+                            <i data-lucide="menu" class="w-6 h-6 text-gray-600 dark:text-gray-400"></i>
+                        </button>
+                        <div class="flex items-center gap-2 min-w-0">
+                            <!-- 仅在公屏聊天时显示图标 -->
+                            <div v-if="currentChat === 'public'" class="w-10 h-10 bg-primary-500 rounded-full flex items-center justify-center text-white text-xs shrink-0">
+                                <i data-lucide="globe" class="w-5 h-5"></i>
+                            </div>
+                            <div class="min-w-0 flex flex-col justify-center">
+                                <h3 class="font-bold text-gray-900 dark:text-white truncate text-[16px] leading-none">
+                                    {{ currentChat === 'public' ? '服务器公屏聊天' : currentChat }}
+                                </h3>
+                                <p class="text-[10px] text-gray-500 truncate mt-1" v-if="currentChat !== 'public'">
+                                    正在与该玩家私聊
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <!-- 隐身状态标识 -->
+                        <div v-if="isVanished" class="flex items-center gap-2 bg-amber-100 dark:bg-amber-900/30 px-3 py-1.5 rounded-full border border-amber-200 dark:border-amber-800">
+                            <i data-lucide="eye-off" class="w-3.5 h-3.5 text-amber-600 dark:text-amber-400"></i>
+                            <span class="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">
+                                隐身中
+                            </span>
+                        </div>
+                        
+                        <!-- 动态在线状态标识 -->
+                        <div class="flex items-center gap-2 bg-beige-200 dark:bg-gray-800 px-3 py-1.5 rounded-full transition-all">
+                            <template v-if="currentChat === 'public'">
+                                <span class="flex h-2 w-2 rounded-full" :class="wsStatus === 'open' ? 'bg-green-500 animate-pulse' : 'bg-red-500'"></span>
+                                <span class="text-[10px] font-bold text-gray-600 dark:text-gray-400 uppercase tracking-widest">
+                                    {{ wsStatus === 'open' ? '在线' : '离线' }}
+                                </span>
+                            </template>
+                            <template v-else>
+                                <span class="flex h-2 w-2 rounded-full" 
+                                    :class="getTargetStatus(currentChat) === 'game' ? 'bg-green-500 animate-pulse' : (getTargetStatus(currentChat) === 'web' ? 'bg-blue-500' : 'bg-gray-400')"></span>
+                                <span class="text-[10px] font-bold text-gray-600 dark:text-gray-400 uppercase tracking-widest">
+                                    {{ getTargetStatus(currentChat) === 'game' ? '游戏在线' : (getTargetStatus(currentChat) === 'web' ? 'Web在线' : '离线') }}
+                                </span>
+                            </template>
+                        </div>
+                    </div>
+                </header>
+
+                <!-- 隐身状态持久提示 -->
+                <div v-if="isVanished" class="bg-amber-500 text-white px-4 py-2 flex items-center justify-center gap-2 shadow-md z-10 animate-pulse">
+                    <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+                    <span class="text-xs font-bold">你当前处于隐身状态，其他玩家无法在列表中看到你。</span>
+                    <button @click="inputMsg = '/vanish'; sendMessage()" class="ml-4 underline text-xs font-medium hover:text-amber-100">点击取消隐身</button>
+                </div>
+
+                <!-- 广播置顶横幅 -->
+                <div v-if="pinnedBroadcastCount > 0" class="relative z-10 shrink-0">
+                    <div @click="broadcastPanelOpen = !broadcastPanelOpen"
+                         class="bg-amber-50 dark:bg-amber-900/30 border-b border-amber-200 dark:border-amber-700/40 px-4 py-2 flex items-center justify-between cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors select-none">
+                        <div class="flex items-center gap-2">
+                            <span class="text-amber-600 dark:text-amber-400 text-sm">&#x1F4E2;</span>
+                            <span class="text-xs font-bold text-amber-700 dark:text-amber-300">系统广播 ({{ pinnedBroadcastCount }}条)</span>
+                        </div>
+                        <span class="text-[10px] text-amber-500 dark:text-amber-400 transition-transform duration-200"
+                              :class="broadcastPanelOpen ? 'rotate-180' : ''">&#x25BC;</span>
+                    </div>
+                    <div v-if="broadcastPanelOpen"
+                         class="bg-amber-50/90 dark:bg-amber-950/50 border-b border-amber-200 dark:border-amber-700/40 max-h-60 overflow-y-auto chat-scroll">
+                        <div v-for="(bc, idx) in pinnedBroadcastList" :key="bc.taskIndex"
+                             class="px-4 py-2.5" :class="idx < pinnedBroadcastList.length - 1 ? 'border-b border-amber-100 dark:border-amber-800/30' : ''">
+                            <div class="text-sm leading-relaxed text-amber-900 dark:text-amber-100"
+                                 v-html="formatBroadcastSegments(bc.segments || [], bc.chat)">
+                            </div>
+                            <div class="text-[9px] text-amber-400 mt-1 opacity-70">{{ bc.time }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 消息区域 -->
+                <main ref="chatContainer" class="flex-1 overflow-y-auto p-4 space-y-6 chat-scroll">
+                    <div v-for="(msg, index) in currentMessages" :key="index">
+                        <div v-if="index === unreadDividerIndex" @click="acknowledgeUnreadForCurrentChat" class="flex items-center gap-2 py-1 cursor-pointer select-none">
+                            <div class="h-px flex-1 bg-red-300/70 dark:bg-red-500/40"></div>
+                            <span class="text-[10px] font-bold text-red-600 dark:text-red-400 whitespace-nowrap">上次阅读处</span>
+                            <div class="h-px flex-1 bg-red-300/70 dark:bg-red-500/40"></div>
+                        </div>
+                        <div class="flex animate-in fade-in slide-in-from-bottom-2 duration-300 w-full"
+                            :class="[msg.type === 'broadcast' ? 'justify-center' : (msg.isSelf ? 'justify-end' : 'justify-start')]">
+                        <!-- 广播消息：居中系统样式 -->
+                        <div v-if="msg.type === 'broadcast'" class="max-w-[90%] lg:max-w-[85%]">
+                            <div class="flex items-center gap-2 justify-center mb-1">
+                                <div class="h-px flex-1 bg-amber-300/40 dark:bg-amber-500/30"></div>
+                                <span class="text-[10px] font-bold text-amber-600 dark:text-amber-400 tracking-wider uppercase">系统广播</span>
+                                <div class="h-px flex-1 bg-amber-300/40 dark:bg-amber-500/30"></div>
+                            </div>
+                            <div class="px-4 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 text-sm leading-relaxed text-amber-900 dark:text-amber-100 shadow-sm"
+                                v-html="formatBroadcastSegments(msg.segments || [], msg.chat)">
+                            </div>
+                            <div class="text-[9px] text-gray-400 mt-1 opacity-60 text-center">
+                                {{ msg.time }}
+                            </div>
+                        </div>
+                        <!-- 普通消息：聊天气泡 -->
+                        <div v-else class="flex gap-3 max-w-[85%] lg:max-w-[80%] min-w-0"
+                            :class="[msg.isSelf ? 'flex-row-reverse' : 'flex-row']">
+                            <!-- 头像 -->
+                            <div class="w-10 h-10 rounded-full overflow-hidden bg-beige-200 dark:bg-gray-700 shrink-0 shadow-sm border border-beige-300 dark:border-gray-800">
+                                <img v-if="getAvatarUrl(msg)" :src="getAvatarUrl(msg)" class="w-full h-full" loading="lazy">
+                                <span v-else class="w-full h-full flex items-center justify-center text-[10px] text-gray-500">?</span>
+                            </div>
+                            <!-- 消息体 -->
+                            <div class="flex flex-col min-w-0 flex-1"
+                                :class="[msg.isSelf ? 'items-end' : 'items-start']">
+                                <!-- 名字和服务器 -->
+                                <div class="flex items-center gap-1 mb-1 px-1">
+                                    <template v-if="!msg.isSelf">
+                                        <span class="text-[11px] font-bold text-gray-700 dark:text-gray-300">{{ msg.player || '未知玩家' }}</span>
+                                        <span v-if="msg.server" class="text-[9px] bg-gray-200 dark:bg-gray-800 text-gray-500 px-1.5 py-0.5 rounded opacity-80 scale-90">{{ msg.server }}</span>
+                                    </template>
+                                    <span v-else class="text-[11px] font-bold text-gray-700 dark:text-gray-300">{{ selfName || msg.player }}</span>
+                                </div>
+                                <!-- 气泡 -->
+                                <div :class="[
+                                    'px-4 py-2.5 rounded-2xl shadow-sm text-sm leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere] w-fit min-w-[40px]',
+                                    msg.isSelf 
+                                        ? 'bg-primary-600 text-white rounded-tr-none text-left' 
+                                        : 'bg-beige-200 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-tl-none border border-beige-300 dark:border-gray-700 text-left'
+                                ]" v-html="formatMessage(msg.chat, msg.items)">
+                                </div>
+                                <!-- 时间 -->
+                                <div class="text-[9px] text-gray-400 mt-1 opacity-60 px-1">
+                                    {{ msg.time }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div v-if="currentMessages.length === 0" class="h-full flex flex-col items-center justify-center text-gray-400 opacity-30 space-y-4">
+                        <i data-lucide="message-circle" class="w-20 h-20 stroke-1"></i>
+                        <p class="text-sm font-medium">开始你的对话...</p>
+                    </div>
+                </main>
+
+                <!-- 输入区域 -->
+                <footer class="p-4 bg-beige-100/80 dark:bg-gray-900/80 backdrop-blur-md border-t border-beige-200 dark:border-gray-700">
+                    <div v-if="showCommandPicker" class="mb-2 max-h-36 overflow-y-auto chat-scroll bg-beige-50 dark:bg-gray-800 border border-beige-200 dark:border-gray-700 rounded-2xl p-2 shadow-inner">
+                        <div class="text-[10px] text-gray-500 dark:text-gray-400 px-2 py-1">快捷选人</div>
+                        <div class="grid grid-cols-1 gap-1">
+                            <button v-for="player in commandTargetCandidates" :key="player.name"
+                                @click="selectCommandTarget(player.name)"
+                                class="flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs text-left transition-all hover:bg-beige-200 dark:hover:bg-gray-700">
+                                <span class="w-2.5 h-2.5 rounded-full"
+                                    :class="player.status === 'game' ? 'bg-green-500' : (player.status === 'web' ? 'bg-blue-500' : 'bg-gray-400')"></span>
+                                <span class="font-semibold text-gray-700 dark:text-gray-200">{{ player.name }}</span>
+                                <span class="text-[10px] text-gray-400">
+                                    {{ player.status === 'game' ? '游戏在线' : (player.status === 'web' ? 'Web在线' : '离线') }}
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="flex items-end gap-2 bg-beige-100 dark:bg-gray-800 rounded-2xl p-2 focus-within:ring-2 focus-within:ring-primary-500 transition-all shadow-inner">
+                        <textarea v-model="inputMsg" 
+                            rows="1"
+                            ref="inputArea"
+                            @keydown.enter.prevent="sendMessage"
+                            placeholder="发送消息..."
+                            class="flex-1 bg-transparent border-none focus:ring-0 text-gray-900 dark:text-white py-2 px-3 resize-none max-h-32 chat-scroll outline-none text-sm"
+                        ></textarea>
+                        <button @click="sendMessage" :disabled="!inputMsg.trim()"
+                            class="p-2.5 bg-primary-600 hover:bg-primary-700 disabled:opacity-30 disabled:scale-100 text-white rounded-xl shadow-lg shadow-primary-500/30 transition-all active:scale-90 shrink-0">
+                            <i data-lucide="send" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                    <div v-if="currentChat === 'public'" class="mt-2 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                        <button v-for="cmd in quickCommands" :key="cmd"
+                            @click="inputMsg = cmd + ' '"
+                            class="text-[10px] px-2 py-1 bg-beige-200 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-md hover:bg-beige-300 dark:hover:bg-gray-700 transition-colors shrink-0">
+                            {{ cmd }}
+                        </button>
+                    </div>
+                </footer>
+            </div>
+
+            <!-- 手机端背景遮罩 -->
+            <div v-show="isMobile && (showSidebar || sidebarDragging || sidebarAnimationActive)" @click="closeSidebar" 
+                @touchstart="onChatTouchStart"
+                @touchmove="onChatTouchMove"
+                @touchend="onChatTouchEnd"
+                class="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm sidebar-overlay"
+                :class="{ 'pointer-events-none': !showSidebar && !sidebarDragging }"
+                :style="{ opacity: sidebarDragging ? (sidebarOverlayOpacity * 2) : (showSidebar ? 1 : 0) }"></div>
+        </div>
+
+        <!-- 配置页 -->
+        <transition name="fade">
+            <div v-if="showSettings" class="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                <div class="w-full max-w-sm bg-beige-100 dark:bg-gray-900 rounded-2xl shadow-2xl border border-beige-200 dark:border-gray-700 p-5 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-base font-bold text-gray-900 dark:text-white">配置</h3>
+                        <button @click="showSettings = false" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-xs font-medium text-gray-500 dark:text-gray-400">默认域名</label>
+                        <input v-model="defaultDomain" type="text" placeholder="server.yinwurealm.org"
+                            class="w-full px-4 py-3 bg-beige-50 dark:bg-gray-800 border-none rounded-xl focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white transition-all outline-none">
+                        <p class="text-[11px] text-gray-400">用于 App 在本地环境下自动发现 WS 端口。</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button @click="saveDefaultDomain" class="flex-1 py-2.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold rounded-xl transition-all">
+                            保存
+                        </button>
+                        <button @click="showSettings = false" class="flex-1 py-2.5 bg-beige-200 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-sm font-semibold rounded-xl transition-all">
+                            取消
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </transition>
+
+        <!-- 弹窗提示 -->
+        <div class="fixed top-6 left-1/2 -translate-x-1/2 z-[100] space-y-3 pointer-events-none w-[90%] max-w-sm">
+            <transition-group name="fade">
+                <div v-for="toast in toasts" :key="toast.id" 
+                    :class="['px-5 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 border pointer-events-auto backdrop-blur-md', 
+                             toast.type === 'error' ? 'bg-red-50/90 border-red-200 text-red-800 dark:bg-red-900/40 dark:border-red-800 dark:text-red-200' : 'bg-beige-100/90 border-beige-200 text-gray-800 dark:bg-gray-800/90 dark:border-gray-700 dark:text-gray-100']"
+                    :style="toastDragId === toast.id ? { transform: `translateY(${toastDragOffset}px)`, opacity: Math.max(0.2, 1 + toastDragOffset / 120) } : {}"
+                    @touchstart="startToastDrag(toast, $event)"
+                    @touchmove="moveToastDrag($event)"
+                    @touchend="endToastDrag(toast)">
+                    <div :class="['p-1.5 rounded-lg', toast.type === 'error' ? 'bg-red-100 dark:bg-red-800' : 'bg-primary-100 dark:bg-primary-800']">
+                        <i :data-lucide="toast.type === 'error' ? 'alert-circle' : 'info'" class="w-4 h-4"></i>
+                    </div>
+                    <span class="text-xs font-bold tracking-tight">{{ toast.msg }}</span>
+                </div>
+            </transition-group>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, onMounted, onBeforeUnmount, nextTick, computed, watch } = Vue;
+
+        createApp({
+            setup() {
+                const token = ref(localStorage.getItem('yinwuchat_token') || '');
+                const advancedOpen = ref(false);
+                const showSettings = ref(false);
+                const defaultDomain = ref(localStorage.getItem('yinwuchat_default_domain') || '');
+                const manualWsUrl = ref('');
+                const savedManualWsUrl = ref(localStorage.getItem('yinwuchat_manual_ws') || '');
+                const getInjectedWsUrl = () => {
+                    if (window.__YINWUCHAT_WS_URL__) return String(window.__YINWUCHAT_WS_URL__);
+                    if (window.__YINWUCHAT_WS__) return String(window.__YINWUCHAT_WS__);
+                    return '';
+                };
+                const getInjectedDiscoveryBase = () => {
+                    if (window.__YINWUCHAT_DISCOVERY__) return String(window.__YINWUCHAT_DISCOVERY__);
+                    if (window.__YINWUCHAT_DISCOVERY_BASE__) return String(window.__YINWUCHAT_DISCOVERY_BASE__);
+                    return '';
+                };
+                const getDiscoveryBase = () => {
+                    const trimmed = String(defaultDomain.value || '').trim();
+                    if (trimmed) return trimmed;
+                    const injected = getInjectedDiscoveryBase();
+                    if (injected) return injected;
+                    return 'https://server.yinwurealm.org:31115/new-chat/';
+                };
+                const getInjectedServerBase = () => {
+                    if (window.__YINWUCHAT_SERVER__) return String(window.__YINWUCHAT_SERVER__);
+                    if (window.__YINWUCHAT_BASE__) return String(window.__YINWUCHAT_BASE__);
+                    return '';
+                };
+                const isLocalHostEnv = () => {
+                    if (!window.location) return true;
+                    if (window.location.protocol === 'file:') return true;
+                    const host = window.location.host || '';
+                    return host.includes('localhost') || host.includes('127.0.0.1') || host === '';
+                };
+                const normalizeHttpBase = (input) => {
+                    if (!input) return '';
+                    let url = String(input).trim();
+                    if (!url) return '';
+                    if (!url.includes('://')) {
+                        const looksLikeIp = /^\\d{1,3}(?:\\.\\d{1,3}){3}(?::\\d+)?$/.test(url);
+                        url = (looksLikeIp ? 'http://' : 'https://') + url;
+                    }
+                    url = url.replace(/^wss:\/\//i, 'https://').replace(/^ws:\/\//i, 'http://');
+                    url = url.replace(/\/+$/, '');
+                    // 允许用户直接输入 /new-chat/ 页面地址，这里统一归一到站点根地址
+                    url = url
+                        .replace(/\/new-chat\/ws\/?$/i, '')
+                        .replace(/\/new-ws\/?$/i, '')
+                        .replace(/\/ws\/?$/i, '')
+                        .replace(/\/new-chat\/?$/i, '');
+                    return url.replace(/\/+$/, '');
+                };
+                const normalizeWsUrl = (input) => {
+                    if (!input) return '';
+                    const raw = String(input).trim();
+                    if (raw.startsWith('ws://') || raw.startsWith('wss://')) return raw;
+                    if (raw.startsWith('http://')) return raw.replace('http://', 'ws://');
+                    if (raw.startsWith('https://')) return raw.replace('https://', 'wss://');
+                    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+                    return `${proto}://${raw}`;
+                };
+                const buildWsUrlFromBase = (base) => {
+                    if (!base) return '';
+                    let normalized = normalizeWsUrl(base).replace(/\/+$/, '');
+                    if (normalized.startsWith('ws://') || normalized.startsWith('wss://')) {
+                        // 已经是完整 WS 路径时直接返回（兼容 /new-chat/ws、/new-ws、/ws）
+                        if (/\/new-chat\/ws\/?$/i.test(normalized) || /\/new-ws\/?$/i.test(normalized) || /\/ws\/?$/i.test(normalized)) {
+                            return normalized.replace(/\/+$/, '');
+                        }
+                        // 兼容输入为 https://host/new-chat/ 的场景，避免拼接成 /new-chat/new-chat/ws
+                        normalized = normalized.replace(/\/new-chat\/?$/i, '');
+                        return normalized.replace(/\/+$/, '') + '/new-chat/ws';
+                    }
+                    return '';
+                };
+                const discoveredWsUrl = ref('');
+                const discoveredHttpBase = ref('');
+                const discoverWsUrl = async () => {
+                    if (!isLocalHostEnv()) return '';
+                    const domain = getDiscoveryBase();
+                    if (!domain) return '';
+                    
+                    // 尝试几种常见的基准 URL 格式
+                    const basesToTry = [
+                        normalizeHttpBase(domain),
+                        normalizeHttpBase(domain.includes(':') ? domain : domain + ':31115'), // 默认反代端口
+                        normalizeHttpBase(domain.includes(':') ? domain : domain + ':8888')   // 默认插件端口
+                    ];
+
+                    for (const base of basesToTry) {
+                        try {
+                            const res = await fetchWithFallback(base, '/new-chat/api/wsinfo', { signal: AbortSignal.timeout(3000) });
+                            const data = await res.json();
+                            if (data && data.ok && data.wsUrl) {
+                                discoveredWsUrl.value = data.wsUrl;
+                                discoveredHttpBase.value = base;
+                                return data.wsUrl;
+                            }
+                        } catch (e) {
+                            console.log(`Discovery failed for ${base}:`, e.message);
+                        }
+                    }
+                    return '';
+                };
+                const getAutoWsUrl = () => {
+                    // 优先使用注入的配置
+                    const injectedWs = getInjectedWsUrl();
+                    if (injectedWs) return buildWsUrlFromBase(injectedWs);
+                    const injectedBase = getInjectedServerBase();
+                    if (injectedBase) return buildWsUrlFromBase(injectedBase);
+                    if (discoveredWsUrl.value) return buildWsUrlFromBase(discoveredWsUrl.value);
+                    
+                    // 本地开发环境返回空，触发自动发现
+                    if (isLocalHostEnv()) return '';
+                    
+                    // 生产环境：使用当前页面的协议和主机，路径固定为 /new-chat/ws
+                    if (window.location && window.location.host) {
+                        const protocol = window.location.protocol.toLowerCase() === 'https:' ? 'wss' : 'ws';
+                        return `${protocol}://${window.location.host}/new-chat/ws`;
+                    }
+                    return '';
+                };
+                const autoWsUrl = ref(getAutoWsUrl());
+                const authStep = ref('login');
+                const authLoading = ref(false);
+                const showDeleteAccount = ref(false);
+                const showResetToken = ref(false);
+                const resetTokenPassword = ref('');
+                const showAppKeepAliveTips = ref(false);
+                const showClearCacheConfirm = ref(false);
+                const banNotice = ref(null);
+                const adminAlert = ref(null);
+                const itemPreview = ref(null);
+                const atAllAdminConfirm = ref(null);
+                const bindAccountSent = ref(false);
+                const deleteAccountForm = ref({
+                    username: '',
+                    password: '',
+                    playerName: ''
+                });
+                const forgotForm = ref({
+                    username: '',
+                    playerName: ''
+                });
+                const resetPasswordForm = ref({
+                    password: '',
+                    confirm: ''
+                });
+                const resetCode = ref('');
+                let resetStatusInterval = null;
+                const loginForm = ref({
+                    username: localStorage.getItem('yinwuchat_username') || '',
+                    password: ''
+                });
+                const registerForm = ref({
+                    username: '',
+                    password: '',
+                    confirm: '',
+                    captcha: ''
+                });
+                const captchaImage = ref('');
+                const captchaId = ref('');
+                const currentUser = ref(localStorage.getItem('yinwuchat_username') || '');
+                const isConnected = ref(false);
+                const isManualDisconnect = ref(false);
+                const connecting = ref(false);
+                const isAdmin = ref(false);
+                const isDark = ref(localStorage.getItem('yinwuchat_dark') === 'true');
+                const showSidebar = ref(false);
+                const currentChat = ref('public'); 
+                const inputMsg = ref('');
+                const isMobile = ref(window.innerWidth < 1024);
+                const getSidebarWidth = () => {
+                    const ratio = 0.618;
+                    const width = Math.round(window.innerWidth * ratio);
+                    return Math.max(220, Math.min(420, width));
+                };
+                const sidebarWidth = ref(getSidebarWidth());
+                const sidebarTranslateX = ref(-sidebarWidth.value);
+                const sidebarDragging = ref(false);
+                const chatContainer = ref(null);
+                const sidebarStartX = ref(0);
+                const sidebarStartY = ref(0);
+                const sidebarLastX = ref(0);
+                const sidebarLastY = ref(0);
+                const sidebarTouchStartTime = ref(0);
+                const sidebarLongPressActive = ref(false);
+                const sidebarAnimationActive = ref(false);
+
+                // 从本地加载历史消息
+                const loadLocalMessages = () => {
+                    try {
+                        const saved = localStorage.getItem('yinwuchat_msg_cache');
+                        return saved ? JSON.parse(saved) : [];
+                    } catch (e) {
+                        return [];
+                    }
+                };
+
+                const messages = ref(loadLocalMessages()); 
+                const publicReadCursor = ref(0);
+                const privateReadCursor = ref({});
+                const sessionPublicDividerCursor = ref(0);
+                const sessionPrivateDividerCursor = ref({});
+                const dismissedUnreadDivider = ref({});
+                const DIVIDER_ANCHOR_KEY = 'yinwuchat_divider_anchor';
+                const dividerAnchorLoadedForConnection = ref(false);
+
+                // --- 消息去重：防止同一条消息因多连接/重连被重复添加 ---
+                const _seenMsgIds = new Set();
+                const _initSeenMsgIds = () => {
+                    _seenMsgIds.clear();
+                    // 从已有消息中初始化
+                    messages.value.forEach(m => {
+                        const id = Number(m && m.messageId ? m.messageId : 0);
+                        if (id > 0) _seenMsgIds.add(id);
+                    });
+                };
+                _initSeenMsgIds(); // 初始化时调用
+                const _isDuplicateMsg = (msgId) => {
+                    const id = Number(msgId || 0);
+                    if (id <= 0) return false; // 没有 messageId 的消息不做去重
+                    if (_seenMsgIds.has(id)) return true;
+                    _seenMsgIds.add(id);
+                    // 防止 Set 无限增长，保留最近的 2000 条
+                    if (_seenMsgIds.size > 2000) {
+                        const arr = [..._seenMsgIds];
+                        _seenMsgIds.clear();
+                        arr.slice(-1500).forEach(v => _seenMsgIds.add(v));
+                    }
+                    return false;
+                };
+                
+                // 保存消息到本地
+                const saveLocalMessages = () => {
+                    try {
+                        // 仅保留最近的 100 条记录
+                        const toSave = messages.value.slice(-100);
+                        localStorage.setItem('yinwuchat_msg_cache', JSON.stringify(toSave));
+                    } catch (e) {}
+                };
+
+                const buildLatestDividerAnchor = () => {
+                    const anchor = { public: 0, private: {} };
+                    for (const msg of messages.value) {
+                        const id = Number(msg && msg.messageId ? msg.messageId : 0);
+                        if (id <= 0) continue;
+                        if (!msg.to) {
+                            if (id > anchor.public) anchor.public = id;
+                            continue;
+                        }
+                        const peer = String(msg.isSelf ? msg.to : msg.player || '').toLowerCase();
+                        if (!peer) continue;
+                        const current = Number(anchor.private[peer] || 0);
+                        if (id > current) {
+                            anchor.private[peer] = id;
+                        }
+                    }
+                    return anchor;
+                };
+
+                const saveDividerAnchor = () => {
+                    try {
+                        localStorage.setItem(DIVIDER_ANCHOR_KEY, JSON.stringify(buildLatestDividerAnchor()));
+                    } catch (e) {}
+                };
+
+                const applyDividerAnchorFromLocal = () => {
+                    try {
+                        const raw = localStorage.getItem(DIVIDER_ANCHOR_KEY);
+                        if (!raw) return false;
+                        const parsed = JSON.parse(raw);
+                        const localPublic = Number(parsed.public || 0);
+                        const localPrivateRaw = parsed.private && typeof parsed.private === 'object' ? parsed.private : {};
+                        const localPrivate = {};
+                        Object.keys(localPrivateRaw).forEach((key) => {
+                            const normalizedKey = String(key || '').toLowerCase();
+                            const id = Number(localPrivateRaw[key] || 0);
+                            if (!normalizedKey || id <= 0) return;
+                            localPrivate[normalizedKey] = id;
+                        });
+                        const hasLocalAnchor = localPublic > 0 || Object.keys(localPrivate).length > 0;
+                        if (!hasLocalAnchor) return false;
+                        sessionPublicDividerCursor.value = localPublic;
+                        sessionPrivateDividerCursor.value = localPrivate;
+                        dismissedUnreadDivider.value = {};
+                        return true;
+                    } catch (e) {
+                        return false;
+                    }
+                };
+
+                const formatMessageTime = (payloadTime) => {
+                    const toDisplay = (millis) => new Date(millis).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    const numericTime = Number(payloadTime || 0);
+                    if (Number.isFinite(numericTime) && numericTime > 0) {
+                        return toDisplay(numericTime);
+                    }
+                    if (typeof payloadTime === 'string' && payloadTime.trim()) {
+                        const parsed = Date.parse(payloadTime);
+                        if (!Number.isNaN(parsed)) {
+                            return toDisplay(parsed);
+                        }
+                        return payloadTime;
+                    }
+                    return toDisplay(Date.now());
+                };
+
+                const sidebarOverlayOpacity = computed(() => {
+                    if (!isMobile.value) return 0;
+                    const progress = 1 - Math.abs(sidebarTranslateX.value) / sidebarWidth.value;
+                    return Math.min(0.5, Math.max(0, progress * 0.5));
+                });
+                
+                const sidebarBlur = computed(() => {
+                    if (!isMobile.value) return 0;
+                    const progress = 1 - Math.abs(sidebarTranslateX.value) / sidebarWidth.value;
+                    return Math.max(0, progress * 8); // 最大模糊度 8px
+                });
+
+                const sidebarOverlayVisible = computed(() => {
+                    if (!isMobile.value) return false;
+                    return sidebarTranslateX.value > -sidebarWidth.value + 1 || sidebarDragging.value || showSidebar.value;
+                });
+
+                const gamePlayers = ref([]);
+                const webPlayers = ref([]);
+                const playerStatusList = ref([]);
+                const selfName = ref('');
+                const isVanished = ref(localStorage.getItem('yinwuchat_vanished') === 'true');
+
+                const pinnedBroadcasts = ref(new Map());
+                const broadcastPanelOpen = ref(false);
+                const pinnedBroadcastCount = computed(() => pinnedBroadcasts.value.size);
+                const pinnedBroadcastList = computed(() => {
+                    return [...pinnedBroadcasts.value.values()]
+                        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                });
+
+                const playerRoster = computed(() => {
+                    let list = [];
+                    if (Array.isArray(playerStatusList.value) && playerStatusList.value.length > 0) {
+                        list = playerStatusList.value.map(p => ({
+                            name: p.name,
+                            status: p.status || 'offline',
+                            server: p.server || '',
+                            offlineCount: p.offlineCount || 0,
+                            isSelf: p.name === selfName.value
+                        })).filter(p => p.name);
+                    } else {
+                        const map = new Map();
+                        for (const p of gamePlayers.value) {
+                            if (!p || !p.name) continue;
+                            map.set(p.name, { ...p, status: 'game', isSelf: p.name === selfName.value });
+                        }
+                        for (const p of webPlayers.value) {
+                            if (!p || !p.name) continue;
+                            if (map.has(p.name)) {
+                                const existing = map.get(p.name);
+                                map.set(p.name, { ...existing, status: 'game', isSelf: existing.name === selfName.value });
+                            } else {
+                                map.set(p.name, { ...p, status: 'web', isSelf: p.name === selfName.value });
+                            }
+                        }
+                        list = Array.from(map.values());
+                    }
+                    const statusRank = { game: 0, web: 1, offline: 2 };
+                    return list.map(p => {
+                        const unread = (unreadCount.value[p.name] || 0) + (p.offlineCount || 0);
+                        return { ...p, displayCount: unread };
+                    }).sort((a, b) => {
+                        const unreadA = a.displayCount > 0 ? 1 : 0;
+                        const unreadB = b.displayCount > 0 ? 1 : 0;
+                        if (unreadA !== unreadB) return unreadB - unreadA;
+                        const rankA = statusRank[a.status] ?? 3;
+                        const rankB = statusRank[b.status] ?? 3;
+                        if (rankA !== rankB) return rankA - rankB;
+                        return a.name.localeCompare(b.name, 'zh-Hans-CN', { sensitivity: 'base' });
+                    });
+                });
+                const unreadCount = ref({});
+                const toasts = ref([]);
+                const wsStatus = ref('closed');
+                const lastGoodWsUrl = ref(localStorage.getItem('yinwuchat_last_good_ws') || '');
+                let ws = null;
+                let toastId = 0;
+                let touchTimer = null;
+                const toastDragId = ref(null);
+                const toastDragOffset = ref(0);
+                const toastDragStartY = ref(0);
+                const toastDragActive = ref(false);
+
+                const currentMessages = computed(() => {
+                    if (currentChat.value === 'public') {
+                        return messages.value.filter(m => !m.to && m.type !== 'broadcast');
+                    } else {
+                        const target = currentChat.value;
+                        return messages.value.filter(m => 
+                            (m.to === target) || (m.player === target && m.to)
+                        );
+                    }
+                });
+                const unreadDividerIndex = computed(() => {
+                    const chatKey = currentChat.value === 'public' ? 'public' : currentChat.value.toLowerCase();
+                    if (dismissedUnreadDivider.value[chatKey]) return -1;
+                    const cursor = chatKey === 'public'
+                        ? Number(sessionPublicDividerCursor.value || 0)
+                        : Number((sessionPrivateDividerCursor.value[chatKey] || 0));
+                    if (cursor <= 0) return -1;
+                    for (let i = 0; i < currentMessages.value.length; i++) {
+                        const id = Number(currentMessages.value[i].messageId || 0);
+                        if (id > cursor) {
+                            return i;
+                        }
+                    }
+                    return -1;
+                });
+
+                const toggleDarkMode = () => {
+                    isDark.value = !isDark.value;
+                    localStorage.setItem('yinwuchat_dark', isDark.value);
+                    document.documentElement.classList.toggle('dark', isDark.value);
+                };
+
+                // 需要玩家参数的命令映射，值为玩家参数的位置索引（从0开始）
+                const commandTargetMap = {
+                    // 私聊命令
+                    msg: 1, tell: 1, w: 1, m: 1, whisper: 1, pm: 1,
+                    // 管理命令
+                    chatban: 1, chatunban: 1, mute: 1, unmute: 1, muteinfo: 1,
+                    // 用户命令
+                    ignore: 1, unignore: 1
+                };
+                // yinwuchat 子命令中需要玩家参数的（参数位置为 2）
+                const commandSubTargets = new Set(['ban', 'unban', 'chatban', 'chatunban', 'webbind', 'bind', 'unbind', 'query', 'ignore', 'unignore']);
+                const getCommandTargetIndex = (input) => {
+                    if (!input.startsWith('/')) return null;
+                    const parts = input.trim().split(/\s+/);
+                    if (parts.length === 0) return null;
+                    const cmd = parts[0].slice(1).toLowerCase();
+                    if (commandTargetMap[cmd]) return commandTargetMap[cmd];
+                    if (cmd === 'yinwuchat') {
+                        const sub = (parts[1] || '').toLowerCase();
+                        if (commandSubTargets.has(sub)) return 2;
+                        return null;
+                    }
+                    return null;
+                };
+                const showCommandPicker = computed(() => {
+                    // 同时支持桌面端和移动端
+                    const idx = getCommandTargetIndex(inputMsg.value.trim());
+                    return idx !== null;
+                });
+                const commandTargetCandidates = computed(() => {
+                    const idx = getCommandTargetIndex(inputMsg.value.trim());
+                    if (idx === null) return [];
+                    const parts = inputMsg.value.trim().split(/\s+/);
+                    const keyword = (parts[idx] || '').toLowerCase();
+                    return playerRoster.value.filter(p => {
+                        if (!p.name) return false;
+                        if (keyword && !p.name.toLowerCase().includes(keyword)) return false;
+                        return true;
+                    }).slice(0, 30);
+                });
+                const selectCommandTarget = (name) => {
+                    const raw = inputMsg.value || '';
+                    const idx = getCommandTargetIndex(raw.trim());
+                    if (idx === null) return;
+                    const parts = raw.trim().split(/\s+/);
+                    if (parts.length <= idx) {
+                        while (parts.length < idx) parts.push('');
+                        parts.push(name);
+                    } else {
+                        parts[idx] = name;
+                    }
+                    const tail = parts.slice(idx + 1).join(' ');
+                    inputMsg.value = parts.slice(0, idx + 1).join(' ') + (tail ? ' ' + tail : ' ');
+                };
+
+                const clearCache = () => {
+                    showClearCacheConfirm.value = true;
+                };
+
+                const confirmClearCache = () => {
+                    const dark = localStorage.getItem('yinwuchat_dark');
+                    const domain = localStorage.getItem('yinwuchat_default_domain');
+                    localStorage.clear();
+                    if (dark) localStorage.setItem('yinwuchat_dark', dark);
+                    if (domain) localStorage.setItem('yinwuchat_default_domain', domain);
+                    messages.value = [];
+                    showClearCacheConfirm.value = false;
+                    showToast('缓存已清除', 'info');
+                };
+
+                const saveDefaultDomain = () => {
+                    const trimmed = String(defaultDomain.value || '').trim();
+                    defaultDomain.value = trimmed;
+                    if (trimmed) {
+                        localStorage.setItem('yinwuchat_default_domain', trimmed);
+                    } else {
+                        localStorage.removeItem('yinwuchat_default_domain');
+                    }
+                    showSettings.value = false;
+                };
+
+                const showToast = (msg, type = 'info') => {
+                    const id = toastId++;
+                    toasts.value.push({ id, msg, type });
+                    nextTick(() => lucide.createIcons());
+                    setTimeout(() => {
+                        toasts.value = toasts.value.filter(t => t.id !== id);
+                    }, 3500);
+                };
+
+                const closeBanNotice = () => {
+                    banNotice.value = null;
+                };
+
+                const closeAdminAlert = () => {
+                    adminAlert.value = null;
+                };
+
+                const closeItemPreview = () => {
+                    itemPreview.value = null;
+                };
+
+                const openItemPreview = (item) => {
+                    if (!item || typeof item !== 'object') return;
+                    itemPreview.value = item;
+                    nextTick(() => lucide.createIcons());
+                };
+
+                const escapeHtml = (value) => String(value || '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+
+                const getItemIconCandidates = (item) => {
+                    const rawId = item && item.id ? String(item.id) : '';
+                    const namespaced = rawId.startsWith('minecraft:') ? rawId.slice(10) : rawId;
+                    const key = namespaced.trim().toLowerCase();
+                    if (!key) return ['./logo.png'];
+                    return [
+                        `https://assets.mcasset.cloud/latest/assets/minecraft/textures/item/${key}.png`,
+                        `https://assets.mcasset.cloud/latest/assets/minecraft/textures/block/${key}.png`,
+                        `https://api.mineatar.io/item/${key}`,
+                        './logo.png'
+                    ];
+                };
+
+                const getItemIconUrl = (item) => {
+                    const list = getItemIconCandidates(item);
+                    return list[0];
+                };
+
+                const handleItemIconError = (event) => {
+                    const img = event && event.target;
+                    if (!img) return;
+                    const item = itemPreview.value;
+                    const list = getItemIconCandidates(item);
+                    const current = img.getAttribute('src');
+                    const idx = list.indexOf(current);
+                    const next = idx >= 0 ? list[idx + 1] : list[1];
+                    if (next && next !== current) {
+                        img.setAttribute('src', next);
+                    }
+                };
+
+                const formatMinecraftInline = (value) => {
+                    let html = escapeHtml(value);
+                    let opened = 0;
+                    html = html.replace(/§(.)/g, (match, code) => {
+                        const lower = code.toLowerCase();
+                        if (lower === 'r') {
+                            if (opened === 0) return '';
+                            const closing = '</span>'.repeat(opened);
+                            opened = 0;
+                            return closing;
+                        }
+                        const colors = {
+                            '0': '#000000', '1': '#0000AA', '2': '#00AA00', '3': '#00AAAA',
+                            '4': '#AA0000', '5': '#AA00AA', '6': '#FFAA00', '7': '#AAAAAA',
+                            '8': '#555555', '9': '#5555FF', 'a': '#55FF55', 'b': '#55FFFF',
+                            'c': '#FF5555', 'd': '#FF55FF', 'e': '#FFFF55', 'f': '#FFFFFF'
+                        };
+                        if (colors[lower]) {
+                            opened += 1;
+                            return `<span style="color: ${colors[lower]}">`;
+                        }
+                        return ''; // Hide unknown codes like §t
+                    });
+                    if (opened > 0) {
+                        html += '</span>'.repeat(opened);
+                    }
+                    return html.replace(/\n/g, '<br>');
+                };
+
+                const handleItemTagClick = (event) => {
+                    const target = event.target && event.target.closest
+                        ? event.target.closest('.item-preview-tag')
+                        : null;
+                    if (!target) return;
+                    const raw = target.getAttribute('data-item');
+                    if (!raw) return;
+                    try {
+                        const item = JSON.parse(decodeURIComponent(raw));
+                        openItemPreview(item);
+                    } catch (e) {}
+                };
+
+                const closeAtAllAdminConfirm = () => {
+                    atAllAdminConfirm.value = null;
+                };
+
+                const sendAtAllAdminExecute = () => {
+                    if (!ws || wsStatus.value !== 'open') return;
+                    ws.send(JSON.stringify({ action: 'command', command: 'yinwuchat atalladmin_execute' }));
+                    closeAtAllAdminConfirm();
+                };
+
+                const sendBindAccount = () => {
+                    if (!ws || wsStatus.value !== 'open') return;
+                    if (bindAccountSent.value) return;
+                    if (!currentUser.value) return;
+                    ws.send(JSON.stringify({
+                        action: 'bind_account',
+                        account: currentUser.value
+                    }));
+                    bindAccountSent.value = true;
+                };
+
+                const toggleWsProtocol = (url) => {
+                    if (!url) return '';
+                    if (url.startsWith('ws://')) return 'wss://' + url.slice('ws://'.length);
+                    if (url.startsWith('wss://')) return 'ws://' + url.slice('wss://'.length);
+                    return '';
+                };
+
+                const withWsPath = (url, path) => {
+                    if (!url || !path) return url;
+                    return url
+                        .replace(/\/new-chat\/ws\/?$/i, path)
+                        .replace(/\/new-ws\/?$/i, path)
+                        .replace(/\/ws\/?$/i, path);
+                };
+
+                const buildWsUrlCandidates = (url) => {
+                    if (!url) return [];
+                    const candidates = [];
+                    const pushUnique = (value) => {
+                        if (!value) return;
+                        const normalized = String(value).replace(/\/+$/, '');
+                        if (!normalized) return;
+                        if (!candidates.includes(normalized)) {
+                            candidates.push(normalized);
+                        }
+                    };
+                    const primary = String(url || '').trim();
+                    const hostPart = primary.replace(/^wss?:\/\//i, '').split('/')[0].toLowerCase();
+                    const isLocalTarget = hostPart.includes('localhost') || hostPart.includes('127.0.0.1');
+                    // 移动端在公网环境优先尝试 wss，减少 1006 概率
+                    if (!isLocalTarget && primary.startsWith('ws://')) {
+                        pushUnique(toggleWsProtocol(primary));
+                    }
+                    pushUnique(primary);
+                    pushUnique(withWsPath(url, '/ws'));
+                    pushUnique(withWsPath(url, '/new-ws'));
+                    pushUnique(withWsPath(url, '/new-chat/ws'));
+                    return candidates;
+                };
+
+                /* ── 原生 WebSocket 桥接 ── */
+                let _nativeWsConnId = 0;
+                let _nativeWsPlugin = null; // 缓存 JS 侧注册的原生插件代理
+
+                // 诊断：在连接前把关键检测结果展示出来
+                const _diagNativeWs = () => {
+                    const cap = !!window.Capacitor;
+                    const isNative = cap && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform();
+                    const hasRegister = cap && typeof window.Capacitor.registerPlugin === 'function';
+                    let pluginOk = false;
+                    let regErr = '';
+                    if (isNative && hasRegister && !_nativeWsPlugin) {
+                        try {
+                            _nativeWsPlugin = window.Capacitor.registerPlugin('NativeWebSocket');
+                            pluginOk = !!_nativeWsPlugin;
+                        } catch (e) { regErr = String(e); }
+                    } else if (_nativeWsPlugin) {
+                        pluginOk = true;
+                    }
+                    return { cap, isNative, hasRegister, pluginOk, regErr };
+                };
+
+                const _isNativeWsAvailable = () => {
+                    try {
+                        const d = _diagNativeWs();
+                        return d.isNative && d.pluginOk;
+                    } catch (e) { return false; }
+                };
+
+                /**
+                 * 创建 WebSocket 连接。
+                 * - 在 Capacitor 原生环境下自动使用 NativeWebSocketPlugin（OkHttp + 信任全部证书），
+                 *   解决 Android WebView 原生 WS 对非标准/自签证书直接 1006 的问题。
+                 * - 在浏览器环境下退回标准 new WebSocket()。
+                 */
+                const createWebSocket = (url) => {
+                    const diag = _diagNativeWs();
+                    const useNative = diag.isNative && diag.pluginOk;
+                    console.log('[WS-Bridge] useNative=' + useNative + ', url=' + url);
+
+                    if (!useNative) {
+                        return new WebSocket(url);
+                    }
+                    const plugin = _nativeWsPlugin;
+                    const connId = ++_nativeWsConnId;
+                    // 清除上一次连接的监听器，避免幽灵事件
+                    try { plugin.removeAllListeners(); } catch (_) {}
+                    const wsLike = {
+                        url,
+                        readyState: 0, // CONNECTING
+                        onopen: null,
+                        onmessage: null,
+                        onclose: null,
+                        onerror: null,
+                        send(data) { plugin.send({ data }).catch(() => {}); },
+                        close(code, reason) {
+                            wsLike.readyState = 2; // CLOSING
+                            plugin.close({ code: code || 1000, reason: reason || '' }).catch(() => {});
+                        }
+                    };
+                    plugin.addListener('open', () => {
+                        if (connId !== _nativeWsConnId) return;
+                        wsLike.readyState = 1; // OPEN
+                        if (wsLike.onopen) wsLike.onopen({ type: 'open' });
+                    });
+                    plugin.addListener('message', (ev) => {
+                        if (connId !== _nativeWsConnId) return;
+                        if (wsLike.onmessage) wsLike.onmessage({ data: ev.data });
+                    });
+                    plugin.addListener('close', (ev) => {
+                        if (connId !== _nativeWsConnId) return;
+                        wsLike.readyState = 3; // CLOSED
+                        if (wsLike.onclose) wsLike.onclose({ code: ev.code, reason: ev.reason || '' });
+                    });
+                    plugin.addListener('error', (ev) => {
+                        if (connId !== _nativeWsConnId) return;
+                        console.warn('[NativeWS] error:', ev.message);
+                        if (wsLike.onerror) wsLike.onerror(new Error(ev.message || 'WebSocket error'));
+                    });
+                    // 发起连接
+                    plugin.connect({ url }).catch(err => {
+                        if (connId !== _nativeWsConnId) return;
+                        console.warn('[NativeWS] connect rejected:', err);
+                        wsLike.readyState = 3;
+                        if (wsLike.onerror) wsLike.onerror(new Error(errDetail));
+                        if (wsLike.onclose) wsLike.onclose({ code: 1006, reason: errDetail });
+                    });
+                    return wsLike;
+                };
+
+                const connectWebSocket = (url, allowFallback, onConnectFailed) => {
+                    let opened = false;
+                    try {
+                        ws = createWebSocket(url);
+                    } catch (err) {
+                        connecting.value = false;
+                        showToast('无法建立连接: ' + err.message, 'error');
+                        if (typeof onConnectFailed === 'function') onConnectFailed();
+                        return;
+                    }
+
+                    ws.onopen = () => {
+                        opened = true;
+                        wsStatus.value = 'open';
+                        lastGoodWsUrl.value = url;
+                        localStorage.setItem('yinwuchat_last_good_ws', url);
+                        requestNotificationPermission(); // 请求通知权限
+                        ws.send(JSON.stringify({
+                            action: 'check_token',
+                            token: token.value || ''
+                        }));
+                        localStorage.setItem('yinwuchat_token', token.value || '');
+                    };
+
+                    ws.onmessage = (e) => {
+                        try {
+                            const data = JSON.parse(e.data);
+                            handleWsMessage(data);
+                        } catch (err) {
+                            // 忽略非 JSON 消息（如心跳）
+                        }
+                    };
+
+                    ws.onclose = (evt) => {
+                        saveDividerAnchor();
+                        wsStatus.value = 'closed';
+                        isConnected.value = false;
+                        connecting.value = false;
+                        bindAccountSent.value = false;
+                        if (!opened && allowFallback) {
+                            const altUrl = toggleWsProtocol(url);
+                            if (altUrl && altUrl !== url) {
+                                showToast(`连接失败，尝试备用协议：${altUrl}`, 'error');
+                                connectWebSocket(altUrl, false, onConnectFailed);
+                                return;
+                            }
+                        }
+                        if (!opened && typeof onConnectFailed === 'function') {
+                            onConnectFailed();
+                        }
+                        const code = evt && typeof evt.code === 'number' ? evt.code : '';
+                        const reason = evt && evt.reason ? evt.reason : '';
+                        const detail = code ? `（code=${code}${reason ? `, reason=${reason}` : ''}）` : '';
+                        
+                        if (opened && !isManualDisconnect.value) {
+                            // 只有曾经连接成功且不是手动断开的才尝试自动重连
+                            showToast(`连接已断开，5秒后尝试自动重连...`, 'error');
+                            setTimeout(() => {
+                                if (!isConnected.value && !isManualDisconnect.value) connect();
+                            }, 5000);
+                        } else {
+                            const msg = isManualDisconnect.value ? '已成功断开连接' : `WebSocket 连接已断开${detail}`;
+                            showToast(msg, isManualDisconnect.value ? 'info' : 'error');
+                        }
+                    };
+
+                    ws.onerror = () => {
+                        if (!opened && !allowFallback) {
+                            showToast('连接失败，请确认地址和端口是否正确', 'error');
+                        }
+                    };
+                };
+
+                const connect = async () => {
+                    isManualDisconnect.value = false;
+                    bindAccountSent.value = false;
+                    autoWsUrl.value = getAutoWsUrl();
+                    const manualCandidate = manualWsUrl.value.trim() || savedManualWsUrl.value || '';
+                    let resolvedWsUrl = manualCandidate ? buildWsUrlFromBase(manualCandidate) : (lastGoodWsUrl.value || autoWsUrl.value);
+                    if (!resolvedWsUrl && isLocalHostEnv()) {
+                        const discovered = await discoverWsUrl();
+                        if (discovered) {
+                            autoWsUrl.value = buildWsUrlFromBase(discovered);
+                            resolvedWsUrl = autoWsUrl.value;
+                        }
+                    }
+                    if (!resolvedWsUrl) {
+                        autoWsUrl.value = getAutoWsUrl();
+                        resolvedWsUrl = autoWsUrl.value;
+                    }
+                    if (!resolvedWsUrl) {
+                        showToast('无法自动识别 WebSocket 地址，请在高级配置中手动输入', 'error');
+                        return;
+                    }
+                    if (manualCandidate) {
+                        savedManualWsUrl.value = manualCandidate;
+                        localStorage.setItem('yinwuchat_manual_ws', savedManualWsUrl.value);
+                    }
+                    const wsCandidates = buildWsUrlCandidates(resolvedWsUrl);
+                    let candidateIndex = 0;
+                    const tryNextCandidate = () => {
+                        candidateIndex += 1;
+                        if (candidateIndex >= wsCandidates.length) {
+                            showToast('所有候选 WebSocket 地址都连接失败，请检查反代 WS 路由', 'error');
+                            return;
+                        }
+                        connectWebSocket(wsCandidates[candidateIndex], true, tryNextCandidate);
+                    };
+                    connecting.value = true;
+                    showToast(`尝试连接：${wsCandidates[0]}`, 'info');
+                    connectWebSocket(wsCandidates[0], true, tryNextCandidate);
+                };
+
+                const goToRegister = async () => {
+                    authStep.value = 'register';
+                    await refreshCaptcha();
+                    nextTick(() => lucide.createIcons());
+                };
+
+                const goToLogin = () => {
+                    authStep.value = 'login';
+                    registerForm.value.password = '';
+                    registerForm.value.confirm = '';
+                    registerForm.value.captcha = '';
+                    if (resetStatusInterval) {
+                        clearInterval(resetStatusInterval);
+                        resetStatusInterval = null;
+                    }
+                    nextTick(() => lucide.createIcons());
+                };
+
+                const goToForgot = () => {
+                    authStep.value = 'forgot_request';
+                    forgotForm.value = { username: '', playerName: '' };
+                    nextTick(() => lucide.createIcons());
+                };
+
+                const submitForgotRequest = async () => {
+                    if (!forgotForm.value.username || !forgotForm.value.playerName) {
+                        showToast('请完整填写信息', 'error');
+                        return;
+                    }
+                    authLoading.value = true;
+                    try {
+                        const handshake = await fetchHandshake();
+                        const oaepHash = handshake.oaepHash || 'SHA-256';
+                        const dummyHash = '0'.repeat(64);
+                        const saltedHash = await sha256Hex(dummyHash + handshake.nonce);
+                        const payload = {
+                            username: forgotForm.value.username.trim(),
+                            playerName: forgotForm.value.playerName.trim(),
+                            nonce: handshake.nonce,
+                            passwordHash: dummyHash,
+                            saltedHash: saltedHash
+                        };
+                        const encryptedPayload = await encryptPayloadHybrid(payload, handshake.publicKey, oaepHash);
+                        const hmac = await signHmac(handshake.hmacKey, `${encryptedPayload.payloadEnc}.${encryptedPayload.iv}`);
+                        const base = getHttpBaseUrl();
+                        const res = await fetchWithFallback(base, '/new-chat/api/auth/reset/request', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                handshakeId: handshake.handshakeId,
+                                payloadEnc: encryptedPayload.payloadEnc,
+                                keyEnc: encryptedPayload.keyEnc,
+                                iv: encryptedPayload.iv,
+                                hmac
+                            })
+                        });
+                        const data = await res.json();
+                        if (data.ok) {
+                            resetCode.value = data.code;
+                            authStep.value = 'forgot_verify';
+                            startResetStatusPolling();
+                            nextTick(() => lucide.createIcons());
+                        } else {
+                            showToast(data.message || '申请失败', 'error');
+                        }
+                    } catch (err) {
+                        showToast('请求失败，请稍后重试', 'error');
+                    } finally {
+                        authLoading.value = false;
+                    }
+                };
+
+                const startResetStatusPolling = () => {
+                    if (resetStatusInterval) clearInterval(resetStatusInterval);
+                    resetStatusInterval = setInterval(async () => {
+                        try {
+                            const base = getHttpBaseUrl();
+                            const res = await fetchWithFallback(base, `/new-chat/api/auth/reset/status/${forgotForm.value.username}`);
+                            const data = await res.json();
+                            if (data.ok && data.verified) {
+                                clearInterval(resetStatusInterval);
+                                resetStatusInterval = null;
+                                authStep.value = 'forgot_submit';
+                                resetPasswordForm.value = { password: '', confirm: '' };
+                                nextTick(() => lucide.createIcons());
+                                showToast('身份验证成功！请设置新密码。');
+                            } else if (!data.ok) {
+                                // 会话可能已过期
+                                clearInterval(resetStatusInterval);
+                                resetStatusInterval = null;
+                                showToast(data.message || '重置会话已过期', 'error');
+                                goToLogin();
+                            }
+                        } catch (e) {}
+                    }, 3000);
+                };
+
+                const submitResetPassword = async () => {
+                    if (!resetPasswordForm.value.password || !resetPasswordForm.value.confirm) {
+                        showToast('请完整填写新密码', 'error');
+                        return;
+                    }
+                    if (resetPasswordForm.value.password !== resetPasswordForm.value.confirm) {
+                        showToast('两次输入的密码不一致', 'error');
+                        return;
+                    }
+                    authLoading.value = true;
+                    try {
+                        const handshake = await fetchHandshake();
+                        const passwordHash = await sha256Hex(resetPasswordForm.value.password);
+                        const saltedHash = await sha256Hex(passwordHash + handshake.nonce);
+                        const oaepHash = handshake.oaepHash || 'SHA-256';
+                        const payload = {
+                            username: forgotForm.value.username.trim(),
+                            passwordHash,
+                            saltedHash,
+                            nonce: handshake.nonce
+                        };
+                        const encryptedPayload = await encryptPayloadHybrid(payload, handshake.publicKey, oaepHash);
+                        const hmac = await signHmac(handshake.hmacKey, `${encryptedPayload.payloadEnc}.${encryptedPayload.iv}`);
+                        const base = getHttpBaseUrl();
+                        const res = await fetchWithFallback(base, '/new-chat/api/auth/reset/submit', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                handshakeId: handshake.handshakeId,
+                                payloadEnc: encryptedPayload.payloadEnc,
+                                keyEnc: encryptedPayload.keyEnc,
+                                iv: encryptedPayload.iv,
+                                hmac
+                            })
+                        });
+                        const data = await res.json();
+                        if (data.ok) {
+                            showToast(data.message || '密码重置成功');
+                            goToLogin();
+                        } else {
+                            showToast(data.message || '重置失败', 'error');
+                        }
+                    } catch (err) {
+                        showToast('重置密码失败，请稍后重试', 'error');
+                    } finally {
+                        authLoading.value = false;
+                    }
+                };
+
+                const getHttpBaseUrl = () => {
+                    // 优先从手动输入框或已保存的地址中提取基址
+                    let rawUrl = manualWsUrl.value.trim() || savedManualWsUrl.value || '';
+                    
+                    // 本地开发环境：优先使用发现成功时的 HTTP 基址
+                    if (!rawUrl && discoveredHttpBase.value) {
+                        return discoveredHttpBase.value;
+                    }
+
+                    // 本地开发环境：尝试发现服务器地址
+                    if (!rawUrl && isLocalHostEnv()) {
+                        rawUrl = getDiscoveryBase();
+                        if (rawUrl) {
+                            let url = normalizeHttpBase(rawUrl);
+                            if (url) {
+                                url = url.replace(/\/ws\/?$/i, '').replace(/\/+$/, '');
+                                return url;
+                            }
+                        }
+                    }
+                    
+                    // 有手动配置时使用配置的地址
+                    if (rawUrl) {
+                        let url = normalizeHttpBase(rawUrl);
+                        if (url) {
+                            url = url.replace(/\/ws\/?$/i, '').replace(/\/+$/, '');
+                            return url;
+                        }
+                    }
+                    
+                    // 生产环境：返回空字符串，使用相对路径
+                    return '';
+                };
+
+                const fetchWithFallback = async (base, path, options) => {
+                    const fetchByBaseAndPath = async (targetBase, targetPath) => {
+                        const primary = targetBase ? (targetBase + targetPath) : targetPath;
+                        try {
+                            return await fetch(primary, options);
+                        } catch (err) {
+                            // 如果是相对路径，不进行协议切换尝试
+                            if (!targetBase) throw err;
+                            // 尝试切换协议
+                            if (targetBase.startsWith('https://')) {
+                                return await fetch(targetBase.replace('https://', 'http://') + targetPath, options);
+                            }
+                            if (targetBase.startsWith('http://')) {
+                                return await fetch(targetBase.replace('http://', 'https://') + targetPath, options);
+                            }
+                            throw err;
+                        }
+                    };
+                    const mapAlternativeApiPath = (targetPath) => {
+                        if (targetPath.startsWith('/new-chat/api/')) {
+                            return targetPath.replace('/new-chat/api/', '/api/');
+                        }
+                        if (targetPath.startsWith('/api/')) {
+                            return targetPath.replace('/api/', '/new-chat/api/');
+                        }
+                        return '';
+                    };
+
+                    let res = await fetchByBaseAndPath(base, path);
+                    if (res.status !== 404) return res;
+
+                    // 兼容两种部署路径：/new-chat/api/* 与 /api/*
+                    const altPath = mapAlternativeApiPath(path);
+                    if (!altPath) return res;
+                    const altRes = await fetchByBaseAndPath(base, altPath);
+                    return altRes.status === 404 ? res : altRes;
+                };
+
+                const refreshCaptcha = async () => {
+                    try {
+                        const base = getHttpBaseUrl();
+                        const res = await fetchWithFallback(base, '/new-chat/api/auth/captcha');
+                        const data = await res.json();
+                        if (data.ok) {
+                            captchaImage.value = data.image || '';
+                            captchaId.value = data.captchaId || '';
+                        } else {
+                            showToast(data.message || '验证码获取失败', 'error');
+                        }
+                    } catch (err) {
+                        showToast('验证码获取失败', 'error');
+                    }
+                };
+
+                const fetchHandshake = async () => {
+                    const base = getHttpBaseUrl();
+                    const res = await fetchWithFallback(base, '/new-chat/api/auth/handshake');
+                    const data = await res.json();
+                    if (!data.ok) {
+                        throw new Error(data.message || '无法初始化加密握手');
+                    }
+                    return data;
+                };
+
+                const hasWebCrypto = () => !!(window.crypto && window.crypto.subtle);
+                const hasForge = () => !!window.forge;
+                const isCryptoAvailable = () => hasWebCrypto() || hasForge();
+
+                const sha256Hex = async (input) => {
+                    if (hasWebCrypto()) {
+                        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
+                        return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+                    }
+                    if (hasForge()) {
+                        const md = forge.md.sha256.create();
+                        md.update(String(input), 'utf8');
+                        return md.digest().toHex();
+                    }
+                    throw new Error('浏览器不支持加密注册，请升级浏览器');
+                };
+
+                const base64ToBuffer = (base64) => {
+                    const binary = atob(base64);
+                    const bytes = new Uint8Array(binary.length);
+                    for (let i = 0; i < binary.length; i++) {
+                        bytes[i] = binary.charCodeAt(i);
+                    }
+                    return bytes.buffer;
+                };
+
+                const bufferToBase64 = (buffer) => {
+                    const bytes = new Uint8Array(buffer);
+                    let binary = '';
+                    bytes.forEach(b => { binary += String.fromCharCode(b); });
+                    return btoa(binary);
+                };
+
+                const importRsaPublicKey = async (pem, hashName) => {
+                    const cleaned = pem.replace(/-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\\s+/g, '');
+                    const binary = base64ToBuffer(cleaned);
+                    return crypto.subtle.importKey(
+                        'spki',
+                        binary,
+                        { name: 'RSA-OAEP', hash: hashName },
+                        false,
+                        ['encrypt']
+                    );
+                };
+
+                const encryptPayloadHybrid = async (payload, publicKeyPem, hashName) => {
+                    if (hasWebCrypto()) {
+                        const key = await importRsaPublicKey(publicKeyPem, hashName);
+                        const payloadBytes = new TextEncoder().encode(JSON.stringify(payload));
+                        const aesKey = await crypto.subtle.generateKey(
+                            { name: 'AES-GCM', length: 256 },
+                            true,
+                            ['encrypt', 'decrypt']
+                        );
+                        const iv = crypto.getRandomValues(new Uint8Array(12));
+                        const payloadEnc = await crypto.subtle.encrypt(
+                            { name: 'AES-GCM', iv },
+                            aesKey,
+                            payloadBytes
+                        );
+                        const rawAesKey = await crypto.subtle.exportKey('raw', aesKey);
+                        const keyEnc = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, key, rawAesKey);
+                        return {
+                            payloadEnc: bufferToBase64(payloadEnc),
+                            keyEnc: bufferToBase64(keyEnc),
+                            iv: bufferToBase64(iv.buffer)
+                        };
+                    }
+                    if (hasForge()) {
+                        const publicKey = forge.pki.publicKeyFromPem(publicKeyPem);
+                        const payloadJson = JSON.stringify(payload);
+                        const payloadBytes = forge.util.encodeUtf8(payloadJson);
+                        const aesKeyBytes = forge.random.getBytesSync(32);
+                        const ivBytes = forge.random.getBytesSync(12);
+                        const cipher = forge.cipher.createCipher('AES-GCM', aesKeyBytes);
+                        cipher.start({ iv: ivBytes, tagLength: 128 });
+                        cipher.update(forge.util.createBuffer(payloadBytes));
+                        if (!cipher.finish()) {
+                            throw new Error('AES 加密失败');
+                        }
+                        const cipherBytes = cipher.output.getBytes();
+                        const tagBytes = cipher.mode.tag.getBytes();
+                        const payloadCombined = cipherBytes + tagBytes;
+                        const md = String(hashName || 'SHA-256').toUpperCase() === 'SHA-1' ? forge.md.sha1.create() : forge.md.sha256.create();
+                        const keyEncBytes = publicKey.encrypt(aesKeyBytes, 'RSA-OAEP', { md, mgf1: { md } });
+                        return {
+                            payloadEnc: forge.util.encode64(payloadCombined),
+                            keyEnc: forge.util.encode64(keyEncBytes),
+                            iv: forge.util.encode64(ivBytes)
+                        };
+                    }
+                    throw new Error('浏览器不支持加密注册，请升级浏览器');
+                };
+
+                const signHmac = async (keyBase64, dataString) => {
+                    if (hasWebCrypto()) {
+                        const keyData = base64ToBuffer(keyBase64);
+                        const key = await crypto.subtle.importKey(
+                            'raw',
+                            keyData,
+                            { name: 'HMAC', hash: 'SHA-256' },
+                            false,
+                            ['sign']
+                        );
+                        const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(dataString));
+                        return bufferToBase64(signature);
+                    }
+                    if (hasForge()) {
+                        const keyBytes = forge.util.decode64(keyBase64);
+                        const hmac = forge.hmac.create();
+                        hmac.start('sha256', keyBytes);
+                        hmac.update(String(dataString), 'utf8');
+                        return forge.util.encode64(hmac.digest().getBytes());
+                    }
+                    throw new Error('浏览器不支持加密注册，请升级浏览器');
+                };
+
+                const submitLogin = async () => {
+                    if (!isCryptoAvailable()) {
+                        showToast('浏览器不支持加密登录，请升级浏览器', 'error');
+                        return;
+                    }
+                    if (!loginForm.value.username || !loginForm.value.password) {
+                        showToast('请输入用户名和密码', 'error');
+                        return;
+                    }
+                    authLoading.value = true;
+                    try {
+                        const handshake = await fetchHandshake();
+                        const passwordHash = await sha256Hex(loginForm.value.password);
+                        const saltedHash = await sha256Hex(passwordHash + handshake.nonce);
+                        const oaepHash = handshake.oaepHash || 'SHA-256';
+                        const payload = {
+                            username: loginForm.value.username.trim(),
+                            passwordHash,
+                            saltedHash,
+                            nonce: handshake.nonce
+                        };
+                        const encryptedPayload = await encryptPayloadHybrid(payload, handshake.publicKey, oaepHash);
+                        const hmac = await signHmac(handshake.hmacKey, `${encryptedPayload.payloadEnc}.${encryptedPayload.iv}`);
+                        const base = getHttpBaseUrl();
+                        const res = await fetchWithFallback(base, '/new-chat/api/auth/login', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                handshakeId: handshake.handshakeId,
+                                payloadEnc: encryptedPayload.payloadEnc,
+                                keyEnc: encryptedPayload.keyEnc,
+                                iv: encryptedPayload.iv,
+                                hmac
+                            })
+                        });
+                        const data = await res.json();
+                        if (data.ok) {
+                            currentUser.value = data.username || loginForm.value.username.trim();
+                            localStorage.setItem('yinwuchat_username', currentUser.value);
+                            loginForm.value.password = '';
+                            authStep.value = 'connect';
+                            nextTick(() => lucide.createIcons());
+                            showToast('登录成功');
+                        } else {
+                            if (data.action === 'ban_notice') {
+                                banNotice.value = {
+                                    target: data.target || '',
+                                    duration: data.duration || '永久',
+                                    reason: data.reason || '',
+                                    by: data.by || ''
+                                };
+                                isManualDisconnect.value = true; // 封禁时不尝试重连
+                                showToast('该账号已被封禁', 'error');
+                            } else {
+                                showToast(data.message || '登录失败', 'error');
+                            }
+                        }
+                    } catch (err) {
+                        showToast('登录失败，请稍后重试', 'error');
+                    } finally {
+                        authLoading.value = false;
+                    }
+                };
+
+                const submitRegister = async () => {
+                    if (!isCryptoAvailable()) {
+                        showToast('浏览器不支持加密注册，请升级浏览器', 'error');
+                        return;
+                    }
+                    if (!registerForm.value.username || !registerForm.value.password || !registerForm.value.confirm) {
+                        showToast('请完整填写注册信息', 'error');
+                        return;
+                    }
+                    if (registerForm.value.password !== registerForm.value.confirm) {
+                        showToast('两次输入的密码不一致', 'error');
+                        return;
+                    }
+                    if (!registerForm.value.captcha) {
+                        showToast('请输入图片验证码', 'error');
+                        return;
+                    }
+                    authLoading.value = true;
+                    try {
+                        const handshake = await fetchHandshake();
+                        const passwordHash = await sha256Hex(registerForm.value.password);
+                        const saltedHash = await sha256Hex(passwordHash + handshake.nonce);
+                        const oaepHash = handshake.oaepHash || 'SHA-256';
+                        const payload = {
+                            username: registerForm.value.username.trim(),
+                            passwordHash,
+                            saltedHash,
+                            captchaId: captchaId.value,
+                            captchaText: registerForm.value.captcha,
+                            nonce: handshake.nonce
+                        };
+                        const encryptedPayload = await encryptPayloadHybrid(payload, handshake.publicKey, oaepHash);
+                        const hmac = await signHmac(handshake.hmacKey, `${encryptedPayload.payloadEnc}.${encryptedPayload.iv}`);
+                        const base = getHttpBaseUrl();
+                        const res = await fetchWithFallback(base, '/new-chat/api/auth/register', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                handshakeId: handshake.handshakeId,
+                                payloadEnc: encryptedPayload.payloadEnc,
+                                keyEnc: encryptedPayload.keyEnc,
+                                iv: encryptedPayload.iv,
+                                hmac
+                            })
+                        });
+                        const data = await res.json();
+                        if (data.ok) {
+                            currentUser.value = registerForm.value.username.trim();
+                            localStorage.setItem('yinwuchat_username', currentUser.value);
+                            registerForm.value.password = '';
+                            registerForm.value.confirm = '';
+                            registerForm.value.captcha = '';
+                            authStep.value = 'connect';
+                            nextTick(() => lucide.createIcons());
+                            showToast('注册成功，请继续填写 Token');
+                        } else {
+                            showToast(data.message || '注册失败', 'error');
+                            await refreshCaptcha();
+                        }
+                    } catch (err) {
+                        showToast('注册失败，请稍后重试', 'error');
+                        await refreshCaptcha();
+                    } finally {
+                        authLoading.value = false;
+                    }
+                };
+
+                const submitResetToken = async () => {
+                    if (!isCryptoAvailable()) {
+                        showToast('浏览器不支持加密操作，请升级浏览器', 'error');
+                        return;
+                    }
+                    if (!resetTokenPassword.value) {
+                        showToast('请输入密码', 'error');
+                        return;
+                    }
+                    if (!currentUser.value) {
+                        showToast('请先登录', 'error');
+                        return;
+                    }
+                    authLoading.value = true;
+                    try {
+                        const handshake = await fetchHandshake();
+                        const passwordHash = await sha256Hex(resetTokenPassword.value);
+                        const saltedHash = await sha256Hex(passwordHash + handshake.nonce);
+                        const oaepHash = handshake.oaepHash || 'SHA-256';
+                        const payload = {
+                            username: currentUser.value,
+                            passwordHash,
+                            saltedHash,
+                            nonce: handshake.nonce
+                        };
+                        const encryptedPayload = await encryptPayloadHybrid(payload, handshake.publicKey, oaepHash);
+                        const hmac = await signHmac(handshake.hmacKey, `${encryptedPayload.payloadEnc}.${encryptedPayload.iv}`);
+                        const base = getHttpBaseUrl();
+                        const res = await fetchWithFallback(base, '/new-chat/api/auth/reset-token', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                handshakeId: handshake.handshakeId,
+                                payloadEnc: encryptedPayload.payloadEnc,
+                                keyEnc: encryptedPayload.keyEnc,
+                                iv: encryptedPayload.iv,
+                                hmac
+                            })
+                        });
+                        const data = await res.json();
+                        if (data.ok) {
+                            showToast(data.message || 'Token 已重置');
+                            showResetToken.value = false;
+                            resetTokenPassword.value = '';
+                            localStorage.removeItem('yinwuchat_token');
+                            localStorage.removeItem('yinwuchat_last_good_ws');
+                            token.value = '';
+                            lastGoodWsUrl.value = '';
+                            if (ws && ws.readyState === WebSocket.OPEN) {
+                                ws.close();
+                            }
+                            isConnected.value = false;
+                            authStep.value = 'connect';
+                            nextTick(() => lucide.createIcons());
+                        } else {
+                            showToast(data.message || '重置失败', 'error');
+                        }
+                    } catch (err) {
+                        showToast('重置请求失败，请稍后重试', 'error');
+                    } finally {
+                        authLoading.value = false;
+                    }
+                };
+
+                const submitDeleteAccount = async () => {
+                    if (!isCryptoAvailable()) {
+                        showToast('浏览器不支持加密操作，请升级浏览器', 'error');
+                        return;
+                    }
+                    if (!deleteAccountForm.value.username || !deleteAccountForm.value.password || !deleteAccountForm.value.playerName) {
+                        showToast('请完整填写信息', 'error');
+                        return;
+                    }
+                    if (!confirm('确认要注销此账户吗？此操作不可撤销！')) {
+                        return;
+                    }
+                    authLoading.value = true;
+                    try {
+                        const handshake = await fetchHandshake();
+                        const passwordHash = await sha256Hex(deleteAccountForm.value.password);
+                        const saltedHash = await sha256Hex(passwordHash + handshake.nonce);
+                        const oaepHash = handshake.oaepHash || 'SHA-256';
+                        const payload = {
+                            username: deleteAccountForm.value.username.trim(),
+                            passwordHash,
+                            saltedHash,
+                            playerName: deleteAccountForm.value.playerName.trim(),
+                            nonce: handshake.nonce
+                        };
+                        const encryptedPayload = await encryptPayloadHybrid(payload, handshake.publicKey, oaepHash);
+                        const hmac = await signHmac(handshake.hmacKey, `${encryptedPayload.payloadEnc}.${encryptedPayload.iv}`);
+                        const base = getHttpBaseUrl();
+                        const res = await fetchWithFallback(base, '/new-chat/api/auth/delete', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                handshakeId: handshake.handshakeId,
+                                payloadEnc: encryptedPayload.payloadEnc,
+                                keyEnc: encryptedPayload.keyEnc,
+                                iv: encryptedPayload.iv,
+                                hmac
+                            })
+                        });
+                        const data = await res.json();
+                        if (data.ok) {
+                            showToast(data.message || '账户已注销');
+                            showDeleteAccount.value = false;
+                            deleteAccountForm.value = { username: '', password: '', playerName: '' };
+                            if (currentUser.value === payload.username) {
+                                localStorage.removeItem('yinwuchat_username');
+                                localStorage.removeItem('yinwuchat_token');
+                                currentUser.value = '';
+                                token.value = '';
+                                authStep.value = 'login';
+                            }
+                        } else {
+                            showToast(data.message || '注销失败', 'error');
+                        }
+                    } catch (err) {
+                        showToast('注销请求失败，请稍后重试', 'error');
+                    } finally {
+                        authLoading.value = false;
+                    }
+                };
+
+                const extractPublicContent = (raw) => {
+                    if (!raw) return '';
+                    const marker = '>>>';
+                    const idx = raw.lastIndexOf(marker);
+                    if (idx === -1) return raw;
+                    return raw.slice(idx + marker.length).trim();
+                };
+
+                // 发送原生通知
+                const sendNativeNotification = (title, body) => {
+                    // 如果在 App 环境下（使用 Capacitor）
+                    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
+                        try {
+                            window.Capacitor.Plugins.LocalNotifications.schedule({
+                                notifications: [
+                                    {
+                                        title: title,
+                                        body: body,
+                                        id: Math.floor(Math.random() * 10000),
+                                        schedule: { at: new Date(Date.now() + 100) },
+                                        sound: null,
+                                        attachments: null,
+                                        actionTypeId: "",
+                                        extra: null
+                                    }
+                                ]
+                            });
+                        } catch (e) {
+                            console.error('LocalNotifications error:', e);
+                        }
+                    } 
+                    
+                    // 同时尝试浏览器原生通知 API
+                    if ("Notification" in window && Notification.permission === "granted") {
+                        new Notification(title, { body: body, icon: './logo.png' });
+                    }
+                };
+
+                // 请求通知权限
+                const requestNotificationPermission = async () => {
+                    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
+                        try {
+                            const status = await window.Capacitor.Plugins.LocalNotifications.requestPermissions();
+                            console.log('App Notification permission:', status.display);
+                        } catch (e) {
+                            console.error('App Notification request error:', e);
+                        }
+                    }
+                    
+                    if ("Notification" in window && Notification.permission !== "denied" && Notification.permission !== "granted") {
+                        try {
+                            await Notification.requestPermission();
+                        } catch (e) {}
+                    }
+                };
+
+                const handleWsMessage = (data) => {
+                    console.log('WS Message:', data);
+                    if (data.action === 'check_token') {
+                        // 兼容多种可能的成功状态码：true, 0, '0', 1000, "1000"
+                        const statusOk = data.status === 0 || data.status === true || data.status === '0' || data.status === 1000 || data.status === '1000';
+                        if (statusOk) {
+                            _initSeenMsgIds(); // 重连时重新初始化去重集合
+                            dividerAnchorLoadedForConnection.value = applyDividerAnchorFromLocal();
+                            isConnected.value = true;
+                            connecting.value = false;
+                            showToast('欢迎回来，连接成功');
+                            nextTick(() => lucide.createIcons());
+                            if (data.isbind === false) {
+                                showToast('Token 未绑定，请在游戏内绑定后再发送消息', 'error');
+                            } else {
+                                sendBindAccount();
+                            }
+                        } else {
+                            connecting.value = false;
+                            showToast('验证失败: ' + (data.message || 'Token无效'), 'error');
+                            // ws.close(); // 不要关闭，可能正在等待 update_token
+                        }
+                    } else if (data.action === 'update_token') {
+                        token.value = data.token;
+                        localStorage.setItem('yinwuchat_token', data.token);
+                        isConnected.value = true;
+                        connecting.value = false;
+                        showToast('已生成新 Token，请在游戏内绑定');
+                        
+                        // 添加一条系统消息说明如何绑定
+                        messages.value.push({
+                            player: '系统',
+                            chat: `&6你的新 Token 是: &b${data.token}&r\n&e请在游戏内输入: &b/yinwuchat bind ${data.token}&e 以完成绑定。`,
+                            isSelf: false,
+                            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        });
+                        nextTick(() => lucide.createIcons());
+                    } else if (data.action === 'self_info') {
+                        if (data.player) {
+                            selfName.value = data.player;
+                        }
+                        if (data.isAdmin !== undefined) {
+                            isAdmin.value = data.isAdmin;
+                        }
+                        if (data.vanished !== undefined) {
+                            isVanished.value = data.vanished;
+                            localStorage.setItem('yinwuchat_vanished', String(!!data.vanished));
+                        }
+                        sendBindAccount();
+                    } else if (data.action === 'read_cursor_snapshot') {
+                        const serverPublic = Number(data.public_last_read_id || 0);
+                        publicReadCursor.value = serverPublic;
+                        const privateMap = data.private_last_read || {};
+                        const normalizedMap = {};
+                        Object.keys(privateMap).forEach((key) => {
+                            normalizedMap[String(key).toLowerCase()] = Number(privateMap[key] || 0);
+                        });
+                        privateReadCursor.value = normalizedMap;
+                        // 使用 max(本地, 服务端) 确保分割线定位准确
+                        const localPublicCursor = Number(sessionPublicDividerCursor.value || 0);
+                        sessionPublicDividerCursor.value = Math.max(localPublicCursor, serverPublic);
+                        const mergedPrivate = { ...sessionPrivateDividerCursor.value };
+                        Object.keys(normalizedMap).forEach((key) => {
+                            mergedPrivate[key] = Math.max(Number(mergedPrivate[key] || 0), Number(normalizedMap[key] || 0));
+                        });
+                        sessionPrivateDividerCursor.value = mergedPrivate;
+                        dismissedUnreadDivider.value = {};
+                    } else if (data.action === 'send_message' || data.action === 'private_message') {
+                        const text = data.message || data.chat || '';
+                        if (!text) return;
+
+                        // --- 消息去重 ---
+                        if (_isDuplicateMsg(data.message_id)) return;
+                        
+                        const isPrivate = data.action === 'private_message';
+                        const isSelf = data.is_self || data.player === 'You';
+
+                        // 处理 @ 提及和私聊提醒
+                        if (!isSelf) {
+                            if (data.mention) {
+                                showToast(`玩家 @${data.player || '有人'} 在公屏提到了你！`, 'info');
+                                sendNativeNotification('你被 @ 了', `${data.player || '有人'}: ${extractPublicContent(text)}`);
+                            } else if (isPrivate) {
+                                if (currentChat.value !== data.player) {
+                                    showToast(`收到来自 ${data.player} 的私聊消息`, 'info');
+                                }
+                                sendNativeNotification(`私聊消息: ${data.player}`, text);
+                            }
+                        }
+
+                        if (data.is_self && data.player) {
+                            selfName.value = data.player;
+                        }
+                        const resolvedPlayer = data.player || (data.is_self ? selfName.value : '') || '';
+                        const isPublicMessage = data.action === 'send_message' && !data.to;
+                        const structuredItems = Array.isArray(data.items) ? data.items : [];
+                        const templateChat = typeof data.raw_chat === 'string' ? data.raw_chat : '';
+                        const displayChat = isPublicMessage
+                            ? (templateChat || extractPublicContent(text))
+                            : text;
+                        const msg = {
+                            player: resolvedPlayer || data.from || data.sender || '',
+                            chat: displayChat,
+                            items: structuredItems,
+                            server: data.server,
+                            messageId: Number(data.message_id || 0) || null,
+                            replay: !!data.replay,
+                            isSelf: data.is_self || data.player === 'You',
+                            to: data.to,
+                            time: formatMessageTime(data.time || data.timestamp || data.ts)
+                        };
+                        messages.value.push(msg);
+                        saveLocalMessages(); // 保存到本地
+                        
+                        if (data.action === 'private_message' && !msg.isSelf && msg.player) {
+                            const target = playerStatusList.value.find(p => p.name === msg.player);
+                            if (target) {
+                                target.offlineCount = 0;
+                            }
+                        }
+                        
+                        // 处理未读计数
+                        const chatKey = msg.to ? (msg.isSelf ? msg.to : msg.player) : 'public';
+                        if (currentChat.value !== chatKey) {
+                            unreadCount.value[chatKey] = (unreadCount.value[chatKey] || 0) + 1;
+                        }
+                        
+                        scrollToBottom();
+                    } else if (data.action === 'broadcast') {
+                        // 针对广播：由于多条广播可能共享相同的 messageId（特别是在旧数据结构中），
+                        // 这里我们取消严格的 messageId 去重，改用 task_index 在 map 中的覆盖机制。
+                        // 由于 pinnedBroadcasts.value 已经是根据 task_index 进行覆盖的，
+                        // WebSocket 重连时即使重新收到之前的广播消息，也只会覆盖自己，
+                        // 不会导致同一个任务出现多次。
+                        
+                        const taskIndex = data.task_index !== undefined ? data.task_index : 'default';
+                        const segments = Array.isArray(data.segments) ? data.segments : [];
+                        const newMap = new Map(pinnedBroadcasts.value);
+                        newMap.set(taskIndex, {
+                            taskIndex: taskIndex,
+                            chat: data.message || '',
+                            segments: segments,
+                            messageId: Number(data.message_id || 0) || null,
+                            timestamp: data.time || Date.now(),
+                            time: formatMessageTime(data.time || data.timestamp || data.ts)
+                        });
+                        pinnedBroadcasts.value = newMap;
+                    } else if (data.action === 'player_list') {
+                        gamePlayers.value = (data.players || []).map(p => ({
+                            name: p.name,
+                            server: p.server || ''
+                        })).filter(p => p.name);
+                    } else if (data.action === 'player_status_list') {
+                        const list = Array.isArray(data.players) ? data.players : [];
+                        playerStatusList.value = list.map(p => ({
+                            name: p.name || '',
+                            status: p.status || 'offline',
+                            server: p.server || '',
+                            offlineCount: p.offlineCount || 0
+                        })).filter(p => p.name);
+                    } else if (data.action === 'game_player_list') {
+                        const list = Array.isArray(data.player_list) ? data.player_list : [];
+                        gamePlayers.value = list.map(p => ({
+                            name: p.player_name || p.name || '',
+                            server: p.server_name || p.server || ''
+                        })).filter(p => p.name);
+                    } else if (data.action === 'web_player_list') {
+                        const list = Array.isArray(data.player_list) ? data.player_list : [];
+                        webPlayers.value = list.map(name => ({ name, server: 'Web' }));
+                    } else if (data.action === 'ban_notice') {
+                        banNotice.value = {
+                            target: data.target || '',
+                            player: data.player || '',
+                            duration: data.durationText || '永久',
+                            reason: data.reason || '',
+                            by: data.by || ''
+                        };
+                        nextTick(() => lucide.createIcons());
+                    } else if (data.action === 'ban_kick') {
+                        banNotice.value = {
+                            target: data.account || data.target || '',
+                            player: data.player || '',
+                            duration: data.durationText || '永久',
+                            reason: data.reason || '',
+                            by: data.by || ''
+                        };
+                        showToast('账号已被封禁，已退出登录', 'error');
+                        sendNativeNotification('账号已被封禁', banNotice.value.reason || '请联系管理员');
+                        isManualDisconnect.value = true;
+                        if (ws) ws.close();
+                        isConnected.value = false;
+                        authStep.value = 'login';
+                        nextTick(() => lucide.createIcons());
+                    } else if (data.action === 'admin_alert') {
+                        adminAlert.value = {
+                            player: data.player || '管理员',
+                            message: data.message || '存在需要立即处理的服务器风险'
+                        };
+                        showToast('收到管理员紧急提醒', 'error');
+                        sendNativeNotification('管理员紧急提醒', `${adminAlert.value.player}: ${adminAlert.value.message}`);
+                        nextTick(() => lucide.createIcons());
+                    } else if (data.action === 'atalladmin_confirm') {
+                        atAllAdminConfirm.value = {
+                            message: data.message || '请确认是否提醒所有管理员'
+                        };
+                        nextTick(() => lucide.createIcons());
+                    } else if (data.action === 'server_message') {
+                        if (_isDuplicateMsg(data.message_id)) return;
+                        const level = data.type || (data.status === 1 ? 'error' : 'info');
+                        showToast(data.message || '服务器提示', level === 'error' ? 'error' : 'info');
+                        messages.value.push({
+                            player: '系统',
+                            chat: data.message || '',
+                            server: 'Server',
+                            messageId: Number(data.message_id || 0) || null,
+                            replay: !!data.replay,
+                            isSelf: false,
+                            to: null,
+                            time: formatMessageTime(data.time || data.timestamp || data.ts)
+                        });
+                        saveLocalMessages(); // 保存到本地
+                        scrollToBottom();
+                    } else if (data.action === 'error') {
+                        showToast(data.message || '服务器返回错误', 'error');
+                    }
+                };
+
+                const sendMessage = () => {
+                    if (!inputMsg.value.trim() || wsStatus.value !== 'open') return;
+                    
+                    const text = inputMsg.value.trim();
+                    let payload = {};
+
+                    if (text.startsWith('/')) {
+                        payload = { action: 'command', command: text.substring(1) };
+                    } else if (currentChat.value === 'public') {
+                        payload = { action: 'send_message', message: text };
+                    } else {
+                        payload = { action: 'private_message', to: currentChat.value, message: text };
+                    }
+
+                    ws.send(JSON.stringify(payload));
+                    acknowledgeUnreadForCurrentChat();
+                    inputMsg.value = '';
+                    scrollToBottom();
+                    
+                    // 自动调整高度
+                    nextTick(() => {
+                        const area = document.querySelector('textarea');
+                        if (area) area.style.height = 'auto';
+                    });
+                };
+
+                const quickCommands = computed(() => {
+                    const base = ['/yinwuchat', '/ignore', '/noat', '/yinwuchat atalladmin'];
+                    if (isAdmin.value) {
+                        return [...base, '/vanish', '/chatban', '/chatunban', '/mute', '/unmute'];
+                    }
+                    return base;
+                });
+
+                const selectChat = (target) => {
+                    if (target === selfName.value) return;
+                    currentChat.value = target;
+                    unreadCount.value[target] = 0;
+                    if (isMobile.value) showSidebar.value = false;
+                    scrollToBottom(false);
+                    nextTick(() => lucide.createIcons());
+                };
+
+                const mentionPlayer = (name) => {
+                    if (name === selfName.value) return;
+                    if (name === currentChat.value) return;
+                    inputMsg.value += `@${name} `;
+                    nextTick(() => {
+                        const area = document.querySelector('textarea');
+                        if (area) area.focus();
+                    });
+                    showToast(`已提及玩家 @${name}`);
+                };
+
+                const sanitizeName = (name) => {
+                    if (!name) return '';
+                    const raw = String(name).replace(/§[0-9a-fk-or]/gi, '').trim();
+                    const match = raw.match(/[A-Za-z0-9_]{3,16}/);
+                    return match ? match[0] : raw;
+                };
+
+                const getAvatarName = (msg) => {
+                    if (!msg) return '';
+                    if (msg.isSelf) {
+                        return sanitizeName(selfName.value || msg.player || '');
+                    }
+                    return sanitizeName(msg.player || '');
+                };
+
+                const getAvatarUrl = (msg) => {
+                    if (!msg) return '';
+                    if (msg.player === '系统') {
+                        return './avater.png';
+                    }
+                    const name = getAvatarName(msg);
+                    return name ? `https://minotar.net/helm/${encodeURIComponent(name)}/40` : '';
+                };
+
+                const getTargetStatus = (playerName) => {
+                    if (playerName === 'public') return 'online';
+                    const p = playerStatusList.value.find(p => p.name === playerName);
+                    return p ? p.status : 'offline';
+                };
+
+                const handleTouchStart = (name) => {
+                    touchTimer = setTimeout(() => {
+                        mentionPlayer(name);
+                    }, 600);
+                };
+
+                const handleTouchEnd = () => {
+                    clearTimeout(touchTimer);
+                };
+
+                const logout = () => {
+                    isManualDisconnect.value = true;
+                    saveDividerAnchor();
+                    if (ws) ws.close();
+                    isConnected.value = false;
+                    bindAccountSent.value = false;
+                };
+
+                const scrollToBottom = (smooth = true) => {
+                    nextTick(() => {
+                        const container = chatContainer.value;
+                        if (container) {
+                            container.scrollTo({
+                                top: container.scrollHeight,
+                                behavior: smooth ? 'smooth' : 'auto'
+                            });
+                        }
+                    });
+                };
+
+                let lucidePatched = false;
+                let iconObserver = null;
+                let iconRefreshTimer = null;
+                const patchLucideRenderer = () => {
+                    if (lucidePatched || !window.lucide || typeof window.lucide.createIcons !== 'function') return;
+                    const originalCreateIcons = window.lucide.createIcons.bind(window.lucide);
+                    window.lucide.createIcons = (...args) => {
+                        originalCreateIcons(...args);
+                        requestAnimationFrame(() => originalCreateIcons(...args));
+                        setTimeout(() => originalCreateIcons(...args), 120);
+                    };
+                    lucidePatched = true;
+                };
+
+                const refreshIcons = () => {
+                    // 首屏与条件渲染节点可能分多帧挂载，做多阶段兜底渲染
+                    patchLucideRenderer();
+                    nextTick(() => {
+                        lucide.createIcons();
+                        requestAnimationFrame(() => {
+                            lucide.createIcons();
+                            setTimeout(() => lucide.createIcons(), 120);
+                        });
+                    });
+                };
+
+                const scheduleIconRefresh = () => {
+                    if (iconRefreshTimer) return;
+                    iconRefreshTimer = setTimeout(() => {
+                        iconRefreshTimer = null;
+                        if (!document.querySelector('i[data-lucide]')) return;
+                        refreshIcons();
+                    }, 40);
+                };
+
+                const installIconObserver = () => {
+                    if (iconObserver || typeof MutationObserver === 'undefined') return;
+                    const root = document.getElementById('app');
+                    if (!root) return;
+                    iconObserver = new MutationObserver(() => {
+                        scheduleIconRefresh();
+                    });
+                    iconObserver.observe(root, {
+                        childList: true,
+                        subtree: true,
+                        attributes: true,
+                        attributeFilter: ['class', 'style']
+                    });
+                };
+
+                const sendReadCursor = (chatKey, messageId) => {
+                    if (!ws || wsStatus.value !== 'open') return;
+                    if (!chatKey || !messageId || messageId <= 0) return;
+                    ws.send(JSON.stringify({
+                        action: 'read_cursor',
+                        chat: chatKey,
+                        message_id: messageId
+                    }));
+                };
+
+                const acknowledgeUnreadForCurrentChat = () => {
+                    const list = currentMessages.value;
+                    if (!Array.isArray(list) || list.length === 0) return;
+                    const reversed = [...list].reverse();
+                    const latest = reversed.find(m => Number(m.messageId || 0) > 0);
+                    if (!latest) return;
+                    const latestId = Number(latest.messageId);
+                    if (currentChat.value === 'public') {
+                        dismissedUnreadDivider.value.public = true;
+                        publicReadCursor.value = Math.max(Number(publicReadCursor.value || 0), latestId);
+                        sendReadCursor('public', latestId);
+                    } else {
+                        const key = String(currentChat.value || '').toLowerCase();
+                        if (!key) return;
+                        dismissedUnreadDivider.value[key] = true;
+                        const current = Number(privateReadCursor.value[key] || 0);
+                        if (latestId > current) {
+                            privateReadCursor.value[key] = latestId;
+                            sendReadCursor(key, latestId);
+                        }
+                    }
+                    saveDividerAnchor();
+                };
+
+                const formatMessage = (chat, items = []) => {
+                    if (!chat) return '';
+                    let html = String(chat).replace(/§/g, '&');
+                    const hasItems = Array.isArray(items) && items.length > 0;
+                    if (hasItems) {
+                        html = html.replace(/\[\[ITEM:(\d+)\]\]/g, (match, idx) => `{{ITEM:${idx}}}`);
+                    }
+                    let opened = 0;
+                    html = html.replace(/&([0-9a-fk-or])/gi, (match, code) => {
+                        if (code.toLowerCase() === 'r') {
+                            if (opened === 0) return '';
+                            const closing = '</span>'.repeat(opened);
+                            opened = 0;
+                            return closing;
+                        }
+                        const colors = {
+                            '0': '#000000', '1': '#0000AA', '2': '#00AA00', '3': '#00AAAA',
+                            '4': '#AA0000', '5': '#AA00AA', '6': '#FFAA00', '7': '#AAAAAA',
+                            '8': '#555555', '9': '#5555FF', 'a': '#55FF55', 'b': '#55FFFF',
+                            'c': '#FF5555', 'd': '#FF55FF', 'e': '#FFFF55', 'f': '#FFFFFF'
+                        };
+                        opened += 1;
+                        const lower = code.toLowerCase();
+                        return colors[lower] ? `<span style="color: ${colors[lower]}">` : '<span>';
+                    });
+                    if (opened > 0) {
+                        html += '</span>'.repeat(opened);
+                    }
+                    html = html.replace(/\n/g, '<br>');
+                    html = html.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" class="text-primary-500 hover:underline break-all">$1</a>');
+                    if (hasItems) {
+                        html = html.replace(/\{\{ITEM:(\d+)\}\}/g, (match, idxText) => {
+                            const idx = Number(idxText);
+                            const item = items[idx];
+                            if (!item) return '[物品]';
+                            const safeName = formatMinecraftInline(item.name || '物品');
+                            const amount = Number(item.count || 1);
+                            const amountSuffix = amount > 1 ? ` x${amount}` : '';
+                            const payload = encodeURIComponent(JSON.stringify(item));
+                            return `<span class="item-preview-tag inline-flex items-center px-2 py-0.5 rounded-md bg-black/10 dark:bg-white/10 border border-black/10 dark:border-white/20 cursor-pointer hover:opacity-85 transition-opacity" data-item="${payload}">[${safeName}]${amountSuffix}</span>`;
+                        });
+                    }
+                    return html;
+                };
+
+                /**
+                 * 格式化广播消息的 segments，支持颜色码和可点击命令
+                 */
+                const formatBroadcastSegments = (segments, fallbackChat) => {
+                    if (!segments || segments.length === 0) {
+                        return formatMessage(fallbackChat || '');
+                    }
+                    let html = '';
+                    for (const seg of segments) {
+                        if (!seg.text) continue;
+                        // 解析 Minecraft 颜色码
+                        let segHtml = formatMessage(seg.text);
+                        if (seg.click) {
+                            // 可点击片段：渲染为按钮样式，点击填入输入框
+                            const safeClick = seg.click.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                            const hoverAttr = seg.hover ? ` title="${seg.hover.replace(/"/g, '&quot;')}"` : '';
+                            segHtml = `<span class="broadcast-cmd inline cursor-pointer px-1 py-0.5 rounded bg-amber-200/60 dark:bg-amber-700/40 hover:bg-amber-300/80 dark:hover:bg-amber-600/50 transition-colors border-b border-dashed border-amber-500 dark:border-amber-400" data-cmd="${safeClick}"${hoverAttr}>${segHtml}</span>`;
+                        } else if (seg.hover) {
+                            const hoverAttr = seg.hover.replace(/"/g, '&quot;');
+                            segHtml = `<span title="${hoverAttr}">${segHtml}</span>`;
+                        }
+                        html += segHtml;
+                    }
+                    return html;
+                };
+
+                /**
+                 * 处理广播消息中可点击命令的点击事件（事件委托）
+                 */
+                document.addEventListener('click', (e) => {
+                    const cmdEl = e.target.closest('.broadcast-cmd');
+                    if (cmdEl && cmdEl.dataset.cmd) {
+                        inputMsg.value = cmdEl.dataset.cmd + ' ';
+                        // 聚焦输入框
+                        nextTick(() => {
+                            const area = document.querySelector('textarea');
+                            if (area) area.focus();
+                        });
+                    }
+                });
+
+                window.addEventListener('resize', () => {
+                    isMobile.value = window.innerWidth < 1024;
+                    sidebarWidth.value = getSidebarWidth();
+                    syncSidebarPosition();
+                });
+
+                const fillSavedWsUrl = () => {
+                    if (savedManualWsUrl.value) {
+                        manualWsUrl.value = savedManualWsUrl.value;
+                    }
+                };
+
+                const syncSidebarPosition = () => {
+                    if (!isMobile.value) {
+                        sidebarTranslateX.value = 0;
+                        return;
+                    }
+                    if (sidebarDragging.value) return;
+                    // 左侧抽屉：关闭时 translateX(-sidebarWidth), 打开时 translateX(0)
+                    sidebarTranslateX.value = showSidebar.value ? 0 : -sidebarWidth.value;
+                };
+
+                const onSidebarTouchStart = (event) => {
+                    if (!isMobile.value) return;
+                    const touch = event.touches[0];
+                    sidebarStartX.value = touch.clientX;
+                    sidebarStartY.value = touch.clientY;
+                    sidebarLastX.value = touch.clientX;
+                    sidebarLastY.value = touch.clientY;
+                    sidebarTouchStartTime.value = Date.now();
+                    sidebarLongPressActive.value = false;
+                    sidebarDragging.value = false;
+                };
+
+                const onSidebarTouchMove = (event) => {
+                    if (!isMobile.value) return;
+                    const touch = event.touches[0];
+                    const dx = touch.clientX - sidebarStartX.value;
+                    const dy = touch.clientY - sidebarStartY.value;
+                    sidebarLastX.value = touch.clientX;
+                    sidebarLastY.value = touch.clientY;
+                    
+                        // 判定是否是水平滑动
+                    const isHorizontal = Math.abs(dx) > Math.abs(dy) + 5;
+                    
+                    // 只要是水平滑动就进入拖动模式
+                    if (!sidebarDragging.value && isHorizontal && Math.abs(dx) > 10) {
+                            sidebarDragging.value = true;
+                    }
+                    
+                    // 如果是水平滑动或已在拖动中，阻止默认行为（防止页面滚动）
+                    if (sidebarDragging.value || (isHorizontal && Math.abs(dx) > 5)) {
+                    event.preventDefault();
+                    }
+                    
+                    if (!sidebarDragging.value) return;
+                    
+                    // 左侧抽屉偏移计算
+                    let next = (showSidebar.value ? 0 : -sidebarWidth.value) + dx;
+                    sidebarTranslateX.value = Math.max(-sidebarWidth.value, Math.min(0, next));
+                };
+
+                const onSidebarTouchEnd = () => {
+                    if (!isMobile.value) return;
+                    const elapsed = Date.now() - sidebarTouchStartTime.value;
+                    const totalDx = sidebarLastX.value - sidebarStartX.value;
+                    const totalDy = sidebarLastY.value - sidebarStartY.value;
+                    const isHorizontal = Math.abs(totalDx) > Math.abs(totalDy) + 5;
+                    
+                    // 计算滑动速度（像素/毫秒）
+                    const velocity = elapsed > 0 ? Math.abs(totalDx) / elapsed : 0;
+                    const isFastSwipe = velocity > 0.3; // 快速滑动阈值
+
+                    // 快速滑动或短距离滑动：直接触发打开/关闭动画
+                    if (isHorizontal && (isFastSwipe || (elapsed < 400 && Math.abs(totalDx) > 30))) {
+                        const shouldOpen = totalDx > 0;
+                        // 只有当前状态与目标状态不同时才触发
+                        if (showSidebar.value !== shouldOpen) {
+                    showSidebar.value = shouldOpen;
+                            sidebarTranslateX.value = shouldOpen ? 0 : -sidebarWidth.value;
+                        }
+                    sidebarDragging.value = false;
+                        sidebarLongPressActive.value = false;
+                        return;
+                    }
+
+                    if (!sidebarDragging.value) return;
+
+                    // 拖动滑动：移动超过 20% 触发打开/关闭，否则回弹
+                    const threshold = sidebarWidth.value * 0.2;
+                    let shouldOpen = showSidebar.value;
+                    if (showSidebar.value) {
+                        // 已打开状态：向左拖超过 20% 则关闭
+                        shouldOpen = sidebarTranslateX.value > -threshold;
+                    } else {
+                        // 已关闭状态：向右拖超过 20% 则打开
+                        shouldOpen = sidebarTranslateX.value > -sidebarWidth.value + threshold;
+                    }
+                    showSidebar.value = shouldOpen;
+                    sidebarTranslateX.value = shouldOpen ? 0 : -sidebarWidth.value;
+                    sidebarDragging.value = false;
+                    sidebarLongPressActive.value = false;
+                };
+
+                const onChatTouchStart = (event) => {
+                    onSidebarTouchStart(event);
+                };
+
+                const onChatTouchMove = (event) => {
+                    onSidebarTouchMove(event);
+                };
+
+                const onChatTouchEnd = () => {
+                    onSidebarTouchEnd();
+                };
+
+                const closeSidebar = () => {
+                    showSidebar.value = false;
+                    // 不需要在这里调用 syncSidebarPosition，交给 watch 处理以保持动画逻辑统一
+                };
+
+                const startToastDrag = (toast, event) => {
+                    toastDragId.value = toast.id;
+                    toastDragStartY.value = event.touches[0].clientY;
+                    toastDragOffset.value = 0;
+                    toastDragActive.value = true;
+                };
+
+                const moveToastDrag = (event) => {
+                    if (!toastDragActive.value) return;
+                    const dy = event.touches[0].clientY - toastDragStartY.value;
+                    if (dy < 0) {
+                        toastDragOffset.value = dy;
+                    }
+                };
+
+                const endToastDrag = (toast) => {
+                    if (!toastDragActive.value) return;
+                    if (toastDragOffset.value < -40) {
+                        toasts.value = toasts.value.filter(t => t.id !== toast.id);
+                    }
+                    toastDragActive.value = false;
+                    toastDragId.value = null;
+                    toastDragOffset.value = 0;
+                };
+
+                watch(manualWsUrl, (val) => {
+                    const trimmed = String(val || '').trim();
+                    if (trimmed.length === 0) return;
+                    savedManualWsUrl.value = trimmed;
+                    localStorage.setItem('yinwuchat_manual_ws', trimmed);
+                });
+
+                watch([showSidebar, isMobile], () => {
+                    syncSidebarPosition();
+                });
+
+                window.addEventListener('focus', () => {
+                    autoWsUrl.value = getAutoWsUrl();
+                });
+
+                document.addEventListener('visibilitychange', () => {
+                    if (!document.hidden) {
+                        autoWsUrl.value = getAutoWsUrl();
+                    }
+                });
+
+                onMounted(async () => {
+                    if (savedManualWsUrl.value) {
+                        manualWsUrl.value = savedManualWsUrl.value;
+                    } else if (window.Capacitor) {
+                        // App 默认使用你指定的入口地址，首次安装无需手动填写
+                        manualWsUrl.value = 'https://server.yinwurealm.org:31115/new-chat/';
+                        savedManualWsUrl.value = manualWsUrl.value;
+                        localStorage.setItem('yinwuchat_manual_ws', savedManualWsUrl.value);
+                    }
+                    if (isDark.value) document.documentElement.classList.add('dark');
+                    patchLucideRenderer();
+                    installIconObserver();
+                    refreshIcons();
+                    syncSidebarPosition();
+                    document.addEventListener('click', handleItemTagClick);
+                    
+                    // App 环境下初始化
+                    if (window.Capacitor) {
+                        // 监听 App 状态变化（后台/前台）
+                        if (window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
+                            window.Capacitor.Plugins.App.addListener('appStateChange', ({ isActive }) => {
+                                if (isActive) {
+                                    console.log('App coming to foreground, checking connection...');
+                                    if (isConnected.value && wsStatus.value !== 'open') {
+                                        connect(); // 自动尝试重新连接
+                                    }
+                                } else {
+                                    console.log('App going to background');
+                                }
+                            });
+                        }
+                    }
+
+                    // 预先尝试一次自动发现
+                    if (isLocalHostEnv()) {
+                        await discoverWsUrl();
+                        autoWsUrl.value = getAutoWsUrl();
+                    }
+
+                    // 自动聚焦输入框（欢迎页）
+                    setTimeout(() => {
+                        // 如果用户名已填写，聚焦到密码框；否则聚焦到用户名框
+                        if (loginForm.value.username) {
+                            const passwordInput = document.querySelector('input[type="password"]');
+                            if (passwordInput) {
+                                passwordInput.focus();
+                                return;
+                            }
+                        }
+                        const input = document.querySelector('input');
+                        if (input) input.focus();
+                    }, 500);
+                });
+
+                onBeforeUnmount(() => {
+                    saveDividerAnchor();
+                    document.removeEventListener('click', handleItemTagClick);
+                    if (iconObserver) {
+                        iconObserver.disconnect();
+                        iconObserver = null;
+                    }
+                });
+
+                watch(isConnected, (val) => {
+                    if (val) {
+                        nextTick(() => {
+                            refreshIcons();
+                            // 首次进入聊天界面时直接定位到最新消息，避免从顶部平滑滚动
+                            requestAnimationFrame(() => {
+                                scrollToBottom(false);
+                            });
+                        });
+                    }
+                });
+
+                watch(showSidebar, (val) => {
+                    if (val) {
+                        refreshIcons();
+                        sidebarAnimationActive.value = true;
+                        // 展开动画关键：
+                        // 1. 确保 sidebarTranslateX 初始处于关闭状态
+                        sidebarTranslateX.value = -sidebarWidth.value;
+                        // 2. 在两次 requestAnimationFrame 后触发，确保浏览器已应用初始位置并渲染一帧
+                        requestAnimationFrame(() => {
+                            requestAnimationFrame(() => {
+                                sidebarTranslateX.value = 0;
+                            });
+                        });
+                    } else {
+                        // 收回动画
+                        sidebarAnimationActive.value = true;
+                        sidebarTranslateX.value = -sidebarWidth.value;
+                        setTimeout(() => {
+                            if (!showSidebar.value) {
+                                sidebarAnimationActive.value = false;
+                            }
+                        }, 400);
+                    }
+                });
+
+                watch(showAppKeepAliveTips, (val) => {
+                    if (val) nextTick(() => lucide.createIcons());
+                });
+
+                watch(showClearCacheConfirm, (val) => {
+                    if (val) nextTick(() => lucide.createIcons());
+                });
+
+                watch(banNotice, (val) => {
+                    if (val) nextTick(() => lucide.createIcons());
+                });
+
+                watch(adminAlert, (val) => {
+                    if (val) nextTick(() => lucide.createIcons());
+                });
+
+                watch(atAllAdminConfirm, (val) => {
+                    if (val) nextTick(() => lucide.createIcons());
+                });
+
+                watch(isDark, () => {
+                    nextTick(() => lucide.createIcons());
+                });
+
+                return {
+                    token, authStep, authLoading, loginForm, registerForm, captchaImage, captchaId, currentUser,
+                    advancedOpen, manualWsUrl, savedManualWsUrl, fillSavedWsUrl,
+                    isConnected, connecting, isDark, showSidebar, currentChat, inputMsg, 
+                    isMobile, messages, playerRoster, unreadCount, toasts, wsStatus, currentMessages, unreadDividerIndex, chatContainer,
+                    isAdmin, quickCommands, isVanished,
+                    pinnedBroadcasts, broadcastPanelOpen, pinnedBroadcastCount, pinnedBroadcastList,
+                    showDeleteAccount, showResetToken, resetTokenPassword, submitResetToken, showAppKeepAliveTips, showClearCacheConfirm, banNotice, closeBanNotice, adminAlert, closeAdminAlert, itemPreview, closeItemPreview, atAllAdminConfirm, closeAtAllAdminConfirm, sendAtAllAdminExecute, deleteAccountForm, submitDeleteAccount,
+                    forgotForm, resetPasswordForm, resetCode, goToForgot, submitForgotRequest, submitResetPassword,
+                    connect, submitLogin, submitRegister, goToRegister, goToLogin, refreshCaptcha,
+                    sendMessage, selectChat, acknowledgeUnreadForCurrentChat, mentionPlayer, logout, toggleDarkMode, clearCache, confirmClearCache, formatMessage, formatBroadcastSegments, formatMinecraftInline, getItemIconUrl, handleItemIconError,
+                    handleTouchStart, handleTouchEnd, getAvatarName, getAvatarUrl, getTargetStatus,
+                    showSettings, defaultDomain, saveDefaultDomain,
+                    sidebarWidth, sidebarTranslateX, sidebarDragging, sidebarOverlayOpacity, sidebarOverlayVisible, sidebarBlur, sidebarAnimationActive,
+                    onSidebarTouchStart, onSidebarTouchMove, onSidebarTouchEnd,
+                    onChatTouchStart, onChatTouchMove, onChatTouchEnd, closeSidebar,
+                    toastDragId, toastDragOffset, startToastDrag, moveToastDrag, endToastDrag,
+                    showCommandPicker, commandTargetCandidates, selectCommandTarget
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

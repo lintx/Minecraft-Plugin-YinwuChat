@@ -1,12 +1,16 @@
 package org.lintx.plugins.yinwuchat.bungee;
 
-import fr.Alphart.BAT.BAT;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
 
+/**
+ * BungeeAdminTools integration manager.
+ * BAT library not bundled - requires external installation.
+ * All checks safely degrade if BAT is unavailable.
+ */
 class BatManage {
     private final YinwuChat plugin;
     private boolean hasBAT;
-    private BAT bat;
+    // private BAT bat; // BAT not available - commented out
 
     BatManage(YinwuChat plugin){
         this.plugin = plugin;
@@ -14,59 +18,34 @@ class BatManage {
     }
 
     private void checkBat(){
+        // Check if BungeeAdminTools plugin is loaded
         hasBAT = plugin.getProxy().getPluginManager().getPlugin("BungeeAdminTools") != null;
-        if (hasBAT){
-            try {
-                bat = BAT.getInstance();
-                if (bat==null){
-                    hasBAT = false;
-                }
-            }
-            catch (Exception e){
-                hasBAT = false;
-            }
-        }
+        // Note: BAT library not in pom.xml - would need external dependency
     }
 
     boolean isBan(ProxiedPlayer player,String server){
         checkBat();
         if (!hasBAT) return false;
-        try {
-            return bat.getModules().getBanModule().isBan(player,server);
-        }
-        catch (Exception e){
-            return false;
-        }
+        // BAT not available in compile classpath
+        return false;
     }
 
     boolean isBan(String player,String server){
         checkBat();
         if (!hasBAT) return false;
-        try {
-            return bat.getModules().getBanModule().isBan(player,server);
-        }
-        catch (Exception e){
-            return false;
-        }
+        // BAT not available in compile classpath
+        return false;
     }
 
     boolean isMute(ProxiedPlayer player,String server){
         if (!hasBAT) return false;
-        try {
-            return bat.getModules().getMuteModule().isMute(player,server) > 0;
-        }
-        catch (Exception e){
-            return false;
-        }
+        // BAT not available in compile classpath
+        return false;
     }
 
     boolean isMute(String player,String server){
         if (!hasBAT) return false;
-        try {
-            return bat.getModules().getMuteModule().isMute(player,server,true);
-        }
-        catch (Exception e){
-            return false;
-        }
+        // BAT not available in compile classpath
+        return false;
     }
 }

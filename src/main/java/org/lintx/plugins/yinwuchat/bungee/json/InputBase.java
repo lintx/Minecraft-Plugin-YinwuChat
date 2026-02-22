@@ -19,8 +19,7 @@ public class InputBase {
     
     public static InputBase getObject(String json){
         try {
-            JsonParser parser = new JsonParser();
-            JsonElement jsonTree = parser.parse(json);
+            JsonElement jsonTree = JsonParser.parseString(json);
             if (jsonTree.isJsonObject()) {
                 JsonObject object = jsonTree.getAsJsonObject();
                 JsonElement actionElement = object.get("action");
@@ -31,6 +30,12 @@ public class InputBase {
                     }
                     else if (action.equalsIgnoreCase("send_message")) {
                         return new InputMessage(object.get("message").getAsString());
+                    }
+                    else if (action.equalsIgnoreCase("command")) {
+                        return new InputCommand(object.get("command").getAsString());
+                    }
+                    else if (action.equalsIgnoreCase("bind_account")) {
+                        return new InputBindAccount(object.get("account").getAsString());
                     }
                 }else {
                     JsonElement postTypeElement = object.get("post_type");

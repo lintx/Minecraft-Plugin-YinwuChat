@@ -75,6 +75,39 @@ public class PlayerConfig {
         return tokens;
     }
 
+    public static Player getPlayerConfigByName(String name) {
+        if (name == null || name.isEmpty()) return null;
+        for (Player config : configs.values()) {
+            if (name.equalsIgnoreCase(config.name)) {
+                return config;
+            }
+        }
+        // 如果不在缓存中，尝试从 Tokens 查找所有 UUID 并检查
+        for (UUID uuid : getTokens().getAllUuids()) {
+            Player config = getConfig(uuid);
+            if (name.equalsIgnoreCase(config.name)) {
+                return config;
+            }
+        }
+        return null;
+    }
+
+    public static UUID getPlayerUuidByName(String name) {
+        if (name == null || name.isEmpty()) return null;
+        for (Map.Entry<UUID, Player> entry : configs.entrySet()) {
+            if (name.equalsIgnoreCase(entry.getValue().name)) {
+                return entry.getKey();
+            }
+        }
+        for (UUID uuid : getTokens().getAllUuids()) {
+            Player config = getConfig(uuid);
+            if (name.equalsIgnoreCase(config.name)) {
+                return uuid;
+            }
+        }
+        return null;
+    }
+
     @YamlConfig(path = "player/nouser.yml")
     public static class Player{
         final String path;
@@ -116,6 +149,28 @@ public class PlayerConfig {
             return ignorePlayer.contains(uuid);
         }
 
+        public boolean isIgnore(String name) {
+            if (name == null || name.isEmpty()) return false;
+            ProxiedPlayer p = net.md_5.bungee.api.ProxyServer.getInstance().getPlayer(name);
+            if (p != null) return isIgnore(p.getUniqueId());
+            
+            // 尝试从缓存中查找对应名字的 UUID
+            for (Map.Entry<UUID, Player> entry : configs.entrySet()) {
+                if (name.equalsIgnoreCase(entry.getValue().name)) {
+                    return isIgnore(entry.getKey());
+                }
+            }
+            
+            // 尝试从 Tokens 查找
+            for (UUID uuid : getTokens().getAllUuids()) {
+                Player config = getConfig(uuid);
+                if (name.equalsIgnoreCase(config.name)) {
+                    return isIgnore(uuid);
+                }
+            }
+            return false;
+        }
+
         public boolean ignore(UUID uuid){
             if (isIgnore(uuid)){
                 ignorePlayer.remove(uuid);
@@ -140,6 +195,18 @@ public class PlayerConfig {
         public boolean banAt = false;
 
         @YamlConfig
+        public boolean muted = false;
+
+        @YamlConfig
+        public long mutedUntil = 0;
+
+        @YamlConfig
+        public String mutedBy = "";
+
+        @YamlConfig
+        public String muteReason = "";
+
+        @YamlConfig
         List<UUID> ignorePlayer = new ArrayList<>();
 
         @YamlConfig
@@ -156,6 +223,28 @@ public class PlayerConfig {
 
         @YamlConfig
         public String privateSuffix = "";
+
+        @YamlConfig
+        public long lastAtAllAdmin = 0;
+
+        public boolean isMuted() {
+            if (!muted) return false;
+            if (mutedUntil > 0 && System.currentTimeMillis() > mutedUntil) {
+                muted = false;
+                mutedUntil = 0;
+                mutedBy = "";
+                muteReason = "";
+                save();
+                return false;
+            }
+            return true;
+        }
+
+        public long getRemainingMuteTime() {
+            if (!isMuted()) return 0;
+            if (mutedUntil == 0) return -1;
+            return Math.max(0, (mutedUntil - System.currentTimeMillis()) / 1000);
+        }
     }
 
     @YamlConfig(path = "tokens.yml")
@@ -175,6 +264,7 @@ public class PlayerConfig {
                 return newToken();
             }
             tokens.put(token,"");
+            save();
             return token;
         }
 
@@ -216,6 +306,72 @@ public class PlayerConfig {
                 }
             }
             return list;
+        }
+
+        public Set<UUID> getAllUuids() {
+            Set<UUID> result = new HashSet<>();
+            for (String value : tokens.values()) {
+                if (value == null || value.isEmpty()) continue;
+                try {
+                    result.add(UUID.fromString(value));
+                } catch (Exception ignored) {
+                }
+            }
+            return result;
+        }
+
+        public UUID getUuidByName(String name) {
+            if (name == null || name.isEmpty()) return null;
+            for (Map.Entry<UUID, Player> entry : configs.entrySet()) {
+                if (name.equalsIgnoreCase(entry.getValue().name)) {
+                    return entry.getKey();
+                }
+            }
+            for (UUID uuid : getAllUuids()) {
+                Player config = getConfig(uuid);
+                if (name.equalsIgnoreCase(config.name)) {
+                    return uuid;
+                }
+            }
+            return null;
+        }
+
+        public String getToken(UUID uuid) {
+            if (uuid == null) return null;
+            String pid = uuid.toString();
+            for (Map.Entry<String, String> entry : tokens.entrySet()) {
+                if (pid.equals(entry.getValue())) {
+                    return entry.getKey();
+                }
+            }
+            return null;
+        }
+
+        public void removeUuidByName(String name) {
+            if (name == null || name.isEmpty()) return;
+            UUID targetUuid = null;
+            // 查找对应名字的 UUID
+            for (Map.Entry<UUID, Player> entry : configs.entrySet()) {
+                if (name.equalsIgnoreCase(entry.getValue().name)) {
+                    targetUuid = entry.getKey();
+                    break;
+                }
+            }
+            if (targetUuid == null) {
+                for (UUID uuid : getAllUuids()) {
+                    Player config = getConfig(uuid);
+                    if (name.equalsIgnoreCase(config.name)) {
+                        targetUuid = uuid;
+                        break;
+                    }
+                }
+            }
+            
+            if (targetUuid != null) {
+                String pid = targetUuid.toString();
+                tokens.entrySet().removeIf(entry -> pid.equals(entry.getValue()));
+                save();
+            }
         }
 
         public void save(){

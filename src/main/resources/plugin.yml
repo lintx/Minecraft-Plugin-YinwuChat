@@ -3,6 +3,7 @@ main: org.lintx.plugins.yinwuchat.bukkit.YinwuChat
 version: ${version}
 author: LinTx
 api-version: "1.13"
+folia-supported: true
 depend: []
 softdepend: [PlaceholderAPI]
 commands:
@@ -16,58 +17,146 @@ commands:
   yinwuchat-bukkit:
     description: yinwuchat-bukkit command
     usage: /<command>
+  viewitem:
+    description: View a shared item in GUI
+    usage: /viewitem <itemId>
 permissions:
-  yinwuchat.*:
+  yinwuchat.admin:
     default: op
+    description: All admin permissions
     children:
-      yinwuchat.reload:
+      yinwuchat.admin.reload: true
+      yinwuchat.admin.mute: true
+      yinwuchat.admin.vanish: true
+      yinwuchat.admin.atall: true
+      yinwuchat.admin.monitor: true
+      yinwuchat.admin.badword: true
+      yinwuchat.admin.atalladmin.reset: true
+      yinwuchat.admin.cooldown.bypass: true
+      yinwuchat.default: true
+  yinwuchat.admin.reload:
+    default: op
+    description: Permission to reload the plugin
+  yinwuchat.admin.mute:
+    default: op
+    description: Permission to mute/unmute players
+  yinwuchat.admin.vanish:
+    default: op
+    description: Permission to toggle vanish mode
+  yinwuchat.admin.atall:
+    default: op
+    description: Permission to @all
+  yinwuchat.admin.monitor:
+    default: op
+    description: Permission to monitor private messages
+  yinwuchat.admin.badword:
+    default: op
+    description: Permission to manage bad words
+  yinwuchat.admin.atalladmin.reset:
+    default: op
+    description: Permission to reset atalladmin cooldown
+  yinwuchat.admin.cooldown.bypass:
+    default: op
+    description: Permission to bypass @ cooldown
+  yinwuchat.default:
+    default: true
+    description: All basic permissions
+    children:
+      yinwuchat.default.ws: true
+      yinwuchat.default.bind: true
+      yinwuchat.default.list: true
+      yinwuchat.default.unbind: true
+      yinwuchat.default.ignore: true
+      yinwuchat.default.noat: true
+      yinwuchat.default.muteat: true
+      yinwuchat.default.format: true
+      yinwuchat.default.msg: true
+      yinwuchat.default.atalladmin: true
+      yinwuchat.default.itemdisplay: true
+      yinwuchat.default.qq: true
+      yinwuchat.style: true
+  yinwuchat.default.ws:
+    default: true
+    description: Permission to see WS address
+  yinwuchat.default.bind:
+    default: true
+    description: Permission to bind token
+  yinwuchat.default.list:
+    default: true
+    description: Permission to list tokens
+  yinwuchat.default.unbind:
+    default: true
+    description: Permission to unbind token
+  yinwuchat.default.ignore:
+    default: true
+    description: Permission to ignore players
+  yinwuchat.default.noat:
+    default: true
+    description: Permission to disable mentions
+  yinwuchat.default.muteat:
+    default: true
+    description: Permission to mute mention sounds
+  yinwuchat.default.format:
+    default: true
+    description: Permission to custom chat format
+  yinwuchat.default.msg:
+    default: true
+    description: Permission to send private messages
+  yinwuchat.default.atalladmin:
+    default: true
+    description: Permission to use atalladmin command
+  yinwuchat.default.itemdisplay:
+    default: true
+    description: Permission to display items
+  yinwuchat.default.qq:
+    default: true
+    description: Permission to send messages to QQ
+  yinwuchat.style:
+    default: true
+    children:
+      yinwuchat.style.0:
+        default: true
+      yinwuchat.style.1:
+        default: true
+      yinwuchat.style.2:
+        default: true
+      yinwuchat.style.3:
+        default: true
+      yinwuchat.style.4:
+        default: true
+      yinwuchat.style.5:
+        default: true
+      yinwuchat.style.6:
+        default: true
+      yinwuchat.style.7:
+        default: true
+      yinwuchat.style.8:
+        default: true
+      yinwuchat.style.9:
+        default: true
+      yinwuchat.style.a:
+        default: true
+      yinwuchat.style.b:
+        default: true
+      yinwuchat.style.c:
+        default: true
+      yinwuchat.style.d:
+        default: true
+      yinwuchat.style.e:
+        default: true
+      yinwuchat.style.f:
+        default: true
+      yinwuchat.style.k: #随机
         default: op
-      yinwuchat.style:
+      yinwuchat.style.l: #粗体
         default: op
-        children:
-          yinwuchat.style.0:
-            default: true
-          yinwuchat.style.1:
-            default: true
-          yinwuchat.style.2:
-            default: true
-          yinwuchat.style.3:
-            default: true
-          yinwuchat.style.4:
-            default: true
-          yinwuchat.style.5:
-            default: true
-          yinwuchat.style.6:
-            default: true
-          yinwuchat.style.7:
-            default: true
-          yinwuchat.style.8:
-            default: true
-          yinwuchat.style.9:
-            default: true
-          yinwuchat.style.a:
-            default: true
-          yinwuchat.style.b:
-            default: true
-          yinwuchat.style.c:
-            default: true
-          yinwuchat.style.d:
-            default: true
-          yinwuchat.style.e:
-            default: true
-          yinwuchat.style.f:
-            default: true
-          yinwuchat.style.k: #随机
-            default: op
-          yinwuchat.style.l: #粗体
-            default: op
-          yinwuchat.style.m: #删除线
-            default: op
-          yinwuchat.style.n: #下划线
-            default: op
-          yinwuchat.style.o: #斜体
-            default: op
-          yinwuchat.style.r: #重置
-            default: true
-          yinwuchat.style.rgb:  #RGB颜色
-            default: op
+      yinwuchat.style.m: #删除线
+        default: op
+      yinwuchat.style.n: #下划线
+        default: op
+      yinwuchat.style.o: #斜体
+        default: op
+      yinwuchat.style.r: #重置
+        default: true
+      yinwuchat.style.rgb:  #RGB颜色
+        default: op

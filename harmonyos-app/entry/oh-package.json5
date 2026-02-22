@@ -1,0 +1,9 @@
+{
+  "name": "entry",
+  "version": "2.12.76",
+  "description": "YinwuChat Entry Module",
+  "main": "",
+  "author": "lintx",
+  "license": "MIT",
+  "dependencies": {}
+}

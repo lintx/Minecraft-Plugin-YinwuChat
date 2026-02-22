@@ -6,23 +6,28 @@
 
     <groupId>org.lintx.plugins.yinwuchat</groupId>
     <artifactId>YinwuChat</artifactId>
-    <version>2.12</version>
+    <version>2.12.76</version>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
 
     <build>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.1</version>
+                <version>3.8.1</version>
                 <configuration>
-                    <source>1.8</source>
-                    <target>1.8</target>
+                    <source>17</source>
+                    <target>17</target>
+                    <encoding>UTF-8</encoding>
                 </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.1.0</version>
+                <version>3.4.1</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -31,11 +36,6 @@
                         </goals>
                         <configuration>
                             <relocations>
-                                <relocation>
-                                    <pattern>org.bstats</pattern>
-<!--                                    <shadedPattern>org.lintx.plugins.yinwuchat.utils</shadedPattern>-->
-                                    <shadedPattern>org.lintx.plugins.yinwuchat.maven.bstats</shadedPattern>
-                                </relocation>
                                 <relocation>
                                     <pattern>org.lintx.plugins.modules</pattern>
                                     <shadedPattern>org.lintx.plugins.yinwuchat.maven.modules</shadedPattern>
@@ -54,7 +54,7 @@
                                     <shadedPattern>org.lintx.plugins.yinwuchat.maven.commonspool</shadedPattern>
                                 </relocation>
                             </relocations>
-                            <minimizeJar>true</minimizeJar>
+                            <minimizeJar>false</minimizeJar>
                             <artifactSet>
                                 <includes>
                                     <include>org.bstats</include>
@@ -80,9 +80,202 @@
             <resource>
                 <filtering>true</filtering>
                 <directory>src/main/resources</directory>
+                <excludes>
+                    <exclude>velocity-plugin.json</exclude>
+                    <exclude>web/fonts/**</exclude>
+                </excludes>
+            </resource>
+            <resource>
+                <filtering>false</filtering>
+                <directory>src/main/resources</directory>
+                <includes>
+                    <include>web/fonts/**</include>
+                </includes>
             </resource>
         </resources>
     </build>
+
+    <profiles>
+        <!-- Default profile - builds all platforms (for backward compatibility) -->
+        <profile>
+            <id>all</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <build>
+                <finalName>${project.artifactId}-${project.version}</finalName>
+            </build>
+        </profile>
+
+        <!-- Velocity proxy platform -->
+        <profile>
+            <id>velocity</id>
+            <build>
+                <finalName>${project.artifactId}-Velocity-${project.version}</finalName>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <version>3.8.1</version>
+                        <configuration>
+                            <source>17</source>
+                            <target>17</target>
+                            <includes>
+                                <include>org/lintx/plugins/yinwuchat/Const.java</include>
+                                <include>org/lintx/plugins/yinwuchat/Util/**</include>
+                                <include>org/lintx/plugins/yinwuchat/chat/**</include>
+                                <include>org/lintx/plugins/yinwuchat/json/**</include>
+                                <include>org/lintx/plugins/yinwuchat/velocity/**</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-shade-plugin</artifactId>
+                        <version>3.4.1</version>
+                        <executions>
+                            <execution>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>shade</goal>
+                                </goals>
+                                <configuration>
+                                    <relocations>
+                                        <relocation>
+                                            <pattern>org.lintx.plugins.modules</pattern>
+                                            <shadedPattern>org.lintx.plugins.yinwuchat.maven.modules</shadedPattern>
+                                        </relocation>
+                                        <relocation>
+                                            <pattern>redis.clients.jedis</pattern>
+                                            <shadedPattern>org.lintx.plugins.yinwuchat.maven.jedis</shadedPattern>
+                                        </relocation>
+                                        <relocation>
+                                            <pattern>redis.clients.util</pattern>
+                                            <shadedPattern>org.lintx.plugins.yinwuchat.maven.jedisutil</shadedPattern>
+                                        </relocation>
+                                        <relocation>
+                                            <pattern>org.apache.commons.pool</pattern>
+                                            <shadedPattern>org.lintx.plugins.yinwuchat.maven.commonspool</shadedPattern>
+                                        </relocation>
+                                    </relocations>
+                                    <minimizeJar>false</minimizeJar>
+                                    <artifactSet>
+                                        <includes>
+                                            <include>org.bstats</include>
+                                            <include>org.lintx.plugins.modules</include>
+                                            <include>redis.clients:jedis</include>
+                                            <include>org.apache.commons:commons-pool2</include>
+                                        </includes>
+                                    </artifactSet>
+                                    <filters>
+                                        <filter>
+                                            <artifact>org.apache.commons:commons-pool2</artifact>
+                                            <includes>
+                                                <include>org/apache/commons/pool2/**</include>
+                                            </includes>
+                                        </filter>
+                                    </filters>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+                <resources>
+                    <resource>
+                        <filtering>false</filtering>
+                        <directory>src/main/resources</directory>
+                        <includes>
+                            <include>velocity-plugin.json</include>
+                        </includes>
+                    </resource>
+                </resources>
+            </build>
+        </profile>
+
+        <!-- Bukkit/Spigot platform -->
+        <profile>
+            <id>bukkit</id>
+            <build>
+                <finalName>${project.artifactId}-Bukkit-${project.version}</finalName>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <version>3.8.1</version>
+                        <configuration>
+                            <source>17</source>
+                            <target>17</target>
+                            <includes>
+                                <include>org/lintx/plugins/yinwuchat/Const.java</include>
+                                <include>org/lintx/plugins/yinwuchat/Util/**</include>
+                                <include>org/lintx/plugins/yinwuchat/chat/**</include>
+                                <include>org/lintx/plugins/yinwuchat/json/**</include>
+                                <include>org/lintx/plugins/yinwuchat/bukkit/**</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-shade-plugin</artifactId>
+                        <version>3.4.1</version>
+                        <executions>
+                            <execution>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>shade</goal>
+                                </goals>
+                                <configuration>
+                                    <relocations>
+                                        <relocation>
+                                            <pattern>org.lintx.plugins.modules</pattern>
+                                            <shadedPattern>org.lintx.plugins.yinwuchat.maven.modules</shadedPattern>
+                                        </relocation>
+                                        <relocation>
+                                            <pattern>redis.clients.jedis</pattern>
+                                            <shadedPattern>org.lintx.plugins.yinwuchat.maven.jedis</shadedPattern>
+                                        </relocation>
+                                        <relocation>
+                                            <pattern>redis.clients.util</pattern>
+                                            <shadedPattern>org.lintx.plugins.yinwuchat.maven.jedisutil</shadedPattern>
+                                        </relocation>
+                                        <relocation>
+                                            <pattern>org.apache.commons.pool</pattern>
+                                            <shadedPattern>org.lintx.plugins.yinwuchat.maven.commonspool</shadedPattern>
+                                        </relocation>
+                                    </relocations>
+                                    <minimizeJar>true</minimizeJar>
+                                    <artifactSet>
+                                        <includes>
+                                            <include>org.lintx.plugins.modules</include>
+                                            <include>redis.clients:jedis</include>
+                                            <include>org.apache.commons:commons-pool2</include>
+                                        </includes>
+                                    </artifactSet>
+                                    <filters>
+                                        <filter>
+                                            <artifact>org.apache.commons:commons-pool2</artifact>
+                                            <includes>
+                                                <include>org/apache/commons/pool2/**</include>
+                                            </includes>
+                                        </filter>
+                                    </filters>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+                <resources>
+                    <resource>
+                        <filtering>true</filtering>
+                        <directory>src/main/resources</directory>
+                        <includes>
+                            <include>plugin.yml</include>
+                        </includes>
+                    </resource>
+                </resources>
+            </build>
+        </profile>
+    </profiles>
 
     <repositories>
         <repository>
@@ -90,8 +283,16 @@
             <url>https://maven.aliyun.com/repository/central</url>
         </repository>
         <repository>
-            <id>bungeecord-repo</id>
+            <id>velocity</id>
+            <url>https://repo.papermc.io/repository/maven-public/</url>
+        </repository>
+        <repository>
+            <id>spigotmc-repo</id>
             <url>https://hub.spigotmc.org/nexus/content/groups/public/</url>
+        </repository>
+        <repository>
+            <id>sonatype</id>
+            <url>https://oss.sonatype.org/content/groups/public/</url>
         </repository>
         <repository>
             <id>placeholderapi</id>
@@ -100,6 +301,10 @@
         <repository>
             <id>CodeMC</id>
             <url>https://repo.codemc.io/repository/maven-public/</url>
+        </repository>
+        <repository>
+            <id>papermc</id>
+            <url>https://repo.papermc.io/repository/maven-public/</url>
         </repository>
     </repositories>
     <dependencies>
@@ -114,60 +319,54 @@
             <artifactId>Configure</artifactId>
             <version>1.2.5</version>
         </dependency>
+        <!-- Velocity API (Proxy) -->
         <dependency>
-            <groupId>net.md-5</groupId>
-            <artifactId>bungeecord-api</artifactId>
-            <version>1.16-R0.2-SNAPSHOT</version>
+            <groupId>com.velocitypowered</groupId>
+            <artifactId>velocity-api</artifactId>
+            <version>3.2.0-SNAPSHOT</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>net.md-5</groupId>
-            <artifactId>bungeecord-api</artifactId>
-            <version>1.16-R0.2-SNAPSHOT</version>
-            <classifier>sources</classifier>
+            <groupId>com.velocitypowered</groupId>
+            <artifactId>velocity-native</artifactId>
+            <version>3.2.0-SNAPSHOT</version>
+            <scope>provided</scope>
         </dependency>
+        <!-- Spigot API (Bukkit servers still use Spigot) -->
         <dependency>
             <groupId>org.spigotmc</groupId>
-            <artifactId>spigot</artifactId>
-            <version>1.13.2</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/lib/spigot-1.13.2.jar</systemPath>
-        </dependency>
-        <dependency>
-            <groupId>org.spigotmc1</groupId>
-            <artifactId>spigot1</artifactId>
-            <version>1.13.2</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/lib/CMI8.3.9.0.jar</systemPath>
+            <artifactId>spigot-api</artifactId>
+            <version>1.21.11-R0.1-SNAPSHOT</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>me.clip</groupId>
             <artifactId>placeholderapi</artifactId>
-            <version>2.9.2</version>
+            <version>2.11.6</version>
             <scope>provided</scope>
         </dependency>
-        <dependency>
-            <groupId>fr.Alphart</groupId>
-            <artifactId>bungeeadmintools</artifactId>
-            <version>1.13.2</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/lib/BungeeAdminTools-1.5.4-premium.jar</systemPath>
-        </dependency>
+        <!-- bStats for Velocity -->
         <dependency>
             <groupId>org.bstats</groupId>
-            <artifactId>bstats-bungeecord</artifactId>
-            <version>1.5</version>
+            <artifactId>bstats-velocity</artifactId>
+            <version>3.0.2</version>
         </dependency>
-
-<!--        以下为redis支持库-->
+        <!-- Netty HTTP codec -->
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-codec-http</artifactId>
+            <version>4.1.109.Final</version>
+        </dependency>
+        <!-- Redis libraries -->
         <dependency>
             <groupId>redis.clients</groupId>
             <artifactId>jedis</artifactId>
-            <version>2.9.0</version>
+            <version>5.1.0</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-pool2</artifactId>
-            <version>2.5.0</version>
+            <version>2.12.0</version>
         </dependency>
     </dependencies>
 </project>

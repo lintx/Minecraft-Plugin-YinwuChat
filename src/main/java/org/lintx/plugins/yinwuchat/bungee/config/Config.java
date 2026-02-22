@@ -120,6 +120,81 @@ public class Config {
     public String webDenyStyle = "klmnorxKLMNORX";
 
     @YamlConfig
+    public List<String> admins = new ArrayList<>();
+
+    @YamlConfig
+    public String adminGroup = "admin";  // LuckPerms 管理员组名
+
+    @YamlConfig
+    public String defaultGroup = "default";  // LuckPerms 默认组名
+
+    @YamlConfig
+    public String permissionCommandPrefix = "lp";  // 权限插件命令前缀
+
+    @YamlConfig
+    public List<String> permissionPluginIds = new ArrayList<>(java.util.Arrays.asList("luckperms"));  // 权限插件 ID 列表
+
+    public boolean isAdmin(String playerName) {
+        if (playerName == null || admins == null) return false;
+        for (String admin : admins) {
+            if (admin != null && admin.equalsIgnoreCase(playerName)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 检查玩家是否拥有管理员权限（检查 LuckPerms 组或配置文件列表）
+     * @param player BungeeCord 玩家对象
+     * @return 是否拥有管理员权限
+     */
+    public boolean isAdmin(net.md_5.bungee.api.connection.ProxiedPlayer player) {
+        if (player == null) return false;
+        
+        // 1. 优先检查 LuckPerms 组权限
+        if (adminGroup != null && !adminGroup.isEmpty()) {
+            if (player.hasPermission("group." + adminGroup)) {
+                return true;
+            }
+        }
+        
+        // 2. 检查通用的管理员权限节点
+        if (player.hasPermission(org.lintx.plugins.yinwuchat.Const.PERMISSION_ADMIN)) {
+            return true;
+        }
+        
+        // 3. 备用方案：检查配置文件中的 admins 列表
+        return isAdmin(player.getName());
+    }
+
+    /**
+     * 检查玩家是否拥有基础权限（检查 LuckPerms 组或通用权限节点）
+     * @param player BungeeCord 玩家对象
+     * @return 是否拥有基础权限
+     */
+    public boolean isDefault(net.md_5.bungee.api.connection.ProxiedPlayer player) {
+        if (player == null) return false;
+        
+        // 如果是管理员，默认拥有所有基础权限
+        if (isAdmin(player)) return true;
+        
+        // 1. 优先检查 LuckPerms 组权限
+        if (defaultGroup != null && !defaultGroup.isEmpty()) {
+            if (player.hasPermission("group." + defaultGroup)) {
+                return true;
+            }
+        }
+        
+        // 2. 检查通用的基础权限节点
+        if (player.hasPermission(org.lintx.plugins.yinwuchat.Const.PERMISSION_DEFAULT)) {
+            return true;
+        }
+        
+        return false;
+    }
+
+    @YamlConfig
     public boolean allowPlayerFormatPrefixSuffix = true;
 
     @YamlConfig

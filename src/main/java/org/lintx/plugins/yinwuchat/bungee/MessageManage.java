@@ -5,6 +5,7 @@ import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
 import com.google.gson.*;
 import io.netty.channel.Channel;
+import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.config.ServerInfo;
@@ -30,6 +31,7 @@ import org.lintx.plugins.yinwuchat.json.MessageFormat;
 import org.lintx.plugins.yinwuchat.json.PrivateMessage;
 import org.lintx.plugins.yinwuchat.json.PublicMessage;
 import org.lintx.plugins.yinwuchat.bungee.httpserver.WsClientHelper;
+import org.lintx.plugins.yinwuchat.bungee.manage.MuteManage;
 
 import java.util.*;
 
@@ -38,6 +40,7 @@ public class MessageManage {
     private static MessageManage instance = new MessageManage();
     private static final Config config = Config.getInstance();
     private static List<ChatHandle> handles = new ArrayList<>();
+    private org.lintx.plugins.yinwuchat.common.message.OfflineMessageStore offlineStore;
     static {
 //        handles.add(new EmojiHandle());
         handles.add(new CoolQCodeHandle());
@@ -58,14 +61,18 @@ public class MessageManage {
         return instance;
     }
 
+    private org.lintx.plugins.yinwuchat.common.message.OfflineMessageStore getOfflineStore() {
+        if (offlineStore == null && plugin != null) {
+            offlineStore = new org.lintx.plugins.yinwuchat.common.message.OfflineMessageStore(plugin.getDataFolder());
+        }
+        return offlineStore;
+    }
+
     private void monitorPrivateMessage(TextComponent textComponent,String fromPlayer,String toPlayer){
         for (ProxiedPlayer p:plugin.getProxy().getPlayers()){
             if (!p.hasPermission(Const.PERMISSION_MONITOR_PRIVATE_MESSAGE)) continue;
             if (p.getName().equalsIgnoreCase(fromPlayer) || p.getName().equalsIgnoreCase(toPlayer)) continue;
-            PlayerConfig.Player playerConfig = PlayerConfig.getConfig(p);
-            if (playerConfig.monitor){
-                p.sendMessage(textComponent);
-            }
+            p.sendMessage(textComponent);
         }
     }
 
@@ -91,15 +98,25 @@ public class MessageManage {
                     if (s == null) {
                         list.add(null);
                     } else {
+                        // 直接解析 JSON 组件数据，ModernItemUtil 确保返回兼容格式
                         list.add(ComponentSerializer.parse(s)[0]);
                     }
                 }
             } catch (Exception ignored) {
-
+                // 如果解析失败，尝试其他方法
+                for (String s : items) {
+                    if (s == null) {
+                        list.add(null);
+                    } else {
+                        // 尝试作为普通文本处理
+                        list.add(new TextComponent("[物品]"));
+                    }
+                }
             }
         }
         return list;
     }
+
 
     //处理bukkit发送的插件消息（包括公屏消息、私聊消息、请求玩家列表等）
     void handleBukkitMessage(ProxiedPlayer player, ByteArrayDataInput input){
@@ -168,17 +185,30 @@ public class MessageManage {
                 if (config.allowPlayerFormatPrefixSuffix && null!=fromPlayer.config.privatePrefix && !"".equals(fromPlayer.config.privatePrefix)) privateMessage.chat = fromPlayer.config.privatePrefix + privateMessage.chat;
                 if (config.allowPlayerFormatPrefixSuffix && null!=fromPlayer.config.privateSuffix && !"".equals(fromPlayer.config.privateSuffix)) privateMessage.chat = privateMessage.chat + fromPlayer.config.privateSuffix;
 
-                BungeeChatPlayer toPlayer = getPrivateMessageToPlayer(privateMessage.toPlayer);
+                BungeeChatPlayer toPlayer = getPrivateMessageToPlayer(privateMessage.toPlayer, player.getName());
+                UUID targetUuid = toPlayer.uuid;
+
                 if (toPlayer.redisPlayerName==null){
-                    if (toPlayer.playerName == null) {
-                        player.sendMessage(MessageUtil.newTextComponent(MessageUtil.replace(config.tipsConfig.toPlayerNoOnlineTip)));
+                    if (toPlayer.playerName == null && targetUuid == null) {
+                        // 存入离线消息
+                        org.lintx.plugins.yinwuchat.common.message.OfflineMessageStore store = getOfflineStore();
+                        if (store != null) {
+                            org.lintx.plugins.yinwuchat.common.message.OfflineMessageStore.OfflineMessage offline =
+                                new org.lintx.plugins.yinwuchat.common.message.OfflineMessageStore.OfflineMessage();
+                            offline.from = player.getName();
+                            offline.to = privateMessage.toPlayer;
+                            offline.message = privateMessage.chat;
+                            offline.time = System.currentTimeMillis();
+                            store.addMessage(privateMessage.toPlayer, offline);
+                        }
+                        player.sendMessage(MessageUtil.newTextComponent(ChatColor.YELLOW + "玩家不在线，消息已存为离线留言: " + privateMessage.toPlayer));
                         return;
                     }
-                    if (toPlayer.playerName.equalsIgnoreCase(privateMessage.player)) {
+                    if (toPlayer.playerName != null && toPlayer.playerName.equalsIgnoreCase(privateMessage.player)) {
                         player.sendMessage(MessageUtil.newTextComponent(MessageUtil.replace(config.tipsConfig.msgyouselfTip)));
                         return;
                     }
-                    if (toPlayer.config.isIgnore(player)) {
+                    if (toPlayer.config != null && toPlayer.config.isIgnore(player)) {
                         player.sendMessage(MessageUtil.newTextComponent(MessageUtil.replace(config.tipsConfig.ignoreTip)));
                         return;
                     }
@@ -209,16 +239,27 @@ public class MessageManage {
                 TextComponent monitorComponent = chat.buildPrivateMonitorMessage(config.formatConfig.monitorFormat);
 
                 player.sendMessage(toComponent);
+                
+                // 同步到发送者的 Web 端
+                syncPrivateMessageToWeb(player.getUniqueId(), player.getName(), toPlayer.playerName != null ? toPlayer.playerName : privateMessage.toPlayer, message, true);
+
+                // 发送给接收者 (游戏内)
                 if (toPlayer.player != null) {
                     toPlayer.player.sendMessage(fromComponent);
                 }
-                if (toPlayer.channel != null) {
-                    sendWebMessage(toPlayer.channel, toWebMessage(fromComponent));
+                
+                // 同步到接收者的所有 Web 端
+                if (targetUuid != null) {
+                    syncPrivateMessageToWeb(targetUuid, player.getName(), toPlayer.playerName != null ? toPlayer.playerName : privateMessage.toPlayer, message, false);
+                } else if (toPlayer.channel != null) {
+                    // 后备方案：如果找不到 UUID 但有 channel
+                    sendWebMessage(toPlayer.channel, toWebMessage(fromComponent, toPlayer.channel, player.getUniqueId(), player.getName(), null));
                 }
+                
                 if (toPlayer.redisPlayerName != null){
                     RedisUtil.sendMessage(player.getUniqueId(),fromComponent,toPlayer.redisPlayerName);
                 }
-                monitorPrivateMessage(monitorComponent,privateMessage.player,toPlayer.playerName);
+                monitorPrivateMessage(monitorComponent,privateMessage.player,toPlayer.playerName != null ? toPlayer.playerName : privateMessage.toPlayer);
                 plugin.getLogger().info(monitorComponent.toPlainText());
                 break;
             }
@@ -230,6 +271,9 @@ public class MessageManage {
 
     //判断bc端登录的玩家是否允许发送消息（判断是否被禁言）
     private boolean cantMessage(ProxiedPlayer player){
+        if (MuteManage.getInstance().checkMutedAndNotify(player)) {
+            return true;
+        }
         try {
             if (YinwuChat.getBatManage().isMute(player,player.getServer().getInfo().getName())){
                 player.sendMessage(MessageUtil.newTextComponent(MessageUtil.replace(config.tipsConfig.youismuteTip)));
@@ -249,6 +293,20 @@ public class MessageManage {
 
     //判断web端登录的玩家是否允许发送消息（判断是否被禁言）
     private boolean cantMessage(String player, Channel channel){
+        ProxiedPlayer proxiedPlayer = plugin.getProxy().getPlayer(player);
+        if (proxiedPlayer != null) {
+            if (MuteManage.getInstance().isMuted(proxiedPlayer)) {
+                MuteManage.getInstance().checkMutedAndNotify(proxiedPlayer);
+                // 同时通知 Web 端
+                PlayerConfig.Player settings = PlayerConfig.getConfig(proxiedPlayer);
+                String tip = config.tipsConfig.youismuteTip;
+                long rem = settings.getRemainingMuteTime();
+                if (rem == -1) tip += " (永久禁言)";
+                else if (rem > 0) tip += " (剩余: " + MuteManage.formatTime(rem) + ")";
+                sendWebMessage(channel, OutputServerMessage.errorJSON(tip).getJSON());
+                return true;
+            }
+        }
         try {
             if (YinwuChat.getBatManage().isMute(player,config.webBATserver)){
                 sendWebMessage(channel, OutputServerMessage.errorJSON(MessageUtil.replace(config.tipsConfig.youismuteTip)).getJSON());
@@ -267,16 +325,14 @@ public class MessageManage {
     }
 
     //根据一个名字查找对应的玩家并返回一个私聊消息配置（忽略大小写、前缀匹配）
-    private BungeeChatPlayer getPrivateMessageToPlayer(String name){
+    private BungeeChatPlayer getPrivateMessageToPlayer(String name, String viewerName){
         BungeeChatPlayer bungeeChatPlayer = new BungeeChatPlayer();
         ProxiedPlayer toPlayer = null;
         ProxiedPlayer findPlayer = null;
         name = name.toLowerCase(Locale.ROOT);
+        // 注意：现在允许非管理玩家向隐身玩家发送消息，所以移除 vanish 状态的过滤
+
         for (ProxiedPlayer p:plugin.getProxy().getPlayers()){
-            PlayerConfig.Player playerConfig = PlayerConfig.getConfig(p);
-            if (playerConfig.vanish){
-                continue;
-            }
             String pn = p.getName().toLowerCase(Locale.ROOT);
             if (pn.equals(name)){
                 toPlayer = p;
@@ -302,6 +358,7 @@ public class MessageManage {
                 if (playerConfig.name == null || playerConfig.name.equals("")) {
                     continue;
                 }
+                
                 String pn = playerConfig.name.toLowerCase(Locale.ROOT);
                 if (pn.equals(name)) {
                     toPlayerName = playerConfig.name;
@@ -332,6 +389,12 @@ public class MessageManage {
 
         bungeeChatPlayer.player = toPlayer;
         bungeeChatPlayer.playerName = toPlayerName;
+        if (toPlayer != null) {
+            bungeeChatPlayer.uuid = toPlayer.getUniqueId();
+        } else if (toUtil != null) {
+            bungeeChatPlayer.uuid = toUtil.getUuid();
+        }
+        
         if (toUtil!=null){
             Channel channel = WsClientHelper.getWebSocketAsUtil(toUtil);
             if (channel!=null){
@@ -379,7 +442,9 @@ public class MessageManage {
         if (config.allowPlayerFormatPrefixSuffix && null!=playerConfig.privatePrefix && !"".equals(playerConfig.privatePrefix)) message = playerConfig.privatePrefix + message;
         if (config.allowPlayerFormatPrefixSuffix && null!=playerConfig.privateSuffix && !"".equals(playerConfig.privateSuffix)) message = message + playerConfig.privateSuffix;
 
-        ShieldedManage.Result result = ShieldedManage.getInstance().checkShielded(channel,util.getUuid().toString(),message);
+        // 屏蔽词检查（带账户名，用于 Web 端封禁）
+        String senderAccount = util.getAccount();
+        ShieldedManage.Result result = ShieldedManage.getInstance().checkShielded(channel,util.getUuid().toString(),senderAccount,message);
         if (result.kick){
             return;
         }
@@ -390,17 +455,32 @@ public class MessageManage {
             message = result.msg;
         }
 
-        BungeeChatPlayer toPlayer = getPrivateMessageToPlayer(toName);
+        BungeeChatPlayer toPlayer = getPrivateMessageToPlayer(toName, playerConfig.name);
+        UUID targetUuid = toPlayer.uuid;
+
         if (toPlayer.redisPlayerName==null){
-            if (toPlayer.playerName == null) {
-                sendWebMessage(channel, OutputServerMessage.errorJSON(config.tipsConfig.toPlayerNoOnlineTip).getJSON());
+            if (toPlayer.playerName == null && targetUuid == null) {
+                org.lintx.plugins.yinwuchat.common.message.OfflineMessageStore store = getOfflineStore();
+                if (store != null) {
+                    org.lintx.plugins.yinwuchat.common.message.OfflineMessageStore.OfflineMessage offline =
+                        new org.lintx.plugins.yinwuchat.common.message.OfflineMessageStore.OfflineMessage();
+                    offline.from = playerConfig.name;
+                    offline.to = toName;
+                    offline.message = message;
+                    offline.time = System.currentTimeMillis();
+                    store.addMessage(toName, offline);
+                }
+                sendWebMessage(channel, OutputServerMessage.infoJSON("玩家不在线，消息已留存").getJSON());
+                
+                // 同步到发送者的所有 Web 端
+                syncPrivateMessageToWeb(util.getUuid(), playerConfig.name, toName, message, true);
                 return;
             }
-            if (toPlayer.playerName.equalsIgnoreCase(playerConfig.name)) {
+            if (toPlayer.playerName != null && toPlayer.playerName.equalsIgnoreCase(playerConfig.name)) {
                 sendWebMessage(channel, OutputServerMessage.errorJSON(config.tipsConfig.msgyouselfTip).getJSON());
                 return;
             }
-            if (toPlayer.config.isIgnore(util.getUuid())) {
+            if (toPlayer.config != null && toPlayer.config.isIgnore(util.getUuid())) {
                 sendWebMessage(channel, OutputServerMessage.errorJSON(config.tipsConfig.ignoreTip).getJSON());
                 return;
             }
@@ -431,13 +511,28 @@ public class MessageManage {
         TextComponent fromComponent = chat.buildPrivateFormMessage(config.formatConfig.fromFormat);
         TextComponent monitorComponent = chat.buildPrivateMonitorMessage(config.formatConfig.monitorFormat);
 
-        sendWebMessage(channel, toWebMessage(toComponent));
+        // 同步到发送者的所有 Web 端
+        syncPrivateMessageToWeb(util.getUuid(), playerConfig.name, toPlayer.playerName != null ? toPlayer.playerName : toName, message, true);
+        
+        // 发送者如果在线（游戏内），同步到游戏端
+        ProxiedPlayer fromPlayerOnline = plugin.getProxy().getPlayer(playerConfig.name);
+        if (fromPlayerOnline != null) {
+            fromPlayerOnline.sendMessage(toComponent);
+        }
+        
+        // 发送给接收者 (游戏内)
         if (toPlayer.player!=null){
             toPlayer.player.sendMessage(fromComponent);
         }
-        if (toPlayer.channel!=null){
-            sendWebMessage(toPlayer.channel, toWebMessage(fromComponent));
+        
+        // 同步到接收者的所有 Web 端
+        if (targetUuid != null) {
+            syncPrivateMessageToWeb(targetUuid, playerConfig.name, toPlayer.playerName != null ? toPlayer.playerName : toName, message, false);
+        } else if (toPlayer.channel != null) {
+            // 后备方案：如果找不到 UUID 但有 channel
+            sendWebMessage(toPlayer.channel, toWebMessage(fromComponent, toPlayer.channel, util.getUuid(), playerConfig.name, null));
         }
+        
         if (toPlayer.redisPlayerName != null){
             RedisUtil.sendMessage(util.getUuid(),fromComponent,toPlayer.redisPlayerName);
         }
@@ -445,6 +540,39 @@ public class MessageManage {
         //监听消息
         monitorPrivateMessage(monitorComponent,playerConfig.name,toPlayer.playerName);
         plugin.getLogger().info(monitorComponent.toPlainText());
+    }
+
+    public void deliverOfflineMessagesToPlayer(ProxiedPlayer player) {
+        if (player == null) return;
+        org.lintx.plugins.yinwuchat.common.message.OfflineMessageStore store = getOfflineStore();
+        if (store == null) return;
+        List<org.lintx.plugins.yinwuchat.common.message.OfflineMessageStore.OfflineMessage> list =
+            store.consumeMessages(player.getName());
+        if (list.isEmpty()) return;
+        for (org.lintx.plugins.yinwuchat.common.message.OfflineMessageStore.OfflineMessage msg : list) {
+            TextComponent text = new TextComponent("[离线私聊] " + msg.from + " -> " + msg.to + ": " + msg.message);
+            player.sendMessage(text);
+            notifyOfflineRead(msg.from, msg.to);
+        }
+    }
+
+    private void notifyOfflineRead(String fromPlayer, String toPlayer) {
+        if (fromPlayer == null || fromPlayer.isEmpty()) return;
+        String tip = "你发给 " + toPlayer + " 的离线留言已读";
+        ProxiedPlayer sender = plugin.getProxy().getPlayer(fromPlayer);
+        if (sender != null) {
+            sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GREEN + tip));
+        }
+        for (WsClientUtil util : WsClientHelper.utils()) {
+            if (util.getUuid() == null) continue;
+            PlayerConfig.Player config = PlayerConfig.getConfig(util.getUuid());
+            if (config.name != null && config.name.equalsIgnoreCase(fromPlayer)) {
+                Channel channel = WsClientHelper.getWebSocketAsUtil(util);
+                if (channel != null) {
+                    sendWebMessage(channel, OutputServerMessage.infoJSON(tip).getJSON());
+                }
+            }
+        }
     }
 
     //web端发送广播消息的处理
@@ -467,7 +595,15 @@ public class MessageManage {
         if (config.allowPlayerFormatPrefixSuffix && null!=playerConfig.publicPrefix && !"".equals(playerConfig.publicPrefix)) message = playerConfig.publicPrefix + message;
         if (config.allowPlayerFormatPrefixSuffix && null!=playerConfig.publicSuffix && !"".equals(playerConfig.publicSuffix)) message = message + playerConfig.publicSuffix;
 
-        ShieldedManage.Result result = ShieldedManage.getInstance().checkShielded(channel,uuid.toString(),message);
+        // 屏蔽词检查（带账户名，用于 Web 端封禁）
+        String accountName = null;
+        for (WsClientUtil wsUtil : WsClientHelper.utils()) {
+            if (wsUtil != null && uuid.equals(wsUtil.getUuid())) {
+                accountName = wsUtil.getAccount();
+                break;
+            }
+        }
+        ShieldedManage.Result result = ShieldedManage.getInstance().checkShielded(channel,uuid.toString(),accountName,message);
         if (result.kick){
             return;
         }
@@ -568,9 +704,24 @@ public class MessageManage {
 
     //发送广播消息
     private void broadcast(UUID playerUUID, TextComponent component, boolean noqq){
+        String senderName = "";
+        String serverName = "";
+        if (playerUUID != null) {
+            ProxiedPlayer p = plugin.getProxy().getPlayer(playerUUID);
+            if (p != null) {
+                senderName = p.getName();
+                if (p.getServer() != null) {
+                    serverName = p.getServer().getInfo().getName();
+                }
+            }
+        }
+        broadcast(playerUUID, senderName, serverName, component, noqq);
+    }
+
+    private void broadcast(UUID playerUUID, String senderName, String serverName, TextComponent component, boolean noqq){
         for (ProxiedPlayer p: plugin.getProxy().getPlayers()){
             PlayerConfig.Player playerConfig = PlayerConfig.getConfig(p);
-            if (playerUUID!=null && !p.getUniqueId().equals(playerUUID) && playerConfig.isIgnore(playerUUID)){
+            if (senderName != null && !senderName.isEmpty() && playerConfig.isIgnore(senderName)){
                 continue;
             }
             sendBcMessage(p,component);
@@ -580,10 +731,16 @@ public class MessageManage {
             RedisUtil.sendMessage(playerUUID,component);
         }
 
-        String json = toWebMessage(component);
         if (plugin.wsIsOn()){
             for (Channel channel : WsClientHelper.channels()) {
-                sendWebMessage(channel, json);
+                WsClientUtil util = WsClientHelper.get(channel);
+                if (util != null && util.getUuid() != null) {
+                    PlayerConfig.Player pc = PlayerConfig.getConfig(util.getUuid());
+                    if (senderName != null && !senderName.isEmpty() && pc.isIgnore(senderName)) {
+                        continue;
+                    }
+                }
+                sendWebMessage(channel, toWebMessage(component, channel, playerUUID, senderName, serverName));
             }
         }
         if (!noqq && config.coolQConfig.coolQGameToQQ){
@@ -601,12 +758,37 @@ public class MessageManage {
     }
 
     //将mc消息转换为web端的消息格式
-    private String toWebMessage(TextComponent component){
+    private String toWebMessage(TextComponent component, Channel targetChannel, UUID senderUUID, String senderName, String serverName){
         String webmessage = component.toLegacyText();
         JsonObject webjson = new JsonObject();
         webjson.addProperty("action", "send_message");
         webjson.addProperty("message", webmessage);
+
+        if (senderName != null && !senderName.isEmpty()) {
+            webjson.addProperty("player", senderName);
+        }
+        if (serverName != null && !serverName.isEmpty()) {
+            webjson.addProperty("server", serverName);
+        }
+
+        WsClientUtil util = WsClientHelper.get(targetChannel);
+        if (util != null && util.getUuid() != null) {
+            if (senderUUID != null && senderUUID.equals(util.getUuid())) {
+                webjson.addProperty("is_self", true);
+            }
+            
+            // 检查 Web 用户是否被 @ 提及
+            PlayerConfig.Player pc = PlayerConfig.getConfig(util.getUuid());
+            if (pc.name != null && !pc.name.isEmpty() && webmessage.contains("@" + pc.name)) {
+                webjson.addProperty("mention", true);
+            }
+        }
+
         return new Gson().toJson(webjson);
+    }
+
+    private String toWebMessage(TextComponent component){
+        return toWebMessage(component, null, null, null, null);
     }
 
     //给一个bc端玩家发送消息
@@ -617,6 +799,24 @@ public class MessageManage {
     //给一个web端玩家发送消息
     private void sendWebMessage(Channel channel, String json){
         NettyChannelMessageHelper.send(channel,json);
+    }
+
+    private void syncPrivateMessageToWeb(UUID playerUuid, String fromName, String toName, String message, boolean isSelf) {
+        if (playerUuid == null) return;
+        for (WsClientUtil util : WsClientHelper.utils()) {
+            if (util != null && playerUuid.equals(util.getUuid())) {
+                Channel channel = WsClientHelper.getWebSocketAsUtil(util);
+                if (channel != null && channel.isActive()) {
+                    JsonObject json = new JsonObject();
+                    json.addProperty("action", "private_message");
+                    json.addProperty("player", fromName);
+                    json.addProperty("to", toName);
+                    json.addProperty("message", message);
+                    json.addProperty("is_self", isSelf);
+                    sendWebMessage(channel, new Gson().toJson(json));
+                }
+            }
+        }
     }
 
     //给所有服务器发送玩家列表信息

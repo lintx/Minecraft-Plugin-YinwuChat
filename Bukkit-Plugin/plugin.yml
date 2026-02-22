@@ -1,0 +1,30 @@
+name: YinwuChat
+version: 2.12.76
+main: org.lintx.plugins.yinwuchat.bukkit.YinwuChat
+description: Cross-server chat synchronization for Bukkit/Spigot
+authors: [LinTx]
+website: https://github.com/LinTx/YinwuChat
+
+commands:
+  msg:
+    description: Send private message to player
+    usage: /msg <player> <message>
+    aliases: [tell, whisper, w, t]
+  yinwuchat-bukkit:
+    description: YinwuChat plugin commands
+    usage: /yinwuchat-bukkit <reload|config>
+    aliases: [ycb]
+
+permissions:
+  yinwuchat.admin.reload:
+    description: Allows reloading the plugin configuration
+    default: op
+  yinwuchat.admin.monitor:
+    description: Allows monitoring private messages
+    default: op
+  yinwuchat.admin:
+    description: All admin permissions
+    default: op
+  yinwuchat.default:
+    description: All basic permissions
+    default: true

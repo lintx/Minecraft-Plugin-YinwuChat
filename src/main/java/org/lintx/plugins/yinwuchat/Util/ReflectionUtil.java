@@ -60,18 +60,105 @@ public class ReflectionUtil {
             return loadedNMSClasses.get(nmsClassName);
         }
 
-        String clazzName = "net.minecraft.server." + getVersion() + nmsClassName;
-        Class<?> clazz;
+        // 尝试新版本的包路径 (1.20.5+)
+        // possiblePaths reserved for future version support
 
-        try {
-            clazz = Class.forName(clazzName);
-        } catch (Throwable t) {
-            t.printStackTrace();
-            return loadedNMSClasses.put(nmsClassName, null);
+        // 对于 ItemStack 类，我们单独处理
+        if ("ItemStack".equals(nmsClassName)) {
+            String newClazzName = "net.minecraft.world.item.ItemStack";
+            Class<?> clazz = tryLoadClass(newClazzName);
+            if (clazz != null) {
+                loadedNMSClasses.put(nmsClassName, clazz);
+                return clazz;
+            }
+        } else if ("NBTTagCompound".equals(nmsClassName)) {
+            String newClazzName = "net.minecraft.nbt.NBTTagCompound";
+            Class<?> clazz = tryLoadClass(newClazzName);
+            if (clazz != null) {
+                loadedNMSClasses.put(nmsClassName, clazz);
+                return clazz;
+            }
+        } else if ("Item".equals(nmsClassName)) {
+            String newClazzName = "net.minecraft.world.item.Item";
+            Class<?> clazz = tryLoadClass(newClazzName);
+            if (clazz != null) {
+                loadedNMSClasses.put(nmsClassName, clazz);
+                return clazz;
+            }
+        }
+
+        // 尝试旧版本的包路径
+        String oldClazzName = "net.minecraft.server." + getVersion() + nmsClassName;
+        Class<?> clazz = tryLoadClass(oldClazzName);
+
+        if (clazz == null) {
+            // 如果旧路径失败，尝试新路径模式
+            String newClazzName = getNewNMSPath(nmsClassName);
+            clazz = tryLoadClass(newClazzName);
         }
 
         loadedNMSClasses.put(nmsClassName, clazz);
         return clazz;
+    }
+
+    /**
+     * 尝试加载类并处理异常
+     */
+    private static Class<?> tryLoadClass(String className) {
+        try {
+            return Class.forName(className);
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    /**
+     * 根据类名获取新版本的 NMS 路径
+     */
+    private static String getNewNMSPath(String nmsClassName) {
+        // 根据常见的类名映射到新路径
+        switch (nmsClassName) {
+            case "ItemStack":
+                return "net.minecraft.world.item.ItemStack";
+            case "NBTTagCompound":
+                return "net.minecraft.nbt.NBTTagCompound";
+            case "NBTTagList":
+                return "net.minecraft.nbt.NBTTagList";
+            case "MinecraftServer":
+                return "net.minecraft.server.MinecraftServer";
+            case "WorldServer":
+                return "net.minecraft.server.level.WorldServer";
+            case "EntityPlayer":
+                return "net.minecraft.server.level.EntityPlayer";
+            case "Item":
+                return "net.minecraft.world.item.Item";
+            case "Blocks":
+                return "net.minecraft.world.level.block.Blocks";
+            default:
+                // 对于未知类，按优先级尝试几种可能的路径
+                // 为了避免频繁的 ClassNotFoundException，我们预先定义常见类的映射
+                // 如果都不匹配，返回默认路径
+                String[] prefixes = {
+                    "net.minecraft.world.item.",
+                    "net.minecraft.nbt.",
+                    "net.minecraft.server.level.",
+                    "net.minecraft.world.level.",
+                    "net.minecraft.core."
+                };
+
+                // 为了性能考虑，我们只在第一次查找时尝试多种路径，并缓存结果
+                for (String prefix : prefixes) {
+                    try {
+                        Class.forName(prefix + nmsClassName);
+                        return prefix + nmsClassName;
+                    } catch (ClassNotFoundException e) {
+                        // 继续尝试下一个前缀
+                    }
+                }
+
+                // 如果都找不到，返回一个可能的路径
+                return "net.minecraft.world.item." + nmsClassName; // 默认假设在 item 包下
+        }
     }
 
     /**

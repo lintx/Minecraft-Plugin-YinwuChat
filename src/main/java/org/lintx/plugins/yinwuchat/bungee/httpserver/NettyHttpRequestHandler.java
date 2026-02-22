@@ -10,7 +10,10 @@ import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
+
+import org.lintx.plugins.yinwuchat.common.auth.AuthService;
 
 import static io.netty.handler.codec.http.HttpResponseStatus.*;
 
@@ -20,10 +23,13 @@ public class NettyHttpRequestHandler extends SimpleChannelInboundHandler<FullHtt
     private AsciiString cssType = AsciiString.cached("text/css");
     private AsciiString jpegType = AsciiString.cached("image/jpeg");
     private final File rootFolder;
+    private final AuthService authService;
 
 
     NettyHttpRequestHandler(File rootFolder){
         this.rootFolder = rootFolder;
+        File dataFolder = rootFolder.getParentFile();
+        this.authService = AuthService.getInstance(dataFolder);
     }
 
     @Override
@@ -31,6 +37,14 @@ public class NettyHttpRequestHandler extends SimpleChannelInboundHandler<FullHtt
         try {
             URI uri = new URI(request.uri());
             String path = uri.getPath();
+            if (path.equals("/api/wsinfo")) {
+                writeJson(ctx, request, buildWsInfoJson(request));
+                return;
+            }
+            if (path.startsWith("/api/auth/")) {
+                handleAuthApi(ctx, request, path);
+                return;
+            }
             if (path.equals("/")){
                 writeIndex(ctx);
                 return;
@@ -108,6 +122,81 @@ public class NettyHttpRequestHandler extends SimpleChannelInboundHandler<FullHtt
         }
     }
 
+    private void handleAuthApi(ChannelHandlerContext ctx, FullHttpRequest request, String path) {
+        if (request.method() == HttpMethod.OPTIONS) {
+            writeCorsPreflight(ctx, request);
+            return;
+        }
+        if (request.method() == HttpMethod.GET) {
+            if (path.equals("/api/auth/handshake")) {
+                writeJson(ctx, request, authService.toJson(authService.createHandshakeResponse()));
+                return;
+            }
+            if (path.equals("/api/auth/captcha")) {
+                writeJson(ctx, request, authService.toJson(authService.createCaptchaResponse()));
+                return;
+            }
+            if (path.startsWith("/api/auth/reset/status/")) {
+                String username = path.substring("/api/auth/reset/status/".length());
+                writeJson(ctx, request, authService.toJson(authService.handleCheckResetStatus(username)));
+                return;
+            }
+        }
+        if (request.method() == HttpMethod.POST) {
+            String body = request.content().toString(StandardCharsets.UTF_8);
+            if (path.equals("/api/auth/register")) {
+                writeJson(ctx, request, authService.toJson(authService.handleRegister(body)));
+                return;
+            }
+            if (path.equals("/api/auth/login")) {
+                com.google.gson.JsonObject result = authService.handleLogin(body);
+                if (result.has("ok") && result.get("ok").getAsBoolean()) {
+                    String accountName = result.get("username").getAsString();
+                    String playerName = authService.getBoundPlayerName(accountName);
+                    if (playerName != null && !playerName.isEmpty()) {
+                        java.util.UUID uuid = org.lintx.plugins.yinwuchat.bungee.config.PlayerConfig.getTokens().getUuidByName(playerName);
+                        if (uuid != null) {
+                            String playerToken = org.lintx.plugins.yinwuchat.bungee.config.PlayerConfig.getTokens().getToken(uuid);
+                            if (playerToken != null) {
+                                result.addProperty("token", playerToken);
+                            }
+                        }
+                    }
+                }
+                writeJson(ctx, request, authService.toJson(result));
+                return;
+            }
+            if (path.equals("/api/auth/reset-token")) {
+                writeJson(ctx, request, authService.toJson(authService.handleResetToken(body, playerName -> {
+                    org.lintx.plugins.yinwuchat.bungee.config.PlayerConfig.getTokens().removeUuidByName(playerName);
+                })));
+                return;
+            }
+            if (path.equals("/api/auth/delete")) {
+                writeJson(ctx, request, authService.toJson(authService.handleDeleteAccount(body, playerName -> {
+                    org.lintx.plugins.yinwuchat.bungee.config.PlayerConfig.getTokens().removeUuidByName(playerName);
+                })));
+                return;
+            }
+            if (path.equals("/api/auth/reset/request")) {
+                writeJson(ctx, request, authService.toJson(authService.handleRequestReset(body, (accountName, playerName) -> {
+                    // Bungee 平台的 绑定验证逻辑
+                    org.lintx.plugins.yinwuchat.bungee.config.PlayerConfig.Player config = 
+                        org.lintx.plugins.yinwuchat.bungee.config.PlayerConfig.getPlayerConfigByName(playerName);
+                    return config != null && config.name.equalsIgnoreCase(playerName);
+                })));
+                return;
+            }
+            if (path.equals("/api/auth/reset/submit")) {
+                writeJson(ctx, request, authService.toJson(authService.handleResetPassword(body)));
+                return;
+            }
+        }
+        DefaultFullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, METHOD_NOT_ALLOWED);
+        addCorsHeaders(response.headers(), request);
+        write(ctx, response, AsciiString.cached("application/json"));
+    }
+
     private void write404(ChannelHandlerContext ctx){
         DefaultFullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, NOT_FOUND);
         String string = "<h1>File Not Found</h1>";
@@ -121,5 +210,60 @@ public class NettyHttpRequestHandler extends SimpleChannelInboundHandler<FullHtt
         heads.add(HttpHeaderNames.CONTENT_LENGTH, response.content().readableBytes());
         heads.add(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
         ctx.writeAndFlush(response);
+    }
+
+    private void writeJson(ChannelHandlerContext ctx, FullHttpRequest request, String json) {
+        DefaultFullHttpResponse response = new DefaultFullHttpResponse(
+                HttpVersion.HTTP_1_1,
+                HttpResponseStatus.OK,
+                Unpooled.copiedBuffer(json, StandardCharsets.UTF_8)
+        );
+        addCorsHeaders(response.headers(), request);
+        write(ctx, response, AsciiString.cached("application/json"));
+    }
+
+    private void writeCorsPreflight(ChannelHandlerContext ctx, FullHttpRequest request) {
+        DefaultFullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NO_CONTENT);
+        addCorsHeaders(response.headers(), request);
+        response.headers().set(HttpHeaderNames.CONTENT_LENGTH, 0);
+        ctx.writeAndFlush(response);
+    }
+
+    private void addCorsHeaders(HttpHeaders headers, FullHttpRequest request) {
+        String origin = request.headers().get(HttpHeaderNames.ORIGIN);
+        headers.set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN, origin != null ? origin : "*");
+        headers.set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, OPTIONS");
+        headers.set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_HEADERS, "Content-Type, Authorization");
+        headers.set(HttpHeaderNames.ACCESS_CONTROL_MAX_AGE, "86400");
+    }
+
+    private String buildWsInfoJson(FullHttpRequest request) {
+        String host = request.headers().get(HttpHeaderNames.HOST);
+        if (host == null || host.isEmpty()) host = "localhost";
+        if (host.contains(":")) host = host.split(":")[0];
+        String proto = "ws";
+        String forwardedProto = request.headers().get("X-Forwarded-Proto");
+        String forwardedPort = request.headers().get("X-Forwarded-Port");
+        boolean isBehindProxy = forwardedProto != null && !forwardedProto.isEmpty();
+        if ("https".equalsIgnoreCase(forwardedProto)) proto = "wss";
+        int port = org.lintx.plugins.yinwuchat.bungee.config.Config.getInstance().wsport;
+        // 通过反向代理访问时使用代理端口和新路径
+        String wsUrl;
+        String wsPath;
+        if (isBehindProxy) {
+            wsPath = "/new-ws";
+            String proxyPort = (forwardedPort != null && !forwardedPort.isEmpty()) ? forwardedPort : "31115";
+            // 如果是标准端口（443/80）则不显示端口号
+            if ("443".equals(proxyPort) || "80".equals(proxyPort)) {
+                wsUrl = proto + "://" + host + wsPath;
+            } else {
+                wsUrl = proto + "://" + host + ":" + proxyPort + wsPath;
+            }
+        } else {
+            wsPath = "/ws";
+            wsUrl = proto + "://" + host + ":" + port + wsPath;
+        }
+        String json = "{\"ok\":true,\"wsPort\":" + port + ",\"wsPath\":\"" + wsPath + "\",\"wsUrl\":\"" + wsUrl + "\"}";
+        return json;
     }
 }

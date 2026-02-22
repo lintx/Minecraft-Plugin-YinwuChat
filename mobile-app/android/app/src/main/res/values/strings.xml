@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">YinwuChat</string>
+    <string name="title_activity_main">YinwuChat</string>
+    <string name="package_name">org.lintx.plugins.yinwuchat</string>
+    <string name="custom_url_scheme">org.lintx.plugins.yinwuchat</string>
+</resources>

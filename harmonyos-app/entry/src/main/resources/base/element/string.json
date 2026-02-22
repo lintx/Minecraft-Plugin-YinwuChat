@@ -1,0 +1,16 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "YinwuChat - Minecraft 跨服聊天插件"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "YinwuChat 主界面"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "YinwuChat"
+    }
+  ]
+}

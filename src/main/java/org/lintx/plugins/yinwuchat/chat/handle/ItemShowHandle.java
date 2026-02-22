@@ -7,8 +7,8 @@ import org.lintx.plugins.yinwuchat.chat.struct.ChatSource;
 public class ItemShowHandle extends ChatHandle {
     @Override
     public void handle(Chat chat) {
-        if (chat.source!= ChatSource.GAME) return;
-        if (chat.items==null) return;
+        if (chat.source != ChatSource.GAME) return;
+        if (chat.items == null) return;
 
         handle(chat, Const.ITEM_PLACEHOLDER, (matcher) -> {
             if (chat.items.isEmpty()) return null;

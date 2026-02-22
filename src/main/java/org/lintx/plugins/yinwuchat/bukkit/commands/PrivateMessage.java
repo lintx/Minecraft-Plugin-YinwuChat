@@ -2,7 +2,6 @@ package org.lintx.plugins.yinwuchat.bukkit.commands;
 
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
 import org.bukkit.entity.Player;
@@ -11,7 +10,7 @@ import org.lintx.plugins.yinwuchat.bukkit.YinwuChat;
 
 import java.util.*;
 
-public class PrivateMessage implements CommandExecutor, TabExecutor {
+public class PrivateMessage implements TabExecutor {
     private final YinwuChat plugin;
     public PrivateMessage(YinwuChat plugin){
         this.plugin = plugin;
@@ -24,6 +23,10 @@ public class PrivateMessage implements CommandExecutor, TabExecutor {
             return true;
         }
         Player player = (Player)commandSender;
+        if (!player.hasPermission(org.lintx.plugins.yinwuchat.Const.PERMISSION_MSG) && !org.lintx.plugins.yinwuchat.bukkit.Config.getInstance().isAdmin(player)) {
+            player.sendMessage(ChatColor.RED + "权限不足");
+            return true;
+        }
         if (args.length>=2) {
             String to_player_name = args[0];
             List<String> tmpList = new ArrayList<>(Arrays.asList(args).subList(1, args.length));

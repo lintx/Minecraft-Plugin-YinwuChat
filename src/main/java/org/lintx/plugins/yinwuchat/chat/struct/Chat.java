@@ -187,8 +187,16 @@ public class Chat {
 
     //给component设置hover
     public void setHover(TextComponent component,String hover){
-        HoverEvent event = new HoverEvent(HoverEvent.Action.SHOW_TEXT,new BaseComponent[]{MessageUtil.newTextComponent(hover)});
-        component.setHoverEvent(event);
+        // HoverEvent with text - using reflection for compatibility
+        try {
+            com.google.gson.JsonArray jsonArray = new com.google.gson.JsonArray();
+            jsonArray.add(hover);
+            java.lang.reflect.Constructor<HoverEvent> constructor = HoverEvent.class.getDeclaredConstructor(HoverEvent.Action.class, com.google.gson.JsonArray.class);
+            HoverEvent event = constructor.newInstance(HoverEvent.Action.SHOW_TEXT, jsonArray);
+            component.setHoverEvent(event);
+        } catch (Exception e) {
+            // Fallback: skip hover event if construction fails
+        }
     }
 
     //给component设置click

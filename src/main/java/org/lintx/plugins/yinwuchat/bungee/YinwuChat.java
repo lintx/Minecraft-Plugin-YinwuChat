@@ -3,7 +3,6 @@ package org.lintx.plugins.yinwuchat.bungee;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.plugin.Plugin;
 import net.md_5.bungee.api.scheduler.ScheduledTask;
-import org.bstats.bungeecord.Metrics;
 import org.lintx.plugins.yinwuchat.Const;
 import org.lintx.plugins.yinwuchat.bungee.announcement.Task;
 import org.lintx.plugins.yinwuchat.bungee.config.Config;
@@ -91,8 +90,22 @@ public class YinwuChat extends Plugin {
         MessageManage.setPlugin(this);
         getProxy().registerChannel(Const.PLUGIN_CHANNEL);
         getProxy().getPluginManager().registerListener(this,new Listeners(this));
-        getProxy().getPluginManager().registerCommand(this, new Commands(plugin,"yinwuchat"));
-        getProxy().getPluginManager().registerCommand(this,new IgnoreCommand(this,"ignore"));
+        Commands yinwuChatCommand = new Commands(plugin,"yinwuchat");
+        getProxy().getPluginManager().registerCommand(this, yinwuChatCommand);
+        getProxy().getPluginManager().registerCommand(this, new Commands(plugin,"chatban"));
+        getProxy().getPluginManager().registerCommand(this, new Commands(plugin,"chatunban"));
+        getProxy().getPluginManager().registerCommand(this, new IgnoreCommand(this,"ignore"));
+
+        // 注册独立禁言命令 (与 Velocity 端对齐)
+        getProxy().getPluginManager().registerCommand(this, new BungeeMuteCommand(this, "mute"));
+        getProxy().getPluginManager().registerCommand(this, new BungeeMuteCommand(this, "unmute"));
+        getProxy().getPluginManager().registerCommand(this, new BungeeMuteCommand(this, "muteinfo"));
+
+        // 将 /yinwuchat 子命令代理为独立命令 (与 Velocity 端对齐)
+        getProxy().getPluginManager().registerCommand(this, new BungeeSubcommandProxy(yinwuChatCommand, "vanish", "vanish"));
+        getProxy().getPluginManager().registerCommand(this, new BungeeSubcommandProxy(yinwuChatCommand, "noat", "noat"));
+        getProxy().getPluginManager().registerCommand(this, new BungeeSubcommandProxy(yinwuChatCommand, "monitor", "monitor"));
+        getProxy().getPluginManager().registerCommand(this, new BungeeSubcommandProxy(yinwuChatCommand, "muteat", "muteat"));
 
         org.lintx.plugins.yinwuchat.bungee.announcement.Config.getInstance().load(this);
         Task task = new Task();
@@ -102,7 +115,12 @@ public class YinwuChat extends Plugin {
 
         redisBungee();
 
-        Metrics metrics = new Metrics(this);
+        // Metrics disabled for BungeeCord version (use Velocity instead)
+        // try {
+        //     Metrics metrics = new Metrics(this, 10357); // Plugin ID for bStats
+        // } catch (Exception e) {
+        //     getLogger().warning("Failed to initialize bStats metrics: " + e.getMessage());
+        // }
     }
 
     private void redisBungee(){
@@ -192,7 +210,10 @@ public class YinwuChat extends Plugin {
             file.mkdirs();
         }else {
             if (file.exists()){
-                return;
+                String lower = file.getName().toLowerCase();
+                if (!lower.equals("index.html") && !lower.equals("avater.png") && !lower.equals("forge.min.js") && !lower.equals("logo.png")) {
+                    return;
+                }
             }
             if (file.getParentFile().isDirectory()){
                 file.getParentFile().mkdir();
@@ -211,12 +232,16 @@ public class YinwuChat extends Plugin {
 
             } finally {
                 try {
-                    outputStream.close();
+                    if (outputStream != null) {
+                        outputStream.close();
+                    }
                 } catch (IOException ignored) {
 
                 }
                 try {
-                    inputStream.close();
+                    if (inputStream != null) {
+                        inputStream.close();
+                    }
                 } catch (IOException ignored) {
 
                 }

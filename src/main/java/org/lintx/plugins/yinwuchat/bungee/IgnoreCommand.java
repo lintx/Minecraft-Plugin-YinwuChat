@@ -25,6 +25,10 @@ public class IgnoreCommand extends Command {
             return;
         }
         final ProxiedPlayer player = (ProxiedPlayer)sender;
+        if (!player.hasPermission(org.lintx.plugins.yinwuchat.Const.PERMISSION_IGNORE) && !org.lintx.plugins.yinwuchat.bungee.config.Config.getInstance().isDefault(player)) {
+            sender.sendMessage(MessageUtil.newTextComponent(ChatColor.RED + "权限不足"));
+            return;
+        }
         if (args.length>=1) {
             PlayerConfig.Player playerConfig = PlayerConfig.getConfig(player);
             String name = args[0].toLowerCase(Locale.ROOT);

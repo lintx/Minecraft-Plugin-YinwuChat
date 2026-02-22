@@ -29,41 +29,51 @@ public class BungeeAtPlayerHandle extends ChatHandle {
 
     @Override
     public void handle(Chat chat) {
-        if (chat.source!= ChatSource.GAME) return;
+        if (chat.source!= ChatSource.GAME && chat.source!= ChatSource.WEB) return;
         if (chat.type!= ChatType.PUBLIC) return;
         if (!(chat.fromPlayer instanceof BungeeChatPlayer)) return;
         player = (BungeeChatPlayer)chat.fromPlayer;
-        if (player.player==null) return;
-
+        // 注意：Web 端发送时 player.player 可能为 null，但 player.config 和 player.playerName 是有的
+        
         atPlayers = new ArrayList<>();
         isSendPermissionTip = false;
         atAll(chat);
         atOne(chat);
 
-        if (!player.player.hasPermission(Const.PERMISSION_COOL_DOWN_BYPASS)){
+        if (player.player != null && !player.player.hasPermission(Const.PERMISSION_COOL_DOWN_BYPASS)){
             if (atPlayers.size()>0) chat.fromPlayer.config.updateCooldown();
         }
     }
 
     private void atAll(Chat chat){
-        if (!player.player.hasPermission(Const.PERMISSION_AT_ALL)) return;
+        if (player.player != null && !player.player.hasPermission(Const.PERMISSION_AT_ALL)) return;
         String regexp = "@(\\w*?)("+config.atAllKey+")(?=\\W|$)";
 
         handle(chat, regexp, (matcher) -> {
-//            MessageFormat extra = new MessageFormat();
             TextComponent component = new TextComponent();
             String server = matcher.group(1).toLowerCase();
             if ("".equals(server)){
                 for (ProxiedPlayer p: YinwuChat.getPlugin().getProxy().getPlayers()){
-                    if (!p.equals(player.player)){
-                        if (atPlayers.contains(p)) continue;
-                        if (atPlayer(player,p,true)){
-                            atPlayers.add(p);
-                        }
+                    if (player.player != null && p.equals(player.player)) continue;
+                    if (p.getName().equalsIgnoreCase(player.playerName)) continue;
+                    
+                    if (atPlayers.contains(p)) continue;
+                    if (atPlayer(player,p,true)){
+                        atPlayers.add(p);
                     }
                 }
+                
+                // 同时通知 Web 在线用户
+                for (org.lintx.plugins.yinwuchat.bungee.httpserver.WsClientUtil util : org.lintx.plugins.yinwuchat.bungee.httpserver.WsClientHelper.utils()) {
+                    if (util.getUuid() == null) continue;
+                    String name = PlayerConfig.getConfig(util.getUuid()).name;
+                    if (name != null && !name.equalsIgnoreCase(player.playerName)) {
+                        // Web 端通知由 broadcast 逻辑中的 mention: true 处理
+                    }
+                }
+
                 if (config.redisConfig.openRedis){
-                    RedisUtil.sendMessage(RedisMessageType.AT_PLAYER_ALL,player.player.getUniqueId(),new TextComponent(MessageUtil.replace(config.tipsConfig.atyouTip.replaceAll("\\{player}",player.playerName))),"");
+                    RedisUtil.sendMessage(RedisMessageType.AT_PLAYER_ALL,player.player != null ? player.player.getUniqueId() : PlayerConfig.getTokens().getAllUuids().iterator().next(),new TextComponent(MessageUtil.replace(config.tipsConfig.atyouTip.replaceAll("\\{player}",player.playerName))),"");
                 }
                 component.setText("§b" + matcher.group(0) + "§r");
                 return component;
@@ -86,15 +96,16 @@ public class BungeeAtPlayerHandle extends ChatHandle {
             }
             if (atServer!=null){
                 for (ProxiedPlayer p: YinwuChat.getPlugin().getProxy().getServerInfo(atServer.getName()).getPlayers()){
-                    if (!p.equals(player.player)){
-                        if (atPlayers.contains(p)) continue;
-                        if (atPlayer(player,p,true)){
-                            atPlayers.add(p);
-                        }
+                    if (player.player != null && p.equals(player.player)) continue;
+                    if (p.getName().equalsIgnoreCase(player.playerName)) continue;
+                    
+                    if (atPlayers.contains(p)) continue;
+                    if (atPlayer(player,p,true)){
+                        atPlayers.add(p);
                     }
                 }
                 if (config.redisConfig.openRedis){
-                    RedisUtil.sendMessage(RedisMessageType.AT_PLAYER_ALL,player.player.getUniqueId(),new TextComponent(MessageUtil.replace(config.tipsConfig.atyouTip.replaceAll("\\{player}",player.playerName))),"");
+                    RedisUtil.sendMessage(RedisMessageType.AT_PLAYER_ALL,player.player != null ? player.player.getUniqueId() : PlayerConfig.getTokens().getAllUuids().iterator().next(),new TextComponent(MessageUtil.replace(config.tipsConfig.atyouTip.replaceAll("\\{player}",player.playerName))),"");
                 }
 
                 component.setText("§b@" +atServer.getName() + matcher.group(2) + "§r");
@@ -107,40 +118,60 @@ public class BungeeAtPlayerHandle extends ChatHandle {
     private void atOne(Chat chat){
         String regexp = "@(\\w*?)(?=\\W|$)";
         handle(chat, regexp, (matcher) -> {
-            System.out.println(matcher.group(0));
-            ProxiedPlayer atPlayer = null;
-            ProxiedPlayer findPlayer = null;
+            ProxiedPlayer atProxiedPlayer = null;
+            ProxiedPlayer findProxiedPlayer = null;
             String str = matcher.group(1).toLowerCase(Locale.ROOT);
             if (str.equals("")){
                 return null;
             }
+            
+            // 查找游戏内玩家
             for (ProxiedPlayer p: YinwuChat.getPlugin().getProxy().getPlayers()){
                 PlayerConfig.Player pc = PlayerConfig.getConfig(p);
                 if (!pc.vanish){
                     String player_name = p.getName().toLowerCase(Locale.ROOT);
                     if (player_name.equalsIgnoreCase(str)){
-                        atPlayer = p;
+                        atProxiedPlayer = p;
                         break;
                     }
                     if (player_name.startsWith(str)){
-                        findPlayer = p;
+                        findProxiedPlayer = p;
                     }
                 }
             }
-            if (atPlayer==null){
-                atPlayer = findPlayer;
+            if (atProxiedPlayer==null){
+                atProxiedPlayer = findProxiedPlayer;
             }
-            if (atPlayer!=null){
-                if (atPlayer.equals(player.player)){
-                    atPlayer.sendMessage(new TextComponent(MessageUtil.replace(config.tipsConfig.atyouselfTip)));
+            
+            if (atProxiedPlayer!=null){
+                if (atProxiedPlayer.getName().equalsIgnoreCase(player.playerName)){
+                    atProxiedPlayer.sendMessage(new TextComponent(MessageUtil.replace(config.tipsConfig.atyouselfTip)));
                     return null;
                 }
-                if (atPlayers.contains(atPlayer)) return null;
-                if (atPlayer(player,atPlayer,false)){
-                    atPlayers.add(atPlayer);
-                    return new TextComponent("§b@" + atPlayer.getName() + "§r");
+                if (atPlayers.contains(atProxiedPlayer)) return null;
+                if (atPlayer(player,atProxiedPlayer,false)){
+                    atPlayers.add(atProxiedPlayer);
+                    return new TextComponent("§b@" + atProxiedPlayer.getName() + "§r");
                 }
             }
+            
+            // 查找 Web 玩家
+            for (org.lintx.plugins.yinwuchat.bungee.httpserver.WsClientUtil util : org.lintx.plugins.yinwuchat.bungee.httpserver.WsClientHelper.utils()) {
+                if (util.getUuid() == null) continue;
+                PlayerConfig.Player pc = PlayerConfig.getConfig(util.getUuid());
+                if (pc.name != null && !pc.name.isEmpty() && !pc.vanish) {
+                    if (pc.name.equalsIgnoreCase(str) || pc.name.toLowerCase(Locale.ROOT).startsWith(str)) {
+                        if (pc.name.equalsIgnoreCase(player.playerName)) return null;
+                        
+                        // 检查忽略列表
+                        if (pc.isIgnore(player.playerName)) return null;
+                        if (pc.muteAt) return null; // 被@者开启了免打扰
+                        
+                        return new TextComponent("§b@" + pc.name + "§r");
+                    }
+                }
+            }
+
             if (config.redisConfig.openRedis){
                 String findPlayerName = null;
                 String toPlayerName = null;
@@ -158,7 +189,7 @@ public class BungeeAtPlayerHandle extends ChatHandle {
                     toPlayerName = findPlayerName;
                 }
                 if (toPlayerName!=null){
-                    RedisUtil.sendMessage(RedisMessageType.AT_PLAYER,player.player.getUniqueId(),new TextComponent(MessageUtil.replace(config.tipsConfig.atyouTip.replaceAll("\\{player}",player.playerName))),toPlayerName);
+                    RedisUtil.sendMessage(RedisMessageType.AT_PLAYER,player.player != null ? player.player.getUniqueId() : PlayerConfig.getTokens().getAllUuids().iterator().next(),new TextComponent(MessageUtil.replace(config.tipsConfig.atyouTip.replaceAll("\\{player}",player.playerName))),toPlayerName);
                     return new TextComponent("§b@" + toPlayerName + "§r");
                 }
             }
@@ -170,16 +201,19 @@ public class BungeeAtPlayerHandle extends ChatHandle {
         PlayerConfig.Player pc = PlayerConfig.getConfig(atPlayer);
         Config config = Config.getInstance();
         if (!atAll){
-            if (pc.isIgnore(player.player)){
-                player.player.sendMessage(MessageUtil.newTextComponent(MessageUtil.replace(config.tipsConfig.ignoreTip)));
+            if (pc.isIgnore(player.playerName)){
+                if (player.player != null) player.player.sendMessage(MessageUtil.newTextComponent(MessageUtil.replace(config.tipsConfig.ignoreTip)));
                 return false;
             }
-            if (pc.banAt){
-                player.player.sendMessage(MessageUtil.newTextComponent(MessageUtil.replace(config.tipsConfig.banatTip)));
+            if (pc.muteAt){ // 原 muteAt 指的是禁止@声音
+                // 继续发送文字提示，但不发送声音
+            }
+            if (pc.banAt){ // 原 banAt 指的是完全禁止@
+                if (player.player != null) player.player.sendMessage(MessageUtil.newTextComponent(MessageUtil.replace(config.tipsConfig.banatTip)));
                 return false;
             }
         }
-        if (!player.player.hasPermission(Const.PERMISSION_COOL_DOWN_BYPASS)){
+        if (player.player != null && !player.player.hasPermission(Const.PERMISSION_COOL_DOWN_BYPASS)){
             if (player.config.isCooldown()){
                 if (!isSendPermissionTip)
                     player.player.sendMessage(MessageUtil.newTextComponent(MessageUtil.replace(config.tipsConfig.cooldownTip)));
@@ -194,7 +228,9 @@ public class BungeeAtPlayerHandle extends ChatHandle {
         }
         ByteArrayDataOutput output = ByteStreams.newDataOutput();
         output.writeUTF(Const.PLUGIN_SUB_CHANNEL_AT);
-        atPlayer.getServer().sendData(Const.PLUGIN_CHANNEL,output.toByteArray());
+        if (atPlayer.getServer() != null) {
+            atPlayer.getServer().sendData(Const.PLUGIN_CHANNEL,output.toByteArray());
+        }
         return true;
     }
 }
