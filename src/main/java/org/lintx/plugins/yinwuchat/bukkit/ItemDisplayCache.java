@@ -47,7 +47,7 @@ public class ItemDisplayCache {
         }
         
         // 生成短格式的唯一标识符（使用 UUID 的前8位）
-        String id = UUID.randomUUID().toString().substring(0, 8);
+        String id = generateDisplayId();
         
         CachedItem cachedItem = new CachedItem();
         cachedItem.item = item.clone();
@@ -61,6 +61,10 @@ public class ItemDisplayCache {
         }
         
         return id;
+    }
+
+    public String generateDisplayId() {
+        return UUID.randomUUID().toString().substring(0, 8);
     }
     
     /**

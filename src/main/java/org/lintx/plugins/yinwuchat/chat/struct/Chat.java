@@ -4,6 +4,7 @@ import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.HoverEvent;
 import net.md_5.bungee.api.chat.TextComponent;
+import org.lintx.plugins.yinwuchat.Util.ClickActionResolver;
 import org.lintx.plugins.yinwuchat.Util.MessageUtil;
 import org.lintx.plugins.yinwuchat.bungee.config.Config;
 import org.lintx.plugins.yinwuchat.json.HandleConfig;
@@ -11,8 +12,6 @@ import org.lintx.plugins.yinwuchat.json.MessageFormat;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class Chat {
     public List<ChatStruct> chat;
@@ -201,20 +200,11 @@ public class Chat {
 
     //给component设置click
     public void setClick(TextComponent component,String click){
-        Pattern pattern = Pattern.compile(config.linkRegex);
-        Matcher matcher = pattern.matcher(click);
-        ClickEvent.Action action;
-        if (matcher.find()){
-            action = ClickEvent.Action.OPEN_URL;
-        }else {
-            if (click.startsWith("!")){
-                click = click.replaceFirst("^!","");
-                action = ClickEvent.Action.RUN_COMMAND;
-            }else {
-                action = ClickEvent.Action.SUGGEST_COMMAND;
-            }
-        }
-        ClickEvent event = new ClickEvent(action,click);
+        ClickActionResolver.ResolvedClick resolved = ClickActionResolver.resolve(click, config.linkRegex);
+        ClickEvent.Action action = resolved.getMode() == ClickActionResolver.ClickMode.OPEN_URL
+                ? ClickEvent.Action.OPEN_URL
+                : ClickEvent.Action.SUGGEST_COMMAND;
+        ClickEvent event = new ClickEvent(action, resolved.getValue());
         component.setClickEvent(event);
     }
 }

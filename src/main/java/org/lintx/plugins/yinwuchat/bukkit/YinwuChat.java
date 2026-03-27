@@ -7,6 +7,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.lintx.plugins.yinwuchat.Const;
 import org.lintx.plugins.yinwuchat.Util.FoliaUtil;
 import org.lintx.plugins.yinwuchat.bukkit.commands.PrivateMessage;
+import org.lintx.plugins.yinwuchat.bukkit.commands.ViewBackpackCommand;
 import org.lintx.plugins.yinwuchat.bukkit.commands.ViewItemCommand;
 
 import java.util.ArrayList;
@@ -23,11 +24,11 @@ public class YinwuChat extends JavaPlugin {
         MessageManage.getInstance().setPlugin(this);
         Listeners listeners = new Listeners(this);
         this.listeners = listeners;
-        // Register plugin channels - try both velocity and bukkit compatible channels
+        // 注册插件消息通道 - 同时尝试 Velocity 和 Bukkit 两种兼容通道
         boolean velocityChannelRegistered = false;
         boolean bukkitChannelRegistered = false;
 
-        // Try registering velocity-compatible channel first
+        // 优先注册 Velocity 兼容通道
         try {
             getServer().getMessenger().registerOutgoingPluginChannel(this, Const.PLUGIN_CHANNEL_VELOCITY);
             getServer().getMessenger().registerIncomingPluginChannel(this, Const.PLUGIN_CHANNEL_VELOCITY, listeners);
@@ -37,14 +38,14 @@ public class YinwuChat extends JavaPlugin {
             getLogger().warning("Failed to register velocity channel: " + e.getMessage());
         }
 
-        // Try registering bukkit-compatible channel
+        // 注册 Bukkit 兼容通道
         try {
             getServer().getMessenger().registerOutgoingPluginChannel(this, Const.PLUGIN_CHANNEL_BUKKIT);
             getServer().getMessenger().registerIncomingPluginChannel(this, Const.PLUGIN_CHANNEL_BUKKIT, listeners);
             getLogger().info("Successfully registered bukkit-compatible plugin channel: " + Const.PLUGIN_CHANNEL_BUKKIT);
             bukkitChannelRegistered = true;
 
-            // If bukkit channel is registered but velocity channel is not, update listeners
+            // 如果 Bukkit 通道注册成功但 Velocity 通道注册失败，切换监听器的响应通道
             if (!velocityChannelRegistered) {
                 updateChannelForListeners(Const.PLUGIN_CHANNEL_BUKKIT);
             }
@@ -59,6 +60,7 @@ public class YinwuChat extends JavaPlugin {
         getCommand("msg").setExecutor(new PrivateMessage(this));
         getCommand("yinwuchat-bukkit").setExecutor(new org.lintx.plugins.yinwuchat.bukkit.commands.YinwuChat(this));
         getCommand("viewitem").setExecutor(new ViewItemCommand(this));
+        getCommand("viewbackpack").setExecutor(new ViewBackpackCommand(this));
         
         // 初始化物品展示缓存
         ItemDisplayCache.getInstance().setPlugin(this);
@@ -74,11 +76,9 @@ public class YinwuChat extends JavaPlugin {
     }
 
     /**
-     * Update the channel used by listeners for sending responses
+     * 更新监听器用于发送响应的通道
      */
     private void updateChannelForListeners(String channel) {
-        // This is a simple way to communicate the channel to listeners
-        // In a more sophisticated implementation, you might use dependency injection
         try {
             java.lang.reflect.Field channelField = Listeners.class.getDeclaredField("responseChannel");
             channelField.setAccessible(true);
@@ -89,18 +89,17 @@ public class YinwuChat extends JavaPlugin {
     }
 
     /**
-     * Register plugin channel bypassing Paper's validation using reflection
+     * 通过反射绕过 Paper 的验证机制注册插件消息通道
      */
     private void registerChannelBypassingValidation(String channel, Listeners listeners) throws Exception {
         try {
             getLogger().info("Attempting to register channel '" + channel + "' using reflection...");
 
-            // Get the StandardMessenger
             Object messenger = getServer().getMessenger();
 
-            // Try different field names for outgoing channels (Paper may remap them)
+            // 尝试不同的字段名查找发出通道集合（Paper 可能会重映射字段名）
             java.lang.reflect.Field outgoingField = null;
-            String[] possibleOutgoingNames = {"outgoing", "c", "field_1234"}; // Try common remapped names
+            String[] possibleOutgoingNames = {"outgoing", "c", "field_1234"};
 
             for (String fieldName : possibleOutgoingNames) {
                 try {
@@ -110,7 +109,7 @@ public class YinwuChat extends JavaPlugin {
                         break;
                     }
                 } catch (NoSuchFieldException e) {
-                    // Try next field name
+                    // 尝试下一个字段名
                 }
             }
 
@@ -121,10 +120,9 @@ public class YinwuChat extends JavaPlugin {
             @SuppressWarnings("unchecked")
             java.util.Set<String> outgoing = (java.util.Set<String>) outgoingField.get(messenger);
 
-            // Add the channel to outgoing set
             outgoing.add(channel);
 
-            // Try to register incoming channel normally
+            // 尝试正常方式注册传入通道
             try {
                 getServer().getMessenger().registerIncomingPluginChannel(this, channel, listeners);
             } catch (Exception e) {
@@ -145,7 +143,7 @@ public class YinwuChat extends JavaPlugin {
     }
 
     /**
-     * Get the actual channel that was registered with the server
+     * 获取当前实际注册成功的插件消息通道
      */
     public String getActualChannel() {
         return listeners != null ? listeners.responseChannel : Const.PLUGIN_CHANNEL_VELOCITY;

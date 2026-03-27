@@ -1,5 +1,11 @@
 apply plugin: 'com.android.application'
 
+def localProps = new Properties()
+def localPropsFile = rootProject.file('local.properties')
+if (localPropsFile.exists()) {
+    localProps.load(new FileInputStream(localPropsFile))
+}
+
 android {
     namespace "org.lintx.plugins.yinwuchat"
     compileSdk rootProject.ext.compileSdkVersion
@@ -7,8 +13,8 @@ android {
         applicationId "org.lintx.plugins.yinwuchat"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 21284
-        versionName "2.12.84"
+        versionCode 30100
+        versionName "3.1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -18,17 +24,17 @@ android {
     }
     signingConfigs {
         release {
-            storeFile file('yinwuchat-release.keystore')
-            storePassword 'yinwuchat2024'
-            keyAlias 'yinwuchat'
-            keyPassword 'yinwuchat2024'
+            storeFile localProps['RELEASE_STORE_FILE'] ? file(localProps['RELEASE_STORE_FILE']) : null
+            storePassword localProps['RELEASE_STORE_PASSWORD'] ?: ''
+            keyAlias localProps['RELEASE_KEY_ALIAS'] ?: ''
+            keyPassword localProps['RELEASE_KEY_PASSWORD'] ?: ''
         }
     }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.release
+            signingConfig localProps['RELEASE_STORE_FILE'] ? signingConfigs.release : null
         }
     }
 }

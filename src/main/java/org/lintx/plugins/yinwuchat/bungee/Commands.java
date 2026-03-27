@@ -1,13 +1,26 @@
 package org.lintx.plugins.yinwuchat.bungee;
 
+import com.google.common.io.ByteArrayDataOutput;
+import com.google.common.io.ByteStreams;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.CommandSender;
+import net.md_5.bungee.api.chat.ClickEvent;
+import net.md_5.bungee.api.chat.HoverEvent;
+import net.md_5.bungee.api.chat.TextComponent;
+import net.md_5.bungee.api.chat.hover.content.Text;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
+import net.md_5.bungee.api.connection.Server;
 import net.md_5.bungee.api.config.ListenerInfo;
 import net.md_5.bungee.api.plugin.Command;
+import net.md_5.bungee.api.plugin.TabExecutor;
+import org.lintx.plugins.yinwuchat.Util.BackpackViewCommandUtil;
+import org.lintx.plugins.yinwuchat.Util.AdminAlertCommandUtil;
+import org.lintx.plugins.yinwuchat.Util.CommandCompletionUtil;
+import org.lintx.plugins.yinwuchat.Util.PlayerFormatCommandUtil;
 import org.lintx.plugins.yinwuchat.Const;
+import org.lintx.plugins.yinwuchat.Util.BackpackViewDebugLogUtil;
 import org.lintx.plugins.yinwuchat.Util.MessageUtil;
 import org.lintx.plugins.yinwuchat.bungee.config.Config;
 import org.lintx.plugins.yinwuchat.bungee.config.PlayerConfig;
@@ -17,10 +30,11 @@ import org.lintx.plugins.yinwuchat.bungee.httpserver.WsClientHelper;
 import org.lintx.plugins.yinwuchat.bungee.httpserver.WsClientUtil;
 import org.lintx.plugins.yinwuchat.bungee.manage.MuteManage;
 import org.lintx.plugins.yinwuchat.common.auth.AuthService;
+import org.lintx.plugins.yinwuchat.velocity.json.ItemRequest;
 
 import java.util.*;
 
-public class Commands extends Command {
+public class Commands extends Command implements TabExecutor {
     private YinwuChat plugin;
 
     Commands(YinwuChat plugin, String name) {
@@ -223,10 +237,26 @@ public class Commands extends Command {
                     AuthService authService = AuthService.getInstance(plugin.getDataFolder());
                     if ("query".equals(action)) {
                         if (authService.accountExists(target)) {
-                            String bound = authService.getBoundPlayerName(target);
-                            String msg = bound == null || bound.isEmpty()
-                                ? "账号 " + target + " 未绑定玩家名"
-                                : "账号 " + target + " 绑定玩家名: " + bound;
+                            java.util.List<org.lintx.plugins.yinwuchat.common.auth.AuthUserStore.BoundPlayerRecord> list = authService.listBoundPlayers(target);
+                            String msg;
+                            if (list == null || list.isEmpty()) {
+                                msg = "账号 " + target + " 未绑定玩家名";
+                            } else {
+                                StringBuilder sb = new StringBuilder("账号 ").append(target).append(" 绑定玩家: ");
+                                for (int i = 0; i < list.size(); i++) {
+                                    org.lintx.plugins.yinwuchat.common.auth.AuthUserStore.BoundPlayerRecord b = list.get(i);
+                                    if (i > 0) {
+                                        sb.append(", ");
+                                    }
+                                    if (b != null && b.playerName != null) {
+                                        sb.append(b.playerName);
+                                        if (b.needsRebind) {
+                                            sb.append("(需重新绑定)");
+                                        }
+                                    }
+                                }
+                                msg = sb.toString();
+                            }
                             sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GREEN + msg));
                             return;
                         }
@@ -270,6 +300,11 @@ public class Commands extends Command {
                         if (tokens.bindToken(token,player)){
                             sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GREEN + "绑定成功"));
                             tokens.save();
+                            AuthService authService = AuthService.getInstance(plugin.getDataFolder());
+                            String pendingWeb = authService.findAccountByPendingBindToken(token);
+                            if (pendingWeb != null && !pendingWeb.isEmpty()) {
+                                authService.onGameBindWithPendingTokenCompletes(pendingWeb, player.getName(), token);
+                            }
                             Channel channel = WsClientHelper.getWebSocket(token);
                             if (channel != null) {
                                 WsClientHelper.get(channel).setUUID(playerUUID);
@@ -371,87 +406,27 @@ public class Commands extends Command {
             }
             else if (first.equalsIgnoreCase("format") && Config.getInstance().allowPlayerFormatPrefixSuffix){
                 if (player.hasPermission(Const.PERMISSION_FORMAT) || isDefault) {
-                    if (args.length>=4){
-                    String namespace = args[1].toLowerCase(Locale.ROOT);
-                    String position = args[2].toLowerCase(Locale.ROOT);
-                    String action = args[3].toLowerCase(Locale.ROOT);
-                    String str = "";
-                    if (args.length>=5){
-                        str = MessageUtil.filter(args[4],Config.getInstance().playerFormatPrefixSuffixDenyStyle);
+                    if (args.length == 1) {
+                        showFormatHelp(sender);
+                        return;
                     }
-                    if (namespace.equals("public")){
-                        if (position.equals("prefix")){
-                            if ("view".equals(action)){
-                                if ("".equals(playerConfig.publicPrefix)){
-                                    sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GREEN + "你没有设置公共消息前缀"));
-                                }else {
-                                    sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GREEN + "你的公共消息前缀是:"+playerConfig.publicPrefix.replaceAll("([&§])([0-9a-fklmnor])","$1&a$2")));
-                                }
-                                return;
-                            }
-                            else if ("set".equals(action)) {
-                                playerConfig.publicPrefix = str;
-                                playerConfig.save();
-                                sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GREEN + "你的公共消息前缀已设置为:"+playerConfig.publicPrefix.replaceAll("([&§])([0-9a-fklmnor])","$1&a$2")));
-                                return;
-                            }
-                        }
-                        else if (position.equals("suffix")){
-                            if ("view".equals(action)){
-                                if ("".equals(playerConfig.publicSuffix)){
-                                    sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GREEN + "你没有设置公共消息后缀"));
-                                }else {
-                                    sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GREEN + "你的公共消息后缀是:"+playerConfig.publicSuffix.replaceAll("([&§])([0-9a-fklmnor])","$1&a$2")));
-                                }
-                                return;
-                            }
-                            else if ("set".equals(action))  {
-                                playerConfig.publicSuffix = str;
-                                playerConfig.save();
-                                sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GREEN + "你的公共消息后缀已设置为:"+playerConfig.publicSuffix.replaceAll("([&§])([0-9a-fklmnor])","$1&a$2")));
-                                return;
-                            }
-                        }
+                    if (args[1].equalsIgnoreCase("edit")) {
+                        showFormatEditMenu(sender);
+                        return;
                     }
-                    else if (namespace.equals("private")){
-                        if (position.equals("prefix")){
-                            if ("view".equals(action)){
-                                if ("".equals(playerConfig.privatePrefix)){
-                                    sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GREEN + "你没有设置私聊消息前缀"));
-                                }else {
-                                    sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GREEN + "你的私聊消息前缀是:"+playerConfig.privatePrefix.replaceAll("([&§])([0-9a-fklmnor])","$1&a$2")));
-                                }
-                                return;
-                            }
-                            else if ("set".equals(action))  {
-                                playerConfig.privatePrefix = str;
-                                playerConfig.save();
-                                sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GREEN + "你的私聊消息前缀已设置为:"+playerConfig.privatePrefix.replaceAll("([&§])([0-9a-fklmnor])","$1&a$2")));
-                                return;
-                            }
-                        }
-                        else if (position.equals("suffix")){
-                            if ("view".equals(action)){
-                                if ("".equals(playerConfig.privateSuffix)){
-                                    sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GREEN + "你没有设置私聊消息后缀"));
-                                }else {
-                                    sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GREEN + "你的私聊消息后缀是:"+playerConfig.privateSuffix.replaceAll("([&§])([0-9a-fklmnor])","$1&a$2")));
-                                }
-                                return;
-                            }
-                            else if ("set".equals(action))  {
-                                playerConfig.privateSuffix = str;
-                                playerConfig.save();
-                                sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GREEN + "你的私聊消息后缀已设置为:"+playerConfig.privateSuffix.replaceAll("([&§])([0-9a-fklmnor])","$1&a$2")));
-                                return;
-                            }
-                        }
+                    if (args[1].equalsIgnoreCase("show")) {
+                        showCurrentFormat(sender, playerConfig);
+                        return;
                     }
-                }
-                }
-                else {
+                    if (args.length >= 4) {
+                        handleFormatSet(sender, playerConfig, args);
+                        return;
+                    }
+                } else {
                     sender.sendMessage(MessageUtil.newTextComponent(ChatColor.RED + "权限不足"));
                 }
+                showFormatHelp(sender);
+                return;
             }
             else if (first.equalsIgnoreCase("vanish")){
                 if (player.hasPermission(Const.PERMISSION_VANISH) || Config.getInstance().isAdmin(player)){
@@ -637,6 +612,16 @@ public class Commands extends Command {
                 for (ProxiedPlayer p : plugin.getProxy().getPlayers()) {
                     if (Config.getInstance().isAdmin(p)) {
                         p.sendMessage(gameAlert);
+                        TextComponent confirmAck = new TextComponent("处理结果：");
+                        confirmAck.setColor(ChatColor.YELLOW);
+                        TextComponent button = new TextComponent("[确认收到]");
+                        button.setColor(ChatColor.GREEN);
+                        button.setBold(true);
+                        button.setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, AdminAlertCommandUtil.buildAtAllAdminConfirmCommand(playerName)));
+                        button.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new Text("点击填入确认指令并重置该玩家冷却")));
+                        confirmAck.setText("处理结果：");
+                        confirmAck.addExtra(button);
+                        p.sendMessage(confirmAck);
                     }
                 }
 
@@ -675,6 +660,14 @@ public class Commands extends Command {
                 }
                 return;
             }
+            else if (first.equalsIgnoreCase("backpackview")) {
+                if (player.hasPermission(Const.PERMISSION_BACKPACK_VIEW) || isAdmin) {
+                    handleBackpackView(sender, player, args);
+                } else {
+                    sender.sendMessage(MessageUtil.newTextComponent(ChatColor.RED + "权限不足"));
+                }
+                return;
+            }
         }
         sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GOLD + "YinwuChat Version "+ plugin.getDescription().getVersion() + ",Author:"+plugin.getDescription().getAuthor()));
         sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GOLD + "插件帮助："));
@@ -686,7 +679,7 @@ public class Commands extends Command {
         sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GOLD + "可以解绑对应的token，token为查询结果中的token,可以只输入前面的部分"));
         sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GOLD + "发送私聊消息：&b/msg <player_name> <message>&6，例：&b/msg LinTx 一条私聊消息"));
         if (Config.getInstance().allowPlayerFormatPrefixSuffix){
-            sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GOLD + "查看/设置聊天前后缀：&b/yinwuchat format public/private prefix/suffix view/set [prefix/suffix]"));
+            sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GOLD + "查看/设置聊天前后缀：&b/yinwuchat format edit/show/public/private prefix/suffix set/clear [内容]"));
         }
         sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GOLD + "被@时静音：&b/yinwuchat muteat"));
         sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GOLD + "阻止自己被@：&b/yinwuchat noat&6（无法阻止被管理@全体）"));
@@ -712,6 +705,433 @@ public class Commands extends Command {
             sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GOLD + "Web账号绑定查询/解绑：&b/yinwuchat webbind <query|unbind> <账号名/玩家名>"));
             sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GOLD + "封禁Web账号：&b/chatban <账号名/玩家名> [时长] [理由]"));
             sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GOLD + "解封Web账号：&b/chatunban <账号名/玩家名>"));
+        }
+        if (sender.hasPermission(Const.PERMISSION_BACKPACK_VIEW) || isAdmin) {
+            sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GOLD + "查看指定玩家背包：&b/yinwuchat backpackview <玩家名>"));
+        }
+    }
+
+    private String[] remapArgsForAlias(String[] args) {
+        String label = getName().toLowerCase(Locale.ROOT);
+        if (label.equals("chatban")) {
+            String[] remapped = new String[args.length + 1];
+            remapped[0] = "ban";
+            System.arraycopy(args, 0, remapped, 1, args.length);
+            return remapped;
+        }
+        if (label.equals("chatunban")) {
+            String[] remapped = new String[args.length + 1];
+            remapped[0] = "unban";
+            System.arraycopy(args, 0, remapped, 1, args.length);
+            return remapped;
+        }
+        return args;
+    }
+
+    private List<String> getAvailableSubcommands(ProxiedPlayer player, boolean isAdmin, boolean isDefault) {
+        List<String> commands = new ArrayList<>();
+
+        if (player.hasPermission(Const.PERMISSION_RELOAD) || isAdmin) commands.add("reload");
+        if (player.hasPermission(Const.PERMISSION_BAD_WORD) || isAdmin) commands.add("badword");
+        if (player.hasPermission(Const.PERMISSION_VANISH) || isAdmin) commands.add("vanish");
+        if (player.hasPermission(Const.PERMISSION_MONITOR_PRIVATE_MESSAGE) || isAdmin) commands.add("monitor");
+        if (player.hasPermission(Const.PERMISSION_ADMIN) || isAdmin) {
+            commands.add("chatban");
+            commands.add("chatunban");
+            commands.add("webbind");
+            commands.add("permsync");
+        }
+        if (player.hasPermission(Const.PERMISSION_BACKPACK_VIEW) || isAdmin) commands.add("backpackview");
+
+        if (player.hasPermission(Const.PERMISSION_BIND) || isDefault) commands.add("bind");
+        if (player.hasPermission(Const.PERMISSION_LIST) || isDefault) commands.add("list");
+        if (player.hasPermission(Const.PERMISSION_WS) || isDefault) commands.add("ws");
+        if (player.hasPermission(Const.PERMISSION_UNBIND) || isDefault) commands.add("unbind");
+        if ((player.hasPermission(Const.PERMISSION_FORMAT) || isDefault) && Config.getInstance().allowPlayerFormatPrefixSuffix) commands.add("format");
+        if (player.hasPermission(Const.PERMISSION_MUTEAT) || isDefault) commands.add("muteat");
+        if (player.hasPermission(Const.PERMISSION_NOAT) || isDefault) commands.add("noat");
+        if (player.hasPermission(Const.PERMISSION_IGNORE) || isDefault) commands.add("ignore");
+        if (player.hasPermission(Const.PERMISSION_AT_ALL_ADMIN) || isDefault || player.hasPermission(Const.PERMISSION_AT_ALL_ADMIN_RESET) || isAdmin) commands.add("atalladmin");
+        commands.add("reset");
+
+        return commands;
+    }
+
+    private boolean isKnownCommand(ProxiedPlayer player, String command, boolean isAdmin, boolean isDefault) {
+        if ("ban".equalsIgnoreCase(command) || "unban".equalsIgnoreCase(command)) {
+            return true;
+        }
+        return getAvailableSubcommands(player, isAdmin, isDefault).stream()
+                .anyMatch(value -> value.equalsIgnoreCase(command));
+    }
+
+    private List<String> getOnlinePlayerSuggestions(String prefix) {
+        return CommandCompletionUtil.filterByPrefix(
+                plugin.getProxy().getPlayers().stream().map(ProxiedPlayer::getName).toList(),
+                prefix
+        );
+    }
+
+    private boolean hasExactOnlinePlayer(String name) {
+        return plugin.getProxy().getPlayer(name) != null;
+    }
+
+    private List<String> suggestRootCommands(ProxiedPlayer player, String[] args, boolean isAdmin, boolean isDefault) {
+        List<String> commands = getAvailableSubcommands(player, isAdmin, isDefault);
+        if (args.length == 0) {
+            return commands;
+        }
+        return CommandCompletionUtil.filterByPrefix(commands, args[0]);
+    }
+
+    private boolean hasSuggestionPermission(ProxiedPlayer player, String command, boolean isAdmin, boolean isDefault) {
+        switch (command.toLowerCase(Locale.ROOT)) {
+            case "reload":
+                return player.hasPermission(Const.PERMISSION_RELOAD) || isAdmin;
+            case "badword":
+                return player.hasPermission(Const.PERMISSION_BAD_WORD) || isAdmin;
+            case "vanish":
+                return player.hasPermission(Const.PERMISSION_VANISH) || isAdmin;
+            case "monitor":
+                return player.hasPermission(Const.PERMISSION_MONITOR_PRIVATE_MESSAGE) || isAdmin;
+            case "chatban":
+            case "ban":
+            case "chatunban":
+            case "unban":
+            case "webbind":
+            case "permsync":
+                return player.hasPermission(Const.PERMISSION_ADMIN) || isAdmin;
+            case "backpackview":
+                return player.hasPermission(Const.PERMISSION_BACKPACK_VIEW) || isAdmin;
+            case "bind":
+                return player.hasPermission(Const.PERMISSION_BIND) || isDefault;
+            case "list":
+                return player.hasPermission(Const.PERMISSION_LIST) || isDefault;
+            case "ws":
+                return player.hasPermission(Const.PERMISSION_WS) || isDefault;
+            case "unbind":
+                return player.hasPermission(Const.PERMISSION_UNBIND) || isDefault;
+            case "format":
+                return (player.hasPermission(Const.PERMISSION_FORMAT) || isDefault) && Config.getInstance().allowPlayerFormatPrefixSuffix;
+            case "muteat":
+                return player.hasPermission(Const.PERMISSION_MUTEAT) || isDefault;
+            case "noat":
+                return player.hasPermission(Const.PERMISSION_NOAT) || isDefault;
+            case "ignore":
+                return player.hasPermission(Const.PERMISSION_IGNORE) || isDefault;
+            case "atalladmin":
+                return player.hasPermission(Const.PERMISSION_AT_ALL_ADMIN) || isDefault || player.hasPermission(Const.PERMISSION_AT_ALL_ADMIN_RESET) || isAdmin;
+            case "reset":
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private List<String> suggestSubcommand(ProxiedPlayer player, String[] args, boolean isAdmin, boolean isDefault) {
+        String command = args[0].toLowerCase(Locale.ROOT);
+        if (!hasSuggestionPermission(player, command, isAdmin, isDefault)) {
+            return List.of();
+        }
+        switch (command) {
+            case "reload":
+                return CommandCompletionUtil.filterByPrefix(
+                        CommandCompletionUtil.RELOAD_TARGETS,
+                        args.length >= 2 ? args[1] : ""
+                );
+            case "ignore":
+                return getOnlinePlayerSuggestions(args.length >= 2 ? args[1] : "");
+            case "bind":
+            case "ws":
+            case "list":
+            case "noat":
+            case "muteat":
+            case "monitor":
+            case "vanish":
+            case "permsync":
+            case "reset":
+                return List.of();
+            case "unbind":
+                if (args.length <= 1) {
+                    return CommandCompletionUtil.filterByPrefix(PlayerConfig.getTokens().tokenWithPlayer(player), "");
+                }
+                return CommandCompletionUtil.filterByPrefix(PlayerConfig.getTokens().tokenWithPlayer(player), args[1]);
+            case "chatban":
+            case "ban":
+                if (args.length <= 1) {
+                    return getOnlinePlayerSuggestions("");
+                }
+                if (args.length == 2) {
+                    if (hasExactOnlinePlayer(args[1])) {
+                        return CommandCompletionUtil.DURATION_TEMPLATES;
+                    }
+                    return getOnlinePlayerSuggestions(args[1]);
+                }
+                if (args.length == 3) {
+                    return CommandCompletionUtil.filterByPrefix(CommandCompletionUtil.DURATION_TEMPLATES, args[2]);
+                }
+                return List.of();
+            case "chatunban":
+            case "unban":
+                return getOnlinePlayerSuggestions(args.length >= 2 ? args[1] : "");
+            case "webbind":
+                if (args.length <= 1) {
+                    return CommandCompletionUtil.WEBBIND_ACTIONS;
+                }
+                if (args.length == 2) {
+                    if (CommandCompletionUtil.WEBBIND_ACTIONS.stream().anyMatch(args[1]::equalsIgnoreCase)) {
+                        return getOnlinePlayerSuggestions("");
+                    }
+                    return CommandCompletionUtil.filterByPrefix(CommandCompletionUtil.WEBBIND_ACTIONS, args[1]);
+                }
+                return getOnlinePlayerSuggestions(args[2]);
+            case "format":
+                if (!Config.getInstance().allowPlayerFormatPrefixSuffix) {
+                    return List.of();
+                }
+                if (args.length <= 1) {
+                    return CommandCompletionUtil.FORMAT_ROOT_ACTIONS;
+                }
+                if (args.length == 2) {
+                    if (CommandCompletionUtil.FORMAT_SCOPES.stream().anyMatch(args[1]::equalsIgnoreCase)
+                            || "edit".equalsIgnoreCase(args[1])
+                            || "show".equalsIgnoreCase(args[1])) {
+                        if ("edit".equalsIgnoreCase(args[1]) || "show".equalsIgnoreCase(args[1])) {
+                            return List.of();
+                        }
+                        return CommandCompletionUtil.FORMAT_POSITIONS;
+                    }
+                    return CommandCompletionUtil.filterByPrefix(CommandCompletionUtil.FORMAT_ROOT_ACTIONS, args[1]);
+                }
+                if (args.length == 3) {
+                    return CommandCompletionUtil.filterByPrefix(CommandCompletionUtil.FORMAT_POSITIONS, args[2]);
+                }
+                if (args.length == 4) {
+                    return CommandCompletionUtil.filterByPrefix(CommandCompletionUtil.FORMAT_ACTIONS_VELOCITY, args[3]);
+                }
+                return List.of();
+            case "atalladmin":
+                if (args.length <= 1) {
+                    return CommandCompletionUtil.ATALLADMIN_ACTIONS;
+                }
+                if (args.length == 2) {
+                    if ("confirm".equalsIgnoreCase(args[1]) && (player.hasPermission(Const.PERMISSION_AT_ALL_ADMIN_RESET) || isAdmin)) {
+                        return getOnlinePlayerSuggestions("");
+                    }
+                    return CommandCompletionUtil.filterByPrefix(CommandCompletionUtil.ATALLADMIN_ACTIONS, args[1]);
+                }
+                if (args.length == 3 && "confirm".equalsIgnoreCase(args[1]) && (player.hasPermission(Const.PERMISSION_AT_ALL_ADMIN_RESET) || isAdmin)) {
+                    return getOnlinePlayerSuggestions(args[2]);
+                }
+                return List.of();
+            case "badword":
+                if (args.length <= 1) {
+                    return CommandCompletionUtil.BADWORD_ACTIONS;
+                }
+                if (args.length == 2) {
+                    if ("remove".equalsIgnoreCase(args[1])) {
+                        return CommandCompletionUtil.filterByPrefix(Config.getInstance().shieldeds, "");
+                    }
+                    if ("add".equalsIgnoreCase(args[1]) || "list".equalsIgnoreCase(args[1])) {
+                        return List.of();
+                    }
+                    return CommandCompletionUtil.filterByPrefix(CommandCompletionUtil.BADWORD_ACTIONS, args[1]);
+                }
+                if (args.length == 3 && "remove".equalsIgnoreCase(args[1])) {
+                    return CommandCompletionUtil.filterByPrefix(Config.getInstance().shieldeds, args[2]);
+                }
+                return List.of();
+            case "backpackview":
+                return BackpackViewCommandUtil.suggestTargets(
+                        args.length >= 2 ? args[1] : "",
+                        plugin.getProxy().getPlayers().stream().map(ProxiedPlayer::getName).toList()
+                );
+            default:
+                return List.of();
+        }
+    }
+
+    @Override
+    public Iterable<String> onTabComplete(CommandSender sender, String[] args) {
+        String[] remappedArgs = remapArgsForAlias(args);
+
+        if (!(sender instanceof ProxiedPlayer)) {
+            if (remappedArgs.length == 0) {
+                return List.of("reload");
+            }
+            if (remappedArgs.length == 1) {
+                if ("reload".equalsIgnoreCase(remappedArgs[0])) {
+                    return CommandCompletionUtil.RELOAD_TARGETS;
+                }
+                return CommandCompletionUtil.filterByPrefix(List.of("reload"), remappedArgs[0]);
+            }
+            if ("reload".equalsIgnoreCase(remappedArgs[0])) {
+                return CommandCompletionUtil.filterByPrefix(CommandCompletionUtil.RELOAD_TARGETS, remappedArgs[1]);
+            }
+            return Collections.emptyList();
+        }
+        ProxiedPlayer player = (ProxiedPlayer) sender;
+        boolean isAdmin = Config.getInstance().isAdmin(player);
+        boolean isDefault = Config.getInstance().isDefault(player);
+
+        if (remappedArgs.length == 0) {
+            return suggestRootCommands(player, remappedArgs, isAdmin, isDefault);
+        }
+        if (remappedArgs.length == 1 && !isKnownCommand(player, remappedArgs[0], isAdmin, isDefault)) {
+            return suggestRootCommands(player, remappedArgs, isAdmin, isDefault);
+        }
+        return suggestSubcommand(player, remappedArgs, isAdmin, isDefault);
+    }
+
+    private void showFormatEditMenu(CommandSender sender) {
+        sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GOLD + "=== 聊天前后缀编辑模式 ==="));
+        sender.sendMessage(MessageUtil.newTextComponent(ChatColor.YELLOW + "已进入编辑模式，可直接点击设置或清除："));
+        sender.sendMessage(buildFormatEditLine("公共前缀", "/yinwuchat format public prefix set ", "/yinwuchat format public prefix clear"));
+        sender.sendMessage(buildFormatEditLine("公共后缀", "/yinwuchat format public suffix set ", "/yinwuchat format public suffix clear"));
+        sender.sendMessage(buildFormatEditLine("私聊前缀", "/yinwuchat format private prefix set ", "/yinwuchat format private prefix clear"));
+        sender.sendMessage(buildFormatEditLine("私聊后缀", "/yinwuchat format private suffix set ", "/yinwuchat format private suffix clear"));
+        sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GRAY + "提示：点击 [✔] 后在聊天框中输入内容，支持颜色代码 (&a, &b 等)"));
+    }
+
+    private TextComponent buildFormatEditLine(String label, String setCommand, String clearCommand) {
+        TextComponent root = new TextComponent(label + " ");
+
+        TextComponent setButton = new TextComponent("[✔]");
+        setButton.setColor(ChatColor.GREEN);
+        setButton.setBold(true);
+        setButton.setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, setCommand));
+        setButton.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new Text("点击设置" + label)));
+
+        TextComponent clearButton = new TextComponent("[清除]");
+        clearButton.setColor(ChatColor.RED);
+        clearButton.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, clearCommand));
+        clearButton.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new Text("点击清除" + label)));
+
+        root.addExtra(setButton);
+        root.addExtra(" ");
+        root.addExtra(clearButton);
+        return root;
+    }
+
+    private void showCurrentFormat(CommandSender sender, PlayerConfig.Player playerConfig) {
+        sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GOLD + "=== 你的聊天前后缀 ==="));
+        sendFormatValueLine(sender, "公共前缀", playerConfig.publicPrefix, "/yinwuchat format public prefix clear");
+        sendFormatValueLine(sender, "公共后缀", playerConfig.publicSuffix, "/yinwuchat format public suffix clear");
+        sendFormatValueLine(sender, "私聊前缀", playerConfig.privatePrefix, "/yinwuchat format private prefix clear");
+        sendFormatValueLine(sender, "私聊后缀", playerConfig.privateSuffix, "/yinwuchat format private suffix clear");
+    }
+
+    private void sendFormatValueLine(CommandSender sender, String label, String value, String clearCommand) {
+        if (value == null || value.isEmpty()) {
+            sender.sendMessage(MessageUtil.newTextComponent(ChatColor.WHITE + label + ": " + ChatColor.GRAY + "(未设置)"));
+            return;
+        }
+
+        TextComponent root = MessageUtil.newTextComponent(ChatColor.WHITE + label + ": " + formatPreview(value) + " ");
+        TextComponent clearButton = new TextComponent("[清除]");
+        clearButton.setColor(ChatColor.RED);
+        clearButton.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, clearCommand));
+        clearButton.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new Text("点击清除" + label)));
+        root.addExtra(clearButton);
+        sender.sendMessage(root);
+    }
+
+    private void handleFormatSet(CommandSender sender, PlayerConfig.Player playerConfig, String[] args) {
+        String namespace = args[1].toLowerCase(Locale.ROOT);
+        String position = args[2].toLowerCase(Locale.ROOT);
+        String action = args[3].toLowerCase(Locale.ROOT);
+
+        if ((!namespace.equals("public") && !namespace.equals("private"))
+                || (!position.equals("prefix") && !position.equals("suffix"))) {
+            showFormatHelp(sender);
+            return;
+        }
+
+        if ("clear".equals(action)) {
+            applyFormatValue(playerConfig, namespace, position, "");
+            playerConfig.save();
+            sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GREEN + "✓ 已清除" + describeFormatTarget(namespace, position)));
+            return;
+        }
+
+        if (!"set".equals(action)) {
+            showFormatHelp(sender);
+            return;
+        }
+
+        String content = PlayerFormatCommandUtil.joinAndFilterContent(args, 4, Config.getInstance().playerFormatPrefixSuffixDenyStyle);
+        if (content.isEmpty()) {
+            sender.sendMessage(MessageUtil.newTextComponent(ChatColor.RED + "✗ 请输入要设置的内容"));
+            return;
+        }
+
+        applyFormatValue(playerConfig, namespace, position, content);
+        playerConfig.save();
+        sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GREEN + "✓ 已设置" + describeFormatTarget(namespace, position) + "为:" + formatPreview(content)));
+    }
+
+    private void applyFormatValue(PlayerConfig.Player playerConfig, String namespace, String position, String value) {
+        if (namespace.equals("public")) {
+            if (position.equals("prefix")) {
+                playerConfig.publicPrefix = value;
+            } else {
+                playerConfig.publicSuffix = value;
+            }
+        } else {
+            if (position.equals("prefix")) {
+                playerConfig.privatePrefix = value;
+            } else {
+                playerConfig.privateSuffix = value;
+            }
+        }
+    }
+
+    private String describeFormatTarget(String namespace, String position) {
+        return ("public".equals(namespace) ? "公共" : "私聊") + ("prefix".equals(position) ? "前缀" : "后缀");
+    }
+
+    private String formatPreview(String value) {
+        return value.replaceAll("([&§])([0-9a-fklmnor])", "$1&a$2");
+    }
+
+    private void showFormatHelp(CommandSender sender) {
+        sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GOLD + "=== 聊天前后缀帮助 ==="));
+        sender.sendMessage(MessageUtil.newTextComponent(ChatColor.AQUA + "/yinwuchat format edit" + ChatColor.GRAY + "：进入编辑模式"));
+        sender.sendMessage(MessageUtil.newTextComponent(ChatColor.AQUA + "/yinwuchat format show" + ChatColor.GRAY + "：显示当前前后缀"));
+        sender.sendMessage(MessageUtil.newTextComponent(ChatColor.AQUA + "/yinwuchat format public prefix set <内容>" + ChatColor.GRAY + "：设置公共前缀"));
+        sender.sendMessage(MessageUtil.newTextComponent(ChatColor.AQUA + "/yinwuchat format public suffix set <内容>" + ChatColor.GRAY + "：设置公共后缀"));
+        sender.sendMessage(MessageUtil.newTextComponent(ChatColor.AQUA + "/yinwuchat format private prefix set <内容>" + ChatColor.GRAY + "：设置私聊前缀"));
+        sender.sendMessage(MessageUtil.newTextComponent(ChatColor.AQUA + "/yinwuchat format private suffix set <内容>" + ChatColor.GRAY + "：设置私聊后缀"));
+        sender.sendMessage(MessageUtil.newTextComponent(ChatColor.AQUA + "/yinwuchat format <public|private> <prefix|suffix> clear" + ChatColor.GRAY + "：清除前后缀"));
+    }
+
+    private void handleBackpackView(CommandSender sender, ProxiedPlayer player, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage(MessageUtil.newTextComponent(ChatColor.RED + "用法: /yinwuchat backpackview <玩家名>"));
+            return;
+        }
+        ProxiedPlayer target = plugin.getProxy().getPlayer(args[1]);
+        if (target == null) {
+            sender.sendMessage(MessageUtil.newTextComponent(ChatColor.RED + "未找到该在线玩家"));
+            return;
+        }
+        Server server = target.getServer();
+        if (server == null) {
+            sender.sendMessage(MessageUtil.newTextComponent(ChatColor.RED + "目标玩家当前未连接后端服务器"));
+            return;
+        }
+        try {
+            ItemRequest request = new ItemRequest(player.getName(), "backpackview", target.getName());
+            plugin.getLogger().fine("[backpackview] bungee dispatch request: " + BackpackViewDebugLogUtil.summarizeRequest(request)
+                    + ", targetServer=" + server.getInfo().getName());
+            ByteArrayDataOutput output = ByteStreams.newDataOutput();
+            output.writeUTF(Const.PLUGIN_SUB_CHANNEL_ITEM_REQUEST);
+            output.writeUTF(org.lintx.plugins.yinwuchat.Util.Gson.gson().toJson(request));
+            server.sendData(Const.PLUGIN_CHANNEL, output.toByteArray());
+            sender.sendMessage(MessageUtil.newTextComponent(ChatColor.YELLOW + "正在请求 " + target.getName() + " 的背包..."));
+        } catch (Exception e) {
+            sender.sendMessage(MessageUtil.newTextComponent(ChatColor.RED + "请求背包失败，请稍后重试"));
+            plugin.getLogger().warning("Failed to request backpack view: " + e.getMessage());
         }
     }
 

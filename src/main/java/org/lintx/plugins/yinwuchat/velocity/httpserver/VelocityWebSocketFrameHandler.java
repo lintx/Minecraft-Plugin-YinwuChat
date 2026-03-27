@@ -218,8 +218,7 @@ public class VelocityWebSocketFrameHandler extends SimpleChannelInboundHandler<W
             return;
         }
         // 检查账户是否已绑定该玩家，如果已绑定则不发送确认消息
-        String existingBound = authService.getBoundPlayerName(account);
-        boolean alreadyBound = playerName.equalsIgnoreCase(existingBound);
+        boolean alreadyBound = authService.isWebAccountBoundToPlayer(account, playerName);
         
         authService.bindAccountPlayerName(account, playerName);
         util.setAccount(account);
@@ -908,7 +907,12 @@ public class VelocityWebSocketFrameHandler extends SimpleChannelInboundHandler<W
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        plugin.getLogger().warn("[WebSocket] 错误: " + cause.getMessage());
+        String msg = cause.getMessage();
+        if (msg != null && msg.contains("Connection reset")) {
+            plugin.getLogger().debug("[WebSocket] 连接被重置: " + ctx.channel().remoteAddress());
+        } else {
+            plugin.getLogger().warn("[WebSocket] 错误: " + msg);
+        }
         ctx.close();
     }
 }

@@ -17,11 +17,11 @@
 2025年底，服务组组长[MadaoMeloN]启动了Yinwu第十二周目的建设工作，chat作为核心插件被提上日程。
 如今，chat将按照如下几点逐步更新：
 
-1. 与更好的服务器核心兼容，如folia等
-2. 跨服通讯功能，从bungeecord迁移至velocity
-3. 玩家物品信息[i]功能
-4. 彩色文本功能
-5. 服务器消息与Q群同步功能 **需测试**
+1. 与更好的服务器核心兼容，如folia等 
+2. 跨服通讯功能，从bungeecord迁移至velocity 
+3. 玩家物品信息[i]功能 
+4. 彩色文本功能 
+5. 服务器消息与Q群同步功能 **暂无更新计划**
 6. 关键词过滤功能等
 7. 网页端通讯，实现使用APP与服务器内玩家实时通讯的功能等
 
@@ -45,15 +45,64 @@
 - 2.12.75：修复 Folia 服务端插件启动失败问题，新增 SchedulerUtil 调度工具类，通过反射兼容 Folia AsyncScheduler 与 EntityScheduler；ItemDisplayCache 与 ViewItemCommand 全面适配 Folia 区域线程调度
 - 2.12.76：新增 Web 端"重置 Token"功能，支持一键清空账号下所有已绑定 Token 并强制重新绑定；修复服务器广播消息在公屏聊天重复显示问题，广播改为置顶横幅展示（支持多条广播折叠查看）；修复 Web 端玩家发送消息时游戏内服务器前缀显示错误问题；修复 Token 绑定失败与 WebSocket 路径路由不匹配问题（新增 Netty 管线路径重写）；修复 TokenManager 未完整清除同一 UUID 下所有 Token 的问题；优化 Token 绑定时旧 Token 自动清理逻辑
 
+- 3.0.0：YinwuChat重构后第一个正式版本，该版本针对web端做了全新优化，快捷指令列表重构，可读性进行优化，token绑定消息转为消息块显示模式，更加清晰。至此，YinwuChat基本重构完成
+- 3.1.0：web端现已支持快捷登录，选择记住登录后即可在下次登录时快速登录；新增账号切换功能，同一web账号下可绑定多个游戏账号，可在登录后切换，亦可在聊天时切换。游戏端新增[b]背包展示功能，输入后即可展示背包，管理员新增背包公示功能，输入/yinwuchat backpackview 玩家名 即可将对应玩家的背包展现在公屏上。另增改动：游戏端指令快速补全已加入，可根据指令自动展示tab补全，方便输入
+#### 示例图片
+<p align="center">
+  <img src="./picturesForReadme/log_in.png" alt="登录界面" />
+</p>
+
+<p align="center">
+  <img src="./picturesForReadme/chat_day.png" alt="聊天界面——日间" />
+</p>
+
+<p align="center">
+  <img src="./picturesForReadme/chat.png" alt="聊天界面——夜间" />
+</p>
+
+<p align="center">
+  <img src="./picturesForReadme/token.png" alt="token绑定消息" />
+</p>
+
+<p align="center">
+  <img src="./picturesForReadme/game_chat.png" alt="游戏内聊天" />
+</p>
+
+<p align="center">
+  <img src="./picturesForReadme/web_and_game.png" alt="web端消息与游戏端前缀分离" />
+</p>
+
+<p align="center">
+  <img src="./picturesForReadme/i_in_game.png" alt="游戏内i的显示" />
+</p>
+
+<p align="center">
+  <img src="./picturesForReadme/i_detail.png" alt="游戏内i的物品详情" />
+</p>
+
+<p align="center">
+  <img src="./picturesForReadme/i_web_detail.png" alt="web端i的详情" />
+</p>
+
+<p align="center">
+  <img src="./picturesForReadme/p_in_game.png" alt="游戏内p的显示" />
+</p>
+
+<p align="center">
+  <img src="./picturesForReadme/p_web.png" alt="web端p的显示" />
+</p>
+
+### 简介
 YinwuChat是Velocity代理插件和Spigot插件，主要功能有：
 
 1. 跨服聊天同步
 2. 跨服私聊（`/msg <玩家名> 消息`）
 3. 跨服@（聊天内容中输入想@的玩家的名字，或名字的前面一部分，不区分大小写）
-4. 跨服物品展示（聊天内容中输入`[i]`即可将手中的物品发送到聊天栏，输入`[i:x]`可以展示背包中x对应的物品栏的物品，物品栏为0-8，然后从背包左上角从左至右从上至下为9-35，装备栏为36-39，副手为40，一条消息中可以展示多个物品）
-5. WebSocket，开启WebSocket后配合YinwuChat-Web（Web客户端）可以实现web、游戏内聊天同步
-6. 关键词屏蔽
-7. 使用酷Q和酷Q HTTP API来实现Q群聊天同步
+4. 跨服物品展示（聊天内容中输入`[i]`即可将手中的物品发送到聊天栏，点击即可查看物品详情信息，支持跨服展示）
+5. 跨服位置信息展示（聊天中输入`[p]`即可将位置发送至聊天栏，支持悬浮查看hover中详细信息）
+6. Web端与游戏互联，开启WebSocket后配合YinwuChat-Web（Web客户端）可以实现web、APP、游戏内聊天同步
+7. 关键词屏蔽，可自定义关键词以屏蔽发表不正确、仇恨言论等的消息，并把多次发送此类消息玩家踢出服务器
+8. 聊天自定义前后缀，支持自定义前后缀，自定义颜色，装饰你的聊天
 
 **注意**：你需要在你的**Velocity代理服务器**和这个Velocity接入的所有的**Spigot服务器**都安装这个插件
 
@@ -81,9 +130,11 @@ YinwuChat是Velocity代理插件和Spigot插件，主要功能有：
 - `/yinwuchat muteat`：切换@时的声音
 - `/yinwuchat ignore <玩家名>`：忽略/取消忽略玩家
 - `/yinwuchat vanish`：切换隐身模式（管理员）
-- `/yinwuchat atalladmin`：报告突发事件给所有管理员（每日限一次）
+- `/yinwuchat atalladmin`：报告突发事件给所有管理员（每日限一次；管理员收到提醒后可点击“确认收到”快捷填入确认指令）
 - `/yinwuchat atalladmin confirm <玩家名>`：重置玩家报告冷却时间（管理员）
 - `/yinwuchat format edit|show`：编辑/查看聊天前后缀
+- `/yinwuchat format <public|private> <prefix|suffix> set <内容>`：设置对应前后缀
+- `/yinwuchat format <public|private> <prefix|suffix> clear`：清除对应前后缀
 - `/yinwuchat mute <玩家> [时长] [原因]`：禁言玩家（别名：`/mute`，管理员）
 - `/yinwuchat unmute <玩家>`：解除禁言（别名：`/unmute`，管理员）
 - `/yinwuchat muteinfo <玩家>`：查看禁言信息（别名：`/muteinfo`，管理员）
@@ -91,6 +142,17 @@ YinwuChat是Velocity代理插件和Spigot插件，主要功能有：
 - `/yinwuchat chatban <玩家> [时长] [原因]`：封禁 Web 账号（别名：`/chatban`，管理员）
 - `/yinwuchat chatunban <玩家>`：解封 Web 账号（别名：`/chatunban`，管理员）
 - `/yinwuchat itemdisplay`：物品展示帮助（别名：`/itemdisplay /showitem /displayitem`）
+
+#### Velocity Tab 补全
+
+- `/yinwuchat` + `Tab`：显示当前玩家有权限使用的一级子命令
+- `/yinwuchat reload`：补全 `config`、`ws`
+- `/yinwuchat ignore`、`msg`、`mute`、`unmute`、`muteinfo`、`chatban`、`chatunban`：补全在线玩家名
+- `/yinwuchat mute <玩家>`、`chatban <玩家>`：继续补全常用时长模板，如 `10m`、`30m`、`1h`、`1d`
+- `/yinwuchat format`：按层补全 `edit|show|public|private -> prefix|suffix -> set|clear`
+- `/yinwuchat atalladmin`：补全 `confirm`，管理员继续补全玩家名
+- `/yinwuchat webbind`：补全 `query|unbind`，随后补全玩家名
+- `/yinwuchat badword`：补全 `add|remove|list`，`remove` 后继续补全现有屏蔽词
 
 #### Bukkit 指令（子服）
 
@@ -123,7 +185,7 @@ serverName: "lobby"  # 可选：手动指定服务器名称，不设置则自动
 format:
   - message: "&b[ServerName]"    # 服务器名称占位符，自动替换为实际服务器名
     hover: "所在服务器：ServerName"  # 悬停显示，ServerName会被替换
-    click: "/server ServerName"      # 点击事件，ServerName会被替换
+    click: "/server ServerName"      # 点击事件，命令会填入聊天栏而不是自动执行
   - message: "&e{displayName}"   # 玩家名称占位符
     hover: "点击私聊"
     click: "/msg {displayName}"
@@ -207,10 +269,15 @@ format:
 | `list`           | list    | -       | 广播内容列表                                  |
 | `list[].message` | string  | -       | 显示文本，支持 `&` 颜色码（如 `&e` 黄色、`&b` 青色）      |
 | `list[].hover`   | string  | （可选）    | 鼠标悬停提示文本                                |
-| `list[].click`   | string  | （可选）    | 点击后填入聊天栏的命令                             |
+| `list[].click`   | string  | （可选）    | 点击行为：网址自动打开；命令、`[i]`、`[p]`、`[b]` 自动填入聊天栏 |
 
 
 > **注意：** `includeMode` 和 `excludeMode` 都关闭时，所有游戏服务器都接收；两者同时开启时 `includeMode` 优先。
+
+> **点击识别规则：**
+> - 支持自动打开：`http://`、`https://`、`ftp://`、`file://`、`www.xxx.com`
+> - 支持自动填入聊天栏：`/yinwuchat noat`、`/msg 玩家名`、`[i]`、`[i:0]`、`[p]`、`[b]`
+> - `example.com/path` 这类裸域名默认不会自动识别为网址
 
 #### 使用场景示例
 
@@ -226,7 +293,14 @@ tasks:
     excludeMode: false
     excludeServers: []
     list:
-      - message: "&e[公告] &r欢迎来到服务器！"
+      - message: "&e[官网]"
+        hover: "点击打开官网"
+        click: "www.yinwurealm.org"
+      - message: "&r 欢迎来到服务器，输入"
+      - message: "&b[i]"
+        hover: "点击填入物品展示占位符"
+        click: "[i]"
+      - message: "&r 即可展示手持物品"
 ```
 
 **场景二：白名单模式（仅指定服务器接收，Web 端不接收）**
@@ -784,9 +858,10 @@ muteinfo Steve          # 查看禁言状态
     - `/yinwuchat ignore <玩家名>`：忽略/取消忽略玩家消息（需要 `yinwuchat.default.ignore` 权限）
     - `/yinwuchat noat`：禁止/允许自己被@（需要 `yinwuchat.default.noat` 权限）
     - `/yinwuchat muteat`：切换自己被@时有没有声音（需要 `yinwuchat.default.muteat` 权限）
-    - `/yinwuchat format edit`：编辑聊天前后缀
+    - `/yinwuchat format edit`：编辑聊天前后缀（可点击设置或清除）
     - `/yinwuchat format show`：显示当前前后缀
-    - `/yinwuchat atalladmin`：报告突发事件给所有管理员（需要 `yinwuchat.default.atalladmin` 权限，每日限一次）
+    - `/yinwuchat format <public|private> <prefix|suffix> clear`：直接清除前后缀
+    - `/yinwuchat atalladmin`：报告突发事件给所有管理员（需要 `yinwuchat.default.atalladmin` 权限，每日限一次；管理员可点击“确认收到”快捷填入确认指令）
     - `/yinwuchat atalladmin confirm <玩家名>`：重置玩家报告冷却时间（仅管理员）
 
 ### Velocity端权限
@@ -888,6 +963,12 @@ admins:
     - `/yinwuchat monitor`：切换是否监听其他玩家的私聊消息，需要具有`yinwuchat.admin.monitor`权限
 3. WebClient命令
   - `/msg <玩家名> <消息>`：向玩家发送私聊消息
+
+补充：
+
+- `/yinwuchat` 与别名 `/yw` 现在支持一级子命令 Tab 补全，并按权限过滤结果
+- `/chatban`、`/chatunban` 以及代理出的独立命令（如 `/vanish`、`/noat`、`/muteat`、`/monitor`）会转发到对应的 `/yinwuchat` 子命令补全逻辑
+- Bungee 侧已补全 `reload`、`bind`、`list`、`unbind`、`format`、`ignore`、`noat`、`muteat`、`monitor`、`vanish`、`permsync`、`atalladmin`、`webbind`、`badword`、`chatban`、`chatunban`、`reset` 等分支
 
 ### Bukkit端权限
 

@@ -146,7 +146,7 @@ public class ViewItemCommand implements CommandExecutor {
      * 从 JSON 反序列化物品
      * 优先使用完整的序列化数据（fullItemData），如果不存在则使用简化数据重建
      */
-    private static ItemStack deserializeItem(String itemJson) {
+    public static ItemStack deserializeItem(String itemJson) {
         try {
             com.google.gson.JsonObject json = com.google.gson.JsonParser.parseString(itemJson).getAsJsonObject();
             

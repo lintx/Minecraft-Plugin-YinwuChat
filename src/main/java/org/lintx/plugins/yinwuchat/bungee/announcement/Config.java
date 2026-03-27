@@ -27,18 +27,18 @@ public class Config {
             TaskConfig c = new TaskConfig();
             c.enable = true;
             c.interval = 300;
-            c.list.add(new MessageFormat("&e[帮助]","服务器帮助文档",""));
+            c.list.add(new MessageFormat("&e[帮助]","服务器帮助文档","/help"));
             c.list.add(new MessageFormat("&r 在聊天中输入"));
-            c.list.add(new MessageFormat("&b[i]","在聊天文本中包含这三个字符即可",""));
+            c.list.add(new MessageFormat("&b[i]","在聊天文本中包含这三个字符即可","[i]"));
             c.list.add(new MessageFormat("&r可以展示你手中的物品，输入"));
-            c.list.add(new MessageFormat("&b[i:x]","&b:&r冒号不区分中英文\n&bx&r为背包格子编号\n物品栏为0-8，然后从背包左上角\n从左至右从上至下为9-35\n装备栏为36-39，副手为40",""));
+            c.list.add(new MessageFormat("&b[i:x]","&b:&r冒号不区分中英文\n&bx&r为背包格子编号\n物品栏为0-8，然后从背包左上角\n从左至右从上至下为9-35\n装备栏为36-39，副手为40","[i:0]"));
             c.list.add(new MessageFormat("&r可以展示背包中x位置对应的物品，一条消息中可以展示多个物品"));
             tasks.add(c);
 
             TaskConfig b = new TaskConfig();
             b.enable = true;
             b.interval = 300;
-            b.list.add(new MessageFormat("&e[帮助]","服务器帮助文档",""));
+            b.list.add(new MessageFormat("&e[帮助]","服务器帮助文档","https://chat.yinwurealm.org"));
             b.list.add(new MessageFormat("&r 在聊天中输入&b@&r然后后面跟上"));
             b.list.add(new MessageFormat("&b玩家名","不区分服务器\n不区分大小写\n可以只输入玩家名的前n个字符\n玩家名后需要跟中文或空格",""));
             b.list.add(new MessageFormat("&r即可@该玩家，如果不想被别人@可以输入&b/yinwuchat noat&r命令来切换自己是否允许被他人@"));

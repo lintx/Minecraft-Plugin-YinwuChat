@@ -13,6 +13,8 @@ import java.util.List;
 public class Config {
     private static int version = 2; // 更新版本号以强制重新生成配置
     private static Config instance = new Config();
+    private static final String POSITION_Z_OLD = "&9Z:%player_z%";
+    private static final String POSITION_Z_NEW = "&6Z:%player_z%";
 
     public static Config getInstance(){
         return instance;
@@ -81,6 +83,31 @@ public class Config {
 
     }
 
+    private boolean migratePositionZColor() {
+        if (messageHandles == null || messageHandles.isEmpty()) return false;
+        boolean changed = false;
+        for (HandleConfig handle : messageHandles) {
+            if (handle == null || handle.format == null || handle.format.isEmpty()) continue;
+            if (!"\\[p\\]".equals(handle.placeholder)) continue;
+            for (MessageFormat mf : handle.format) {
+                if (mf == null) continue;
+                if (mf.message != null && mf.message.contains(POSITION_Z_OLD)) {
+                    mf.message = mf.message.replace(POSITION_Z_OLD, POSITION_Z_NEW);
+                    changed = true;
+                }
+                if (mf.hover != null && mf.hover.contains(POSITION_Z_OLD)) {
+                    mf.hover = mf.hover.replace(POSITION_Z_OLD, POSITION_Z_NEW);
+                    changed = true;
+                }
+                if (mf.click != null && mf.click.contains(POSITION_Z_OLD)) {
+                    mf.click = mf.click.replace(POSITION_Z_OLD, POSITION_Z_NEW);
+                    changed = true;
+                }
+            }
+        }
+        return changed;
+    }
+
     public void load(YinwuChat plugin){
         Configure.bukkitLoad(plugin,this);
 
@@ -130,11 +157,12 @@ public class Config {
             HandleConfig position = new HandleConfig();
             position.placeholder = "\\[p\\]";
             position.format = new ArrayList<>();
-            position.format.add(new MessageFormat("&7[&cX:%player_x% &9Z:%player_z% &aY:%player_y%&7]","所在服务器：ServerName\n所在世界：%player_world%\n坐标：&cX:%player_x% &9Z:%player_z% &aY:%player_y%",""));
+            position.format.add(new MessageFormat("&7[&cX:%player_x% &6Z:%player_z% &aY:%player_y%&7]","所在服务器：ServerName\n所在世界：%player_world%\n坐标：&cX:%player_x% &6Z:%player_z% &aY:%player_y%",""));
             messageHandles.add(position);
         }
         File file = new File(plugin.getDataFolder(),"config.yml");
-        if (!file.exists() || version!=configVersion){
+        boolean migratedPositionZ = migratePositionZColor();
+        if (!file.exists() || version!=configVersion || migratedPositionZ){
             configVersion = version;
             Configure.bukkitSave(plugin,this);
         }

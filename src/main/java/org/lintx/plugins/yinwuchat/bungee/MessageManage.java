@@ -13,6 +13,7 @@ import net.md_5.bungee.api.connection.ProxiedPlayer;
 import net.md_5.bungee.api.connection.Server;
 import net.md_5.bungee.chat.ComponentSerializer;
 import org.lintx.plugins.yinwuchat.Const;
+import org.lintx.plugins.yinwuchat.Util.BackpackViewDebugLogUtil;
 import org.lintx.plugins.yinwuchat.Util.MessageUtil;
 import org.lintx.plugins.yinwuchat.bungee.config.Config;
 import org.lintx.plugins.yinwuchat.bungee.config.PlayerConfig;
@@ -32,6 +33,7 @@ import org.lintx.plugins.yinwuchat.json.PrivateMessage;
 import org.lintx.plugins.yinwuchat.json.PublicMessage;
 import org.lintx.plugins.yinwuchat.bungee.httpserver.WsClientHelper;
 import org.lintx.plugins.yinwuchat.bungee.manage.MuteManage;
+import org.lintx.plugins.yinwuchat.velocity.json.ItemResponse;
 
 import java.util.*;
 
@@ -97,6 +99,8 @@ public class MessageManage {
                 for (String s : items) {
                     if (s == null) {
                         list.add(null);
+                    } else if (s.contains("\"displayType\":\"backpack\"") || s.contains("\"displayType\": \"backpack\"")) {
+                        list.add(createBackpackComponent(s));
                     } else {
                         // 直接解析 JSON 组件数据，ModernItemUtil 确保返回兼容格式
                         list.add(ComponentSerializer.parse(s)[0]);
@@ -117,11 +121,45 @@ public class MessageManage {
         return list;
     }
 
+    private BaseComponent createBackpackComponent(String payloadJson) {
+        String ownerName = "玩家";
+        String displayId = "";
+        try {
+            JsonObject json = JsonParser.parseString(payloadJson).getAsJsonObject();
+            if (json.has("ownerName")) {
+                ownerName = json.get("ownerName").getAsString();
+            }
+            if (json.has("displayId")) {
+                displayId = json.get("displayId").getAsString();
+            }
+        } catch (Exception ignored) {
+        }
+        TextComponent component = new TextComponent("[" + ownerName + "的背包]");
+        component.setColor(ChatColor.BLUE);
+        if (!displayId.isEmpty()) {
+            component.setClickEvent(new net.md_5.bungee.api.chat.ClickEvent(
+                    net.md_5.bungee.api.chat.ClickEvent.Action.RUN_COMMAND,
+                    "/viewbackpack " + displayId
+            ));
+        }
+        component.setHoverEvent(new net.md_5.bungee.api.chat.HoverEvent(
+                net.md_5.bungee.api.chat.HoverEvent.Action.SHOW_TEXT,
+                TextComponent.fromLegacyText("点击查看 " + ownerName + " 的完整背包")
+        ));
+        return component;
+    }
+
 
     //处理bukkit发送的插件消息（包括公屏消息、私聊消息、请求玩家列表等）
     void handleBukkitMessage(ProxiedPlayer player, ByteArrayDataInput input){
         String subChannel = input.readUTF();
         switch (subChannel) {
+            case Const.PLUGIN_SUB_CHANNEL_ITEM_RESPONSE: {
+                String json = input.readUTF();
+                ItemResponse response = new Gson().fromJson(json, ItemResponse.class);
+                handleBackpackViewResponse(player, response);
+                break;
+            }
             case Const.PLUGIN_SUB_CHANNEL_PUBLIC_MESSAGE: {
                 if (cantMessage(player)) {
                     return;
@@ -267,6 +305,38 @@ public class MessageManage {
                 sendPlayerListToServer(player.getServer());
                 break;
         }
+    }
+
+    private void handleBackpackViewResponse(ProxiedPlayer channelPlayer, ItemResponse response) {
+        if (response == null || !"backpackview".equalsIgnoreCase(response.requestType)) {
+            return;
+        }
+        plugin.getLogger().fine("[backpackview] bungee receive item response: "
+                + BackpackViewDebugLogUtil.summarizeResponse(response));
+        ProxiedPlayer viewer = response.playerName == null || response.playerName.isEmpty()
+                ? channelPlayer
+                : plugin.getProxy().getPlayer(response.playerName);
+        if (viewer == null) {
+            return;
+        }
+        if (!response.success || response.items == null || response.items.isEmpty()) {
+            viewer.sendMessage(MessageUtil.newTextComponent(ChatColor.RED + "查看背包失败: " + (response.errorMessage == null ? "未知错误" : response.errorMessage)));
+            return;
+        }
+        String payload = response.items.get(0);
+        String ownerName = response.ownerName == null || response.ownerName.isEmpty() ? "目标玩家" : response.ownerName;
+        plugin.getLogger().fine("[backpackview] bungee broadcasting backpack payload: "
+                + BackpackViewDebugLogUtil.summarizePayload(payload)
+                + ", viewer=" + viewer.getName()
+                + ", fallbackPlayer=" + channelPlayer.getName());
+        TextComponent component = new TextComponent(ownerName + " 的背包 ");
+        component.setColor(ChatColor.GREEN);
+        BaseComponent backpack = createBackpackComponent(payload);
+        if (backpack != null) {
+            component.addExtra(backpack);
+        }
+        String serverName = viewer.getServer() != null ? viewer.getServer().getInfo().getName() : "";
+        broadcast(viewer.getUniqueId(), viewer.getName(), serverName, component, true);
     }
 
     //判断bc端登录的玩家是否允许发送消息（判断是否被禁言）

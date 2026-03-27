@@ -27,6 +27,13 @@ public class VelocityItemShowHandle extends VelocityChatHandle {
             }
         });
 
+        handle(chat, Const.BACKPACK_PLACEHOLDER, (matcher) -> {
+            if (chat.items != null && !chat.items.isEmpty()) {
+                return chat.items.remove(0);
+            }
+            return Component.text("[背包]").color(net.kyori.adventure.text.format.NamedTextColor.GRAY);
+        });
+
         // 处理背包显示 [inv:playername]
         handle(chat, Const.INVENTORY_PLACEHOLDER, (matcher) -> {
             String playerName = matcher.group(2);

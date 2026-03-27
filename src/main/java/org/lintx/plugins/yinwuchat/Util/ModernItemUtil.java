@@ -167,35 +167,95 @@ public class ModernItemUtil {
      * 将 ItemStack 转换为 JSON 字符串（兼容新旧版本）
      */
     private static String convertItemToJson(ItemStack itemStack) {
-        // 优先使用现代方法
-        if (supportsModernSerialization()) {
-            String result = convertItemToJsonModern(itemStack);
+        // 优先使用 NMS 反射序列化（1.20.5+ Mojang-mapped Paper/Folia）
+        if (supportsDataComponents()) {
+            String result = convertItemToJsonModernNMS(itemStack);
             if (result != null) {
                 return result;
             }
         }
-        
-        // 回退到传统方法
-            return convertItemToJsonLegacy(itemStack);
+
+        // 回退到传统 NMS 方法（1.13-1.20.4）
+        return convertItemToJsonLegacy(itemStack);
     }
-    
+
+    private static Method cachedAsNMSCopyMethod;
+    private static Method cachedSaveOptionalMethod;
+    private static Method cachedRegistryAccessMethod;
+    private static Object cachedMinecraftServer;
+    private static boolean modernNMSInitialized = false;
+
     /**
-     * 现代版本的物品序列化方法 (1.20.5+)
+     * 使用 NMS 反射序列化物品（适用于 1.20.5+ Mojang-mapped Paper/Folia）
+     * 通过 CraftItemStack.asNMSCopy → nmsItem.saveOptional(registryAccess) 获取完整 SNBT
      */
-    private static String convertItemToJsonModern(ItemStack itemStack) {
+    private static String convertItemToJsonModernNMS(ItemStack itemStack) {
         try {
-            if (cachedSerializeItemMethod != null && cachedUnsafeValues != null) {
-                Object serializedItem = cachedSerializeItemMethod.invoke(cachedUnsafeValues, itemStack);
-                if (serializedItem instanceof byte[]) {
-                    // 如果返回的是字节数组，需要转换
-                    return new String((byte[]) serializedItem, java.nio.charset.StandardCharsets.UTF_8);
-                }
-                return serializedItem.toString();
+            if (!modernNMSInitialized) {
+                initModernNMS();
             }
-            return null;
+            if (cachedAsNMSCopyMethod == null || cachedSaveOptionalMethod == null
+                    || cachedRegistryAccessMethod == null || cachedMinecraftServer == null) {
+                return null;
+            }
+
+            Object nmsItem = cachedAsNMSCopyMethod.invoke(null, itemStack);
+            if (nmsItem == null) return null;
+
+            Object registryAccess = cachedRegistryAccessMethod.invoke(cachedMinecraftServer);
+            Object tag = cachedSaveOptionalMethod.invoke(nmsItem, registryAccess);
+            return tag != null ? tag.toString() : null;
         } catch (Exception e) {
-            Bukkit.getLogger().log(Level.WARNING, "Failed to serialize itemstack using modern method", e);
+            Bukkit.getLogger().log(Level.FINE, "Failed NMS modern item serialization", e);
             return null;
+        }
+    }
+
+    private static synchronized void initModernNMS() {
+        if (modernNMSInitialized) return;
+        modernNMSInitialized = true;
+        try {
+            // 从 CraftServer 的实际包名推导 CraftItemStack 类路径（兼容所有 Paper 版本）
+            String serverPkg = Bukkit.getServer().getClass().getPackage().getName();
+            Class<?> craftItemStackClazz = Class.forName(serverPkg + ".inventory.CraftItemStack");
+            if (craftItemStackClazz == null) return;
+
+            cachedAsNMSCopyMethod = craftItemStackClazz.getMethod("asNMSCopy", ItemStack.class);
+
+            // 获取 MinecraftServer
+            Object craftServer = Bukkit.getServer();
+            Method getServerMethod = craftServer.getClass().getMethod("getServer");
+            cachedMinecraftServer = getServerMethod.invoke(craftServer);
+
+            // 查找 registryAccess() 方法
+            for (Method m : cachedMinecraftServer.getClass().getMethods()) {
+                if (m.getName().equals("registryAccess") && m.getParameterCount() == 0) {
+                    cachedRegistryAccessMethod = m;
+                    break;
+                }
+            }
+            if (cachedRegistryAccessMethod == null) return;
+
+            // 通过一个临时物品获取 NMS ItemStack 类，然后查找 saveOptional/save 方法
+            Object tempNmsItem = cachedAsNMSCopyMethod.invoke(null, new ItemStack(Material.STONE));
+            Class<?> nmsItemClass = tempNmsItem.getClass();
+
+            // 优先 saveOptional（包含完整数据），其次 save（参数为 Provider 而非 CompoundTag）
+            for (Method m : nmsItemClass.getMethods()) {
+                if (m.getParameterCount() != 1) continue;
+                String paramName = m.getParameterTypes()[0].getSimpleName();
+                if (paramName.equals("CompoundTag") || paramName.equals("NBTTagCompound")) continue;
+
+                if (m.getName().equals("saveOptional")) {
+                    cachedSaveOptionalMethod = m;
+                    break;
+                }
+                if (m.getName().equals("save") && cachedSaveOptionalMethod == null) {
+                    cachedSaveOptionalMethod = m;
+                }
+            }
+        } catch (Exception e) {
+            Bukkit.getLogger().log(Level.WARNING, "Failed to init modern NMS item serialization", e);
         }
     }
     

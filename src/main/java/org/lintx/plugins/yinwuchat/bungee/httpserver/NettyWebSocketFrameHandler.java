@@ -226,8 +226,7 @@ public class NettyWebSocketFrameHandler extends SimpleChannelInboundHandler<WebS
             return;
         }
         // 检查账户是否已绑定该玩家，如果已绑定则不发送确认消息
-        String existingBound = authService.getBoundPlayerName(account);
-        boolean alreadyBound = playerConfig.name.equalsIgnoreCase(existingBound);
+        boolean alreadyBound = authService.isWebAccountBoundToPlayer(account, playerConfig.name);
         
         authService.bindAccountPlayerName(account, playerConfig.name);
         util.setAccount(account);

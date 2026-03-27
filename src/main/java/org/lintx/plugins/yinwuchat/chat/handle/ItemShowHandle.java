@@ -14,5 +14,10 @@ public class ItemShowHandle extends ChatHandle {
             if (chat.items.isEmpty()) return null;
             return chat.items.remove(0);
         });
+
+        handle(chat, Const.BACKPACK_PLACEHOLDER, (matcher) -> {
+            if (chat.items.isEmpty()) return null;
+            return chat.items.remove(0);
+        });
     }
 }

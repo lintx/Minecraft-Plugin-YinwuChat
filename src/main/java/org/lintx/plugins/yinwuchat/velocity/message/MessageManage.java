@@ -6,6 +6,9 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ServerConnection;
 import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import org.lintx.plugins.yinwuchat.Const;
+import org.lintx.plugins.yinwuchat.Util.BackpackViewDebugLogUtil;
+import org.lintx.plugins.yinwuchat.Util.ClickActionResolver;
+import org.lintx.plugins.yinwuchat.Util.WebItemPayloadUtil;
 import org.lintx.plugins.yinwuchat.chat.struct.ChatPlayer;
 import org.lintx.plugins.yinwuchat.chat.struct.ChatSource;
 import org.lintx.plugins.yinwuchat.chat.struct.ChatType;
@@ -143,6 +146,10 @@ public class MessageManage {
      * 当收到后端服务器的物品数据时调用
      */
     public void handleItemResponse(Player player, ItemResponse response) {
+        if (response != null && "backpackview".equalsIgnoreCase(response.requestType)) {
+            plugin.getLogger().debug("[backpackview] velocity receive item response for "
+                    + player.getUsername() + ": " + BackpackViewDebugLogUtil.summarizeResponse(response));
+        }
         // 检查是否有待处理的聊天消息
         String pendingMessage = pendingChatMessages.remove(player.getUniqueId());
         if (pendingMessage != null) {
@@ -233,6 +240,9 @@ public class MessageManage {
             case "enderchest":
                 displayEnderChest(player, response);
                 break;
+            case "backpackview":
+                displayBackpackView(player, response);
+                break;
             default:
                 player.sendMessage(Component.text("未知的物品请求类型: " + response.requestType, NamedTextColor.RED));
         }
@@ -263,17 +273,51 @@ public class MessageManage {
      */
     private void displayInventory(Player player, ItemResponse response) {
         if (response.items == null || response.items.isEmpty()) {
-            player.sendMessage(Component.text("您的背包是空的", NamedTextColor.YELLOW));
+            String ownerName = response.ownerName == null || response.ownerName.isEmpty() ? player.getUsername() : response.ownerName;
+            player.sendMessage(Component.text(ownerName + " 的背包是空的", NamedTextColor.YELLOW));
             return;
         }
 
         Component invDisplay = VelocityItemUtil.createInventoryComponent(
             String.join(",", response.items),
-            player.getUsername()
+            response.ownerName == null || response.ownerName.isEmpty() ? player.getUsername() : response.ownerName
         );
 
-        player.sendMessage(Component.text("您的背包:", NamedTextColor.GREEN));
+        String ownerName = response.ownerName == null || response.ownerName.isEmpty() ? player.getUsername() : response.ownerName;
+        player.sendMessage(Component.text(ownerName + " 的背包:", NamedTextColor.GREEN));
         player.sendMessage(invDisplay);
+    }
+
+    private void displayBackpackView(Player player, ItemResponse response) {
+        if (response.items == null || response.items.isEmpty()) {
+            plugin.getLogger().debug("[backpackview] velocity display aborted: empty items for "
+                    + BackpackViewDebugLogUtil.summarizeResponse(response));
+            player.sendMessage(Component.text("未获取到背包展示数据", NamedTextColor.YELLOW));
+            return;
+        }
+        String viewerName = response.playerName == null ? "" : response.playerName;
+        Player viewer = getPluginSafe() != null && viewerName != null && !viewerName.isEmpty()
+                ? getPluginSafe().getProxy().getPlayer(viewerName).orElse(player)
+                : player;
+        String payload = response.items.get(0);
+        String ownerName = response.ownerName == null || response.ownerName.isEmpty() ? "目标玩家" : response.ownerName;
+        plugin.getLogger().debug("[backpackview] velocity broadcasting backpack payload: "
+                + BackpackViewDebugLogUtil.summarizePayload(payload)
+                + ", viewer=" + viewer.getUsername()
+                + ", fallbackPlayer=" + player.getUsername());
+        Component backpackComponent = VelocityItemUtil.createBackpackComponent(payload);
+        Component publicMessage = Component.text(ownerName + " 的背包 ", NamedTextColor.GREEN)
+                .append(backpackComponent);
+        String serverName = viewer.getCurrentServer().map(s -> s.getServerInfo().getName()).orElse("");
+        broadcast(
+                viewer.getUniqueId(),
+                viewer.getUsername(),
+                serverName,
+                publicMessage,
+                true,
+                java.util.List.of(payload),
+                ownerName + " 的背包 [B]"
+        );
     }
 
     /**
@@ -856,6 +900,10 @@ public class MessageManage {
                 continue;
             }
             try {
+                if (itemJson.contains("\"displayType\":\"backpack\"") || itemJson.contains("\"displayType\": \"backpack\"")) {
+                    components.add(VelocityItemUtil.createBackpackComponent(itemJson));
+                    continue;
+                }
                 // 解析物品信息
                 String itemName = VelocityItemUtil.parseItemName(itemJson);
                 int amount = VelocityItemUtil.parseItemAmount(itemJson);
@@ -1038,7 +1086,7 @@ public class MessageManage {
         if (rawChat == null || rawChat.isEmpty()) {
             return "";
         }
-        Pattern itemPattern = Pattern.compile(Const.ITEM_PLACEHOLDER);
+        Pattern itemPattern = Pattern.compile(Const.ITEM_PLACEHOLDER + "|" + Const.BACKPACK_PLACEHOLDER);
         Matcher matcher = itemPattern.matcher(rawChat);
         StringBuffer sb = new StringBuffer();
         int itemIndex = 0;
@@ -1065,40 +1113,33 @@ public class MessageManage {
             }
             try {
                 JsonObject raw = com.google.gson.JsonParser.parseString(itemJson).getAsJsonObject();
-                JsonObject webItem = new JsonObject();
-                webItem.addProperty("name", VelocityItemUtil.parseItemName(itemJson));
-                webItem.addProperty("count", VelocityItemUtil.parseItemAmount(itemJson));
-                if (raw.has("id")) {
-                    webItem.addProperty("id", raw.get("id").getAsString());
-                }
-                if (raw.has("displayId")) {
-                    webItem.addProperty("displayId", raw.get("displayId").getAsString());
-                }
+                JsonObject webItem = WebItemPayloadUtil.toWebItem(itemJson);
+                boolean isBackpack = raw.has("displayType")
+                        && "backpack".equalsIgnoreCase(raw.get("displayType").getAsString());
+                if (!isBackpack) {
+                    webItem.addProperty("name", VelocityItemUtil.parseItemName(itemJson));
+                    webItem.addProperty("count", VelocityItemUtil.parseItemAmount(itemJson));
 
-                JsonArray lore = new JsonArray();
-                if (raw.has("lore") && raw.get("lore").isJsonArray()) {
-                    for (JsonElement elem : raw.getAsJsonArray("lore")) {
-                        lore.add(elem.getAsString());
+                    JsonArray lore = webItem.has("lore") && webItem.get("lore").isJsonArray()
+                            ? webItem.getAsJsonArray("lore")
+                            : new JsonArray();
+                    for (String label : VelocityItemUtil.parsePotionEffectLabels(itemJson)) {
+                        lore.add(label);
                     }
-                }
-                // 将药水效果也追加到展示细节中（支持多效果）
-                List<String> potionEffectLabels = VelocityItemUtil.parsePotionEffectLabels(itemJson);
-                for (String label : potionEffectLabels) {
-                    lore.add(label);
-                }
-                webItem.add("lore", lore);
+                    webItem.add("lore", lore);
 
-                JsonArray enchants = new JsonArray();
-                if (raw.has("enchantments") && raw.get("enchantments").isJsonObject()) {
-                    for (Map.Entry<String, JsonElement> entry : raw.getAsJsonObject("enchantments").entrySet()) {
-                        String label = VelocityItemUtil.formatEnchantmentLabel(
-                                entry.getKey(),
-                                entry.getValue().getAsInt()
-                        );
-                        enchants.add(label);
+                    JsonArray enchants = new JsonArray();
+                    if (raw.has("enchantments") && raw.get("enchantments").isJsonObject()) {
+                        for (Map.Entry<String, JsonElement> entry : raw.getAsJsonObject("enchantments").entrySet()) {
+                            String label = VelocityItemUtil.formatEnchantmentLabel(
+                                    entry.getKey(),
+                                    entry.getValue().getAsInt()
+                            );
+                            enchants.add(label);
+                        }
                     }
+                    webItem.add("enchantments", enchants);
                 }
-                webItem.add("enchantments", enchants);
 
                 arr.add(webItem);
             } catch (Exception ignored) {
@@ -1429,8 +1470,8 @@ public class MessageManage {
                     .replace("{displayName}", fromPlayer)  // 兼容旧格式
                     .replace("{message}", message);
 
-                ClickEvent.Action action = determineClickAction(clickCommand);
-                component = component.clickEvent(ClickEvent.clickEvent(action, clickCommand));
+                ClickActionResolver.ResolvedClick resolved = ClickActionResolver.resolve(clickCommand, Config.getInstance().linkRegex);
+                component = component.clickEvent(ClickEvent.clickEvent(toAdventureAction(resolved.getMode()), resolved.getValue()));
             }
 
             result = result.append(component);
@@ -1439,22 +1480,10 @@ public class MessageManage {
         return result;
     }
 
-    // 确定点击动作类型
-    private ClickEvent.Action determineClickAction(String click) {
-        Pattern pattern = Pattern.compile("((https?|ftp|file)://[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|])");
-        Matcher matcher = pattern.matcher(click);
-
-        if (matcher.find()) {
-            return ClickEvent.Action.OPEN_URL;
-        } else if (click.startsWith("/msg")) {
-            return ClickEvent.Action.SUGGEST_COMMAND;  // 私聊命令建议输入而不是直接运行
-        } else if (click.startsWith("/")) {
-            return ClickEvent.Action.RUN_COMMAND;  // 其他命令直接运行
-        } else if (click.startsWith("!")) {
-            return ClickEvent.Action.RUN_COMMAND;
-        } else {
-            return ClickEvent.Action.SUGGEST_COMMAND;
-        }
+    private ClickEvent.Action toAdventureAction(ClickActionResolver.ClickMode mode) {
+        return mode == ClickActionResolver.ClickMode.OPEN_URL
+                ? ClickEvent.Action.OPEN_URL
+                : ClickEvent.Action.SUGGEST_COMMAND;
     }
     
     /**
@@ -1865,9 +1894,10 @@ public class MessageManage {
                 part = part.hoverEvent(HoverEvent.showText(hoverComponent));
             }
 
-            // 添加点击事件（统一使用 SUGGEST_COMMAND，将内容填入聊天栏）
+            // 添加点击事件（网址打开，命令/占位文本填入聊天栏）
             if (format.click != null && !format.click.isEmpty()) {
-                part = part.clickEvent(ClickEvent.suggestCommand(format.click));
+                ClickActionResolver.ResolvedClick resolved = ClickActionResolver.resolve(format.click, Config.getInstance().linkRegex);
+                part = part.clickEvent(ClickEvent.clickEvent(toAdventureAction(resolved.getMode()), resolved.getValue()));
             }
 
             result = result.append(part);

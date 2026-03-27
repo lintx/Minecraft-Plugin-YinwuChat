@@ -34,6 +34,7 @@ import org.lintx.plugins.yinwuchat.velocity.message.MessageManage;
 import org.lintx.plugins.yinwuchat.velocity.config.PlayerConfig;
 import org.lintx.plugins.yinwuchat.velocity.util.VelocityItemUtil;
 import org.lintx.plugins.yinwuchat.velocity.cache.VelocityItemDisplayCache;
+import org.lintx.plugins.yinwuchat.Util.BackpackViewDebugLogUtil;
 import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 
 /**
@@ -256,6 +257,8 @@ public class Listeners {
             String itemJson = input.readUTF();
             String playerName = input.readUTF();
             String serverName = serverConnection.getServerInfo().getName();
+            plugin.getLogger().debug("[backpackview] velocity store payload: "
+                    + BackpackViewDebugLogUtil.summarizeDisplayResponse(itemId, true, itemJson, playerName, serverName));
             
             // 存储到 Velocity 缓存
             VelocityItemDisplayCache.getInstance().storeItem(itemId, itemJson, playerName, serverName);
@@ -273,6 +276,8 @@ public class Listeners {
     private void handleItemDisplayRequest(Player player, ServerConnection serverConnection, ByteArrayDataInput input) {
         try {
             String itemId = input.readUTF();
+            plugin.getLogger().debug("[backpackview] velocity fetch cached payload request: "
+                    + BackpackViewDebugLogUtil.summarizeDisplayRequest(itemId, player.getUsername()));
             
             // 从 Velocity 缓存获取物品
             VelocityItemDisplayCache.CachedItem cached = VelocityItemDisplayCache.getInstance().getItem(itemId);
@@ -287,12 +292,16 @@ public class Listeners {
                 output.writeUTF(cached.itemJson);
                 output.writeUTF(cached.playerName);
                 output.writeUTF(cached.serverName);
+                plugin.getLogger().debug("[backpackview] velocity fetch cached payload hit: "
+                        + BackpackViewDebugLogUtil.summarizeDisplayResponse(itemId, true, cached.itemJson, cached.playerName, cached.serverName));
                 plugin.getLogger().debug("Sending item display response: id=" + itemId + ", success=true");
             } else {
                 output.writeBoolean(false); // not found
                 output.writeUTF("");
                 output.writeUTF("");
                 output.writeUTF("");
+                plugin.getLogger().debug("[backpackview] velocity fetch cached payload miss: "
+                        + BackpackViewDebugLogUtil.summarizeDisplayResponse(itemId, false, "", "", ""));
                 plugin.getLogger().debug("Sending item display response: id=" + itemId + ", success=false (not found)");
             }
             

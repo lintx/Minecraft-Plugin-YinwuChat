@@ -34,7 +34,7 @@ public class VelocityHttpRequestHandler extends SimpleChannelInboundHandler<Full
             return;
         }
 
-        String uri = request.uri();
+        String uri = normalizeHttpPath(request.uri());
         if (uri.equals("/") || uri.equals("")) {
             uri = "/index.html";
         }
@@ -118,20 +118,38 @@ public class VelocityHttpRequestHandler extends SimpleChannelInboundHandler<Full
             }
             if (path.equals("/api/auth/login")) {
                 com.google.gson.JsonObject result = authService.handleLogin(body);
-                if (result.has("ok") && result.get("ok").getAsBoolean()) {
-                    String accountName = result.get("username").getAsString();
-                    String playerName = authService.getBoundPlayerName(accountName);
-                    if (playerName != null && !playerName.isEmpty()) {
-                        java.util.UUID uuid = org.lintx.plugins.yinwuchat.velocity.config.PlayerConfig.getInstance().getTokenManager().getUuidByName(playerName);
-                        if (uuid != null) {
-                            String playerToken = org.lintx.plugins.yinwuchat.velocity.config.PlayerConfig.getInstance().getTokenManager().getToken(uuid);
-                            if (playerToken != null) {
-                                result.addProperty("token", playerToken);
-                            }
-                        }
-                    }
-                }
+                appendAccountsToLoginResult(result);
                 sendJson(ctx, request, authService.toJson(result));
+                return;
+            }
+            if (path.equals("/api/auth/quick-login")) {
+                com.google.gson.JsonObject result = authService.handleQuickLogin(body);
+                appendAccountsToLoginResult(result);
+                sendJson(ctx, request, authService.toJson(result));
+                return;
+            }
+            if (path.equals("/api/auth/accounts/list")) {
+                com.google.gson.JsonObject result = authService.handleListAccounts(body, playerName -> {
+                    java.util.UUID uuid = org.lintx.plugins.yinwuchat.velocity.config.PlayerConfig.getInstance()
+                            .getTokenManager().getUuidByName(playerName);
+                    if (uuid == null) {
+                        return "";
+                    }
+                    String t = org.lintx.plugins.yinwuchat.velocity.config.PlayerConfig.getInstance()
+                            .getTokenManager().getToken(uuid);
+                    return t == null ? "" : t;
+                });
+                sendJson(ctx, request, authService.toJson(result));
+                return;
+            }
+            if (path.equals("/api/auth/accounts/remove")) {
+                sendJson(ctx, request, authService.toJson(authService.handleRemoveBoundPlayer(body)));
+                return;
+            }
+            if (path.equals("/api/auth/accounts/bind-token")) {
+                String newToken = org.lintx.plugins.yinwuchat.velocity.config.PlayerConfig.getInstance()
+                        .getTokenManager().newToken();
+                sendJson(ctx, request, authService.toJson(authService.handleRegisterBindToken(body, newToken)));
                 return;
             }
             if (path.equals("/api/auth/reset-token")) {
@@ -163,14 +181,8 @@ public class VelocityHttpRequestHandler extends SimpleChannelInboundHandler<Full
             }
             if (path.equals("/api/auth/reset/request")) {
                 sendJson(ctx, request, authService.toJson(authService.handleRequestReset(body, (accountName, playerName) -> {
-                    // Velocity 平台的 绑定验证逻辑
-                    java.util.UUID uuid = org.lintx.plugins.yinwuchat.velocity.config.PlayerConfig.getInstance().getTokenManager().getUuidByName(playerName);
-                    if (uuid == null) return false;
-                    String token = org.lintx.plugins.yinwuchat.velocity.config.PlayerConfig.getInstance().getTokenManager().getToken(uuid);
-                    // 只要该玩家名绑定了任意有效的 Token，且账户名为 accountName (在此系统中账户名即 Token 关联的名字)
-                    // 由于目前系统中 accountName 和 playerName 是通过 Token 关联的，
-                    // 我们只需确认该 playerName 是否有绑定的 Token 即可。
-                    return token != null;
+                    String mapped = authService.resolveAccountByPlayerName(playerName);
+                    return mapped != null && !mapped.isEmpty() && mapped.equalsIgnoreCase(accountName);
                 })));
                 return;
             }
@@ -193,6 +205,37 @@ public class VelocityHttpRequestHandler extends SimpleChannelInboundHandler<Full
         heads.add(HttpHeaderNames.CONTENT_LENGTH, response.content().readableBytes());
         addCorsHeaders(heads, request);
         ctx.writeAndFlush(response);
+    }
+
+    private void appendAccountsToLoginResult(com.google.gson.JsonObject result) {
+        authService.appendAccountsToLoginResult(result, playerName -> {
+            java.util.UUID uuid = org.lintx.plugins.yinwuchat.velocity.config.PlayerConfig.getInstance()
+                    .getTokenManager().getUuidByName(playerName);
+            if (uuid == null) {
+                return "";
+            }
+            String t = org.lintx.plugins.yinwuchat.velocity.config.PlayerConfig.getInstance()
+                    .getTokenManager().getToken(uuid);
+            return t == null ? "" : t;
+        });
+    }
+
+    /** Strip query string and optional reverse-proxy prefix {@code /new-chat}. */
+    private static String normalizeHttpPath(String uri) {
+        if (uri == null) {
+            return "";
+        }
+        int q = uri.indexOf('?');
+        String p = q >= 0 ? uri.substring(0, q) : uri;
+        if (p.startsWith("/new-chat")) {
+            p = p.substring("/new-chat".length());
+            if (p.isEmpty()) {
+                p = "/";
+            } else if (!p.startsWith("/")) {
+                p = "/" + p;
+            }
+        }
+        return p;
     }
 
     private void sendCorsPreflight(ChannelHandlerContext ctx, FullHttpRequest request) {

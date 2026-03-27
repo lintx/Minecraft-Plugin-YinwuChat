@@ -2,6 +2,7 @@ package org.lintx.plugins.yinwuchat;
 
 public class Const {
     public final static String ITEM_PLACEHOLDER = "\\[i([:：]?)(\\d+)?\\]";
+    public final static String BACKPACK_PLACEHOLDER = "\\[[Bb]\\]";
     public final static String INVENTORY_PLACEHOLDER = "\\[inv([:：]?)([^\\]]*)\\]";
     public final static String ENDER_CHEST_PLACEHOLDER = "\\[ec([:：]?)([^\\]]*)\\]";
     public final static String PLUGIN_CHANNEL = "bungeecord";
@@ -27,6 +28,7 @@ public class Const {
     public final static String PERMISSION_VANISH = "yinwuchat.admin.vanish";
     public final static String PERMISSION_MUTE = "yinwuchat.admin.mute";
     public final static String PERMISSION_MONITOR_PRIVATE_MESSAGE = "yinwuchat.admin.monitor";
+    public final static String PERMISSION_BACKPACK_VIEW = "yinwuchat.admin.backpackview";
     public final static String PERMISSION_AT_ALL_ADMIN_RESET = "yinwuchat.admin.atalladmin.reset";
     public final static String PERMISSION_COOL_DOWN_BYPASS = "yinwuchat.admin.cooldown.bypass";
     
@@ -53,6 +55,7 @@ public class Const {
         PERMISSION_VANISH,
         PERMISSION_MUTE,
         PERMISSION_MONITOR_PRIVATE_MESSAGE,
+        PERMISSION_BACKPACK_VIEW,
         PERMISSION_AT_ALL_ADMIN_RESET,
         PERMISSION_COOL_DOWN_BYPASS
     };

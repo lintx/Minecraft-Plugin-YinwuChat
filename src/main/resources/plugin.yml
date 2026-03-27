@@ -20,6 +20,9 @@ commands:
   viewitem:
     description: View a shared item in GUI
     usage: /viewitem <itemId>
+  viewbackpack:
+    description: View a shared backpack in GUI
+    usage: /viewbackpack <itemId>
 permissions:
   yinwuchat.admin:
     default: op

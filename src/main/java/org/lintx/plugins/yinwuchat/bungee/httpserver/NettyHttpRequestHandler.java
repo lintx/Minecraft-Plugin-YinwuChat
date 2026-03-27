@@ -36,7 +36,7 @@ public class NettyHttpRequestHandler extends SimpleChannelInboundHandler<FullHtt
     protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest request) {
         try {
             URI uri = new URI(request.uri());
-            String path = uri.getPath();
+            String path = normalizeHttpPath(uri.getPath());
             if (path.equals("/api/wsinfo")) {
                 writeJson(ctx, request, buildWsInfoJson(request));
                 return;
@@ -150,20 +150,35 @@ public class NettyHttpRequestHandler extends SimpleChannelInboundHandler<FullHtt
             }
             if (path.equals("/api/auth/login")) {
                 com.google.gson.JsonObject result = authService.handleLogin(body);
-                if (result.has("ok") && result.get("ok").getAsBoolean()) {
-                    String accountName = result.get("username").getAsString();
-                    String playerName = authService.getBoundPlayerName(accountName);
-                    if (playerName != null && !playerName.isEmpty()) {
-                        java.util.UUID uuid = org.lintx.plugins.yinwuchat.bungee.config.PlayerConfig.getTokens().getUuidByName(playerName);
-                        if (uuid != null) {
-                            String playerToken = org.lintx.plugins.yinwuchat.bungee.config.PlayerConfig.getTokens().getToken(uuid);
-                            if (playerToken != null) {
-                                result.addProperty("token", playerToken);
-                            }
-                        }
-                    }
-                }
+                appendAccountsToLoginResult(result);
                 writeJson(ctx, request, authService.toJson(result));
+                return;
+            }
+            if (path.equals("/api/auth/quick-login")) {
+                com.google.gson.JsonObject result = authService.handleQuickLogin(body);
+                appendAccountsToLoginResult(result);
+                writeJson(ctx, request, authService.toJson(result));
+                return;
+            }
+            if (path.equals("/api/auth/accounts/list")) {
+                com.google.gson.JsonObject result = authService.handleListAccounts(body, playerName -> {
+                    java.util.UUID u = org.lintx.plugins.yinwuchat.bungee.config.PlayerConfig.getTokens().getUuidByName(playerName);
+                    if (u == null) {
+                        return "";
+                    }
+                    String t = org.lintx.plugins.yinwuchat.bungee.config.PlayerConfig.getTokens().getToken(u);
+                    return t == null ? "" : t;
+                });
+                writeJson(ctx, request, authService.toJson(result));
+                return;
+            }
+            if (path.equals("/api/auth/accounts/remove")) {
+                writeJson(ctx, request, authService.toJson(authService.handleRemoveBoundPlayer(body)));
+                return;
+            }
+            if (path.equals("/api/auth/accounts/bind-token")) {
+                String newToken = org.lintx.plugins.yinwuchat.bungee.config.PlayerConfig.getTokens().newToken();
+                writeJson(ctx, request, authService.toJson(authService.handleRegisterBindToken(body, newToken)));
                 return;
             }
             if (path.equals("/api/auth/reset-token")) {
@@ -180,10 +195,8 @@ public class NettyHttpRequestHandler extends SimpleChannelInboundHandler<FullHtt
             }
             if (path.equals("/api/auth/reset/request")) {
                 writeJson(ctx, request, authService.toJson(authService.handleRequestReset(body, (accountName, playerName) -> {
-                    // Bungee 平台的 绑定验证逻辑
-                    org.lintx.plugins.yinwuchat.bungee.config.PlayerConfig.Player config = 
-                        org.lintx.plugins.yinwuchat.bungee.config.PlayerConfig.getPlayerConfigByName(playerName);
-                    return config != null && config.name.equalsIgnoreCase(playerName);
+                    String mapped = authService.resolveAccountByPlayerName(playerName);
+                    return mapped != null && !mapped.isEmpty() && mapped.equalsIgnoreCase(accountName);
                 })));
                 return;
             }
@@ -220,6 +233,33 @@ public class NettyHttpRequestHandler extends SimpleChannelInboundHandler<FullHtt
         );
         addCorsHeaders(response.headers(), request);
         write(ctx, response, AsciiString.cached("application/json"));
+    }
+
+    private void appendAccountsToLoginResult(com.google.gson.JsonObject result) {
+        authService.appendAccountsToLoginResult(result, playerName -> {
+            java.util.UUID u = org.lintx.plugins.yinwuchat.bungee.config.PlayerConfig.getTokens().getUuidByName(playerName);
+            if (u == null) {
+                return "";
+            }
+            String t = org.lintx.plugins.yinwuchat.bungee.config.PlayerConfig.getTokens().getToken(u);
+            return t == null ? "" : t;
+        });
+    }
+
+    private static String normalizeHttpPath(String path) {
+        if (path == null) {
+            return "";
+        }
+        if (path.startsWith("/new-chat")) {
+            path = path.substring("/new-chat".length());
+            if (path.isEmpty()) {
+                return "/";
+            }
+            if (!path.startsWith("/")) {
+                return "/" + path;
+            }
+        }
+        return path;
     }
 
     private void writeCorsPreflight(ChannelHandlerContext ctx, FullHttpRequest request) {

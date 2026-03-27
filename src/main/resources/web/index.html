@@ -170,6 +170,10 @@
                             class="w-full py-4 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl transition-all shadow-lg shadow-primary-500/30 active:scale-[0.98] disabled:opacity-50">
                             {{ authLoading ? '登录中...' : '登录' }}
                         </button>
+                        <label class="flex items-center gap-2 px-1 text-sm text-gray-500 dark:text-gray-400" key="login-remember">
+                            <input v-model="rememberLogin" type="checkbox" class="rounded border-gray-300 text-primary-600 focus:ring-primary-500">
+                            <span>自动登录</span>
+                        </label>
                         <div class="flex items-center justify-between px-1">
                             <button @click="goToRegister" key="login-switch" class="py-2 text-primary-600 hover:text-primary-700 text-sm font-medium">
                                 未注册？点击这里注册
@@ -178,6 +182,34 @@
                                 忘记密码？
                             </button>
                         </div>
+                        </transition-group>
+                    </div>
+
+                    <div class="space-y-4" v-else-if="authStep === 'quick_login'" key="panel-quick-login">
+                        <transition-group name="drawer" tag="div" class="space-y-4">
+                        <div class="flex flex-col items-center gap-4 py-2" key="quick-avatar">
+                            <div class="w-24 h-24 rounded-full overflow-hidden border-4 border-white/80 dark:border-gray-700 shadow-xl bg-beige-200 dark:bg-gray-800">
+                                <img :src="quickLoginAvatarUrl" class="w-full h-full object-cover" alt="登录头像">
+                            </div>
+                            <div class="text-center">
+                                <div class="text-2xl font-bold text-gray-900 dark:text-white">{{ currentUser || '未命名账户' }}</div>
+                                <div class="text-xs text-gray-400 mt-1">点击下方按钮快捷登录</div>
+                            </div>
+                        </div>
+                        <label class="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400" key="quick-remember">
+                            <input v-model="rememberLogin" type="checkbox" class="rounded border-gray-300 text-primary-600 focus:ring-primary-500">
+                            <span>自动登录</span>
+                        </label>
+                        <button @click="submitQuickLogin" :disabled="authLoading" key="quick-submit"
+                            class="w-full py-4 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl transition-all shadow-lg shadow-primary-500/30 active:scale-[0.98] disabled:opacity-50">
+                            {{ authLoading ? '登录中...' : '登录' }}
+                        </button>
+                        <button @click="switchRememberedAccount" key="quick-switch" class="w-full py-2 text-primary-600 hover:text-primary-700 text-sm font-medium">
+                            账号登录
+                        </button>
+                        <button @click="showSettings = true" key="quick-settings" class="w-full py-2 text-gray-500 hover:text-gray-700 text-sm font-medium">
+                            设置登录头像
+                        </button>
                         </transition-group>
                     </div>
 
@@ -302,7 +334,42 @@
                         </transition-group>
                     </div>
 
-                    <div class="space-y-4" v-else key="panel-connect">
+                    <div class="space-y-4 text-left" v-else-if="authStep === 'account_select'" key="panel-account-select">
+                        <h2 class="text-lg font-bold text-gray-900 dark:text-white text-center">选择游戏账号</h2>
+                        <p class="text-xs text-gray-500 text-center">已登录 Web：{{ currentUser }}</p>
+                        <div class="relative">
+                            <input v-model="accountActionPassword" type="password" placeholder="操作密码（添加/移除/刷新时需要）"
+                                class="w-full px-4 py-3 bg-beige-50 dark:bg-gray-800 border-none rounded-xl text-sm text-gray-900 dark:text-white">
+                        </div>
+                        <div class="space-y-2 max-h-[46vh] overflow-y-auto pr-1">
+                            <div v-for="acc in gameAccounts" :key="'ga-' + acc.playerName"
+                                class="relative p-3 rounded-xl bg-beige-50 dark:bg-gray-800 border border-beige-200 dark:border-gray-700 flex items-center gap-3">
+                                <button type="button" class="absolute top-1 left-1 z-10 w-6 h-6 rounded-full bg-red-500 text-white text-xs leading-6 text-center shadow"
+                                    @click="removeGameAccount(acc)" title="删除">×</button>
+                                <img :src="'https://minotar.net/helm/' + encodeURIComponent(acc.playerName) + '/48'" class="w-11 h-11 rounded-full ml-4 shrink-0" alt="">
+                                <div class="flex-1 min-w-0">
+                                    <div class="font-semibold text-gray-900 dark:text-white truncate">{{ acc.playerName }}</div>
+                                    <div v-if="acc.needsRebind" class="text-[11px] text-amber-600 dark:text-amber-400">需重新绑定</div>
+                                </div>
+                                <button v-if="acc.token && !acc.needsRebind" type="button"
+                                    class="shrink-0 text-xs px-3 py-2 rounded-lg bg-primary-600 text-white font-semibold"
+                                    @click="enterWithGameAccount(acc)">进入聊天</button>
+                                <button v-else type="button"
+                                    class="shrink-0 text-xs px-3 py-2 rounded-lg bg-amber-500 text-white font-semibold"
+                                    @click="openAddBindFlow(acc)">{{ acc.needsRebind ? '重新绑定' : '绑定' }}</button>
+                            </div>
+                            <div v-if="!gameAccounts.length" class="text-center text-sm text-gray-400 py-6">暂无绑定账号，请点击下方添加</div>
+                        </div>
+                        <button type="button" @click="openAddBindFlow(null)"
+                            class="w-full py-3 rounded-xl border-2 border-dashed border-primary-400 text-primary-600 dark:text-primary-400 text-sm font-semibold">
+                            + 添加游戏账号
+                        </button>
+                        <button type="button" @click="refreshGameAccounts" :disabled="authLoading"
+                            class="w-full py-2 text-sm text-gray-500 hover:text-gray-700">{{ authLoading ? '刷新中...' : '刷新列表' }}</button>
+                        <button type="button" @click="backToLoginFromAccountSelect" class="w-full py-2 text-sm text-gray-500">返回登录</button>
+                    </div>
+
+                    <div class="space-y-4" v-else-if="authStep === 'connect'" key="panel-connect">
                         <transition-group name="drawer" tag="div" class="space-y-4">
                         <div class="text-sm text-gray-500 dark:text-gray-400" key="connect-user">已登录：{{ currentUser || '未知用户' }}</div>
                         <div class="relative group" key="connect-token">
@@ -371,13 +438,28 @@
                         </transition>
                     </div>
 
-                    <div :class="['mt-8 flex justify-center gap-4 btn-shift', authStep === 'connect' ? 'btn-row-top' : 'btn-row-bottom']">
+                    <div :class="['mt-8 flex justify-center gap-4 btn-shift', (authStep === 'connect' || authStep === 'account_select') ? 'btn-row-top' : 'btn-row-bottom']">
                         <button @click="toggleDarkMode" class="p-3 rounded-full bg-beige-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:scale-110 transition-transform">
                             <span :key="isDark" class="flex items-center justify-center">
                                 <i :data-lucide="isDark ? 'moon' : 'sun'" class="w-6 h-6"></i>
                             </span>
                         </button>
                     </div>
+                    </div>
+                </div>
+            </div>
+        </transition>
+
+        <transition name="fade">
+            <div v-if="showBindTokenModal" class="fixed inset-0 z-[115] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                <div class="w-full max-w-md bg-beige-100 dark:bg-gray-900 rounded-2xl shadow-2xl border border-beige-200 dark:border-gray-700 p-6 space-y-4">
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white">在游戏内完成绑定</h3>
+                    <p class="text-xs text-gray-500">请使用要绑定的角色执行下方命令：</p>
+                    <div class="p-3 rounded-xl bg-gray-900 text-cyan-300 font-mono text-xs break-all select-all">{{ bindModalCommand }}</div>
+                    <p class="text-[11px] text-gray-400">绑定成功后点击刷新列表，再进入聊天。</p>
+                    <div class="flex gap-2">
+                        <button type="button" @click="refreshGameAccounts(); showBindTokenModal = false" class="flex-1 py-3 bg-primary-600 text-white rounded-xl text-sm font-bold">我已绑定，刷新</button>
+                        <button type="button" @click="showBindTokenModal = false" class="flex-1 py-3 bg-gray-200 dark:bg-gray-700 rounded-xl text-sm font-bold">关闭</button>
                     </div>
                 </div>
             </div>
@@ -615,21 +697,38 @@
             </div>
         </transition>
 
-        <!-- 物品详情弹窗 -->
+        <!-- 物品/背包详情弹窗 -->
         <transition name="fade">
             <div v-if="itemPreview" class="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" @click.self="closeItemPreview">
                 <div class="w-auto max-w-[90vw] bg-gray-900 rounded-2xl shadow-2xl border border-gray-700 p-6 space-y-4 animate-in zoom-in-95 duration-200">
                     <div class="flex items-center justify-between gap-4">
                         <h3 class="text-lg font-bold text-white flex items-center gap-2 shrink-0">
-                            <i data-lucide="package-search" class="w-5 h-5 text-primary-500"></i>
-                            物品详情
+                            <i :data-lucide="itemPreview.displayType === 'backpack' ? 'backpack' : 'package-search'" class="w-5 h-5 text-primary-500"></i>
+                            {{ itemPreview.displayType === 'backpack' ? '背包预览' : '物品详情' }}
                         </h3>
                         <button @click="closeItemPreview" class="text-gray-400 hover:text-gray-300">
                             <i data-lucide="x" class="w-5 h-5"></i>
                         </button>
                     </div>
                     <div class="text-sm text-gray-300 space-y-2">
-                        <div class="flex items-center gap-3">
+                        <template v-if="itemPreview.displayType === 'backpack'">
+                            <div>拥有者：<span class="font-semibold text-white break-all">{{ itemPreview.ownerName || '未知玩家' }}</span></div>
+                            <div class="grid grid-cols-9 gap-2 max-h-[65vh] overflow-auto pr-1 custom-scrollbar">
+                                <div v-for="(slot, idx) in getBackpackPreviewSlots(itemPreview)" :key="'bp-slot-' + idx"
+                                    class="w-14 h-14 rounded-xl border border-gray-700 bg-gray-800/90 flex items-center justify-center relative overflow-hidden">
+                                    <template v-if="slot">
+                                        <img :src="getSlotItemIconUrl(slot)" @error="handleSlotItemIconError($event, slot)"
+                                            class="w-10 h-10 object-contain"
+                                            :alt="slot.name || '物品'" />
+                                        <span v-if="Number(slot.count || 1) > 1"
+                                            class="absolute bottom-0.5 right-1 text-[10px] leading-none font-bold text-white drop-shadow">
+                                            {{ slot.count }}
+                                        </span>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                        <div v-else class="flex items-center gap-3">
                             <img :src="getItemIconUrl(itemPreview)" @error="handleItemIconError"
                                 class="w-12 h-12 rounded-lg border border-gray-700 bg-gray-800 p-1 object-contain shrink-0"
                                 alt="物品图标" />
@@ -638,13 +737,13 @@
                                 <div class="mt-1">数量：<span class="font-semibold text-white">{{ itemPreview.count || 1 }}</span></div>
                             </div>
                         </div>
-                        <div v-if="itemPreview.enchantments && itemPreview.enchantments.length > 0">
+                        <div v-if="itemPreview.displayType !== 'backpack' && itemPreview.enchantments && itemPreview.enchantments.length > 0">
                             附魔：
                             <ul class="mt-1 space-y-1 pl-4 list-disc max-h-40 overflow-auto pr-1 custom-scrollbar">
                                 <li v-for="(ench, idx) in itemPreview.enchantments" :key="'ench-' + idx" class="text-gray-200 whitespace-nowrap" v-html="formatMinecraftInline(ench)"></li>
                             </ul>
                         </div>
-                        <div v-if="itemPreview.lore && itemPreview.lore.length > 0">
+                        <div v-if="itemPreview.displayType !== 'backpack' && itemPreview.lore && itemPreview.lore.length > 0">
                             描述：
                             <ul class="mt-1 space-y-1 pl-4 list-disc max-h-[60vh] overflow-auto pr-1 custom-scrollbar">
                                 <li v-for="(line, idx) in itemPreview.lore" :key="'lore-' + idx" class="text-gray-200 whitespace-nowrap" v-html="formatMinecraftInline(line)"></li>
@@ -669,14 +768,19 @@
                 @touchmove="onSidebarTouchMove"
                 @touchend="onSidebarTouchEnd">
                 
-                <div class="p-4 border-b border-beige-200 dark:border-gray-700 flex items-center justify-between">
-                    <h2 class="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                        <i data-lucide="users" class="w-5 h-5 text-primary-500"></i>
-                        玩家列表 ({{ playerRoster.length }})
+                <div class="p-4 border-b border-beige-200 dark:border-gray-700 flex items-center justify-between gap-2">
+                    <h2 class="font-bold text-gray-900 dark:text-white flex items-center gap-2 min-w-0 truncate">
+                        <i data-lucide="users" class="w-5 h-5 text-primary-500 shrink-0"></i>
+                        <span class="truncate">玩家列表 ({{ playerRoster.length }})</span>
                     </h2>
-                    <button @click="showSidebar = false" class="lg:hidden p-1 rounded-full hover:bg-beige-200 dark:hover:bg-gray-700 transition-colors">
-                        <i data-lucide="x" class="w-5 h-5 text-gray-500"></i>
-                    </button>
+                    <div class="flex items-center gap-1 shrink-0">
+                        <button type="button" @click="openAccountSwitchDrawer" class="p-2 rounded-lg hover:bg-beige-200 dark:hover:bg-gray-700 transition-colors" title="切换游戏账号">
+                            <i data-lucide="repeat" class="w-5 h-5 text-primary-600"></i>
+                        </button>
+                        <button @click="showSidebar = false" class="lg:hidden p-1 rounded-full hover:bg-beige-200 dark:hover:bg-gray-700 transition-colors">
+                            <i data-lucide="x" class="w-5 h-5 text-gray-500"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="flex-1 overflow-y-auto chat-scroll p-2 space-y-1">
@@ -755,11 +859,11 @@
 
             <!-- 右侧聊天内容区域 -->
             <div class="flex-1 flex flex-col bg-beige-100 dark:bg-gray-900 min-w-0 relative transition-all chat-window"
-                :style="isMobile ? { filter: `blur(${sidebarBlur}px)` } : {}"
-                @touchstart="onChatTouchStart"
-                @touchmove="onChatTouchMove"
-                @touchend="onChatTouchEnd">
-                
+                :style="isMobile ? { filter: `blur(${sidebarBlur}px)` } : {}">
+                <div class="flex-1 flex flex-col min-h-0"
+                    @touchstart="onChatTouchStart"
+                    @touchmove="onChatTouchMove"
+                    @touchend="onChatTouchEnd">
                 <!-- 顶部栏 -->
                 <header class="h-16 border-b border-beige-200 dark:border-gray-700 flex items-center px-4 justify-between bg-beige-100/80 dark:bg-gray-900/80 backdrop-blur-md sticky top-0 z-20">
                     <div class="flex items-center gap-3 min-w-0">
@@ -820,22 +924,26 @@
                 <!-- 广播置顶横幅 -->
                 <div v-if="pinnedBroadcastCount > 0" class="relative z-10 shrink-0">
                     <div @click="broadcastPanelOpen = !broadcastPanelOpen"
-                         class="bg-amber-50 dark:bg-amber-900/30 border-b border-amber-200 dark:border-amber-700/40 px-4 py-2 flex items-center justify-between cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors select-none">
+                         class="bg-amber-100 dark:bg-amber-900/30 border-b border-amber-300 dark:border-amber-700/40 px-4 py-2 flex items-center justify-between cursor-pointer hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors select-none">
                         <div class="flex items-center gap-2">
                             <span class="text-amber-600 dark:text-amber-400 text-sm">&#x1F4E2;</span>
-                            <span class="text-xs font-bold text-amber-700 dark:text-amber-300">系统广播 ({{ pinnedBroadcastCount }}条)</span>
+                            <span class="text-xs font-bold text-amber-800 dark:text-amber-300">系统广播 ({{ pinnedBroadcastCount }}条)</span>
                         </div>
-                        <span class="text-[10px] text-amber-500 dark:text-amber-400 transition-transform duration-200"
+                        <span class="text-[10px] text-amber-600 dark:text-amber-400 transition-transform duration-200"
                               :class="broadcastPanelOpen ? 'rotate-180' : ''">&#x25BC;</span>
                     </div>
-                    <div v-if="broadcastPanelOpen"
-                         class="bg-amber-50/90 dark:bg-amber-950/50 border-b border-amber-200 dark:border-amber-700/40 max-h-60 overflow-y-auto chat-scroll">
-                        <div v-for="(bc, idx) in pinnedBroadcastList" :key="bc.taskIndex"
-                             class="px-4 py-2.5" :class="idx < pinnedBroadcastList.length - 1 ? 'border-b border-amber-100 dark:border-amber-800/30' : ''">
-                            <div class="text-sm leading-relaxed text-amber-900 dark:text-amber-100"
-                                 v-html="formatBroadcastSegments(bc.segments || [], bc.chat)">
+                    <div class="grid transition-[grid-template-rows,opacity] duration-300 ease-in-out"
+                         :class="broadcastPanelOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'">
+                        <div class="overflow-hidden">
+                            <div class="bg-amber-100 dark:bg-amber-950/50 border-b border-amber-300 dark:border-amber-700/40 max-h-60 overflow-y-auto chat-scroll">
+                                <div v-for="(bc, idx) in pinnedBroadcastList" :key="bc.taskIndex"
+                                     class="px-4 py-2.5" :class="idx < pinnedBroadcastList.length - 1 ? 'border-b border-amber-200 dark:border-amber-800/30' : ''">
+                                    <div class="text-sm leading-relaxed text-amber-900 dark:text-amber-100"
+                                         v-html="formatBroadcastSegments(bc.segments || [], bc.chat)">
+                                    </div>
+                                    <div class="text-[9px] text-amber-500 mt-1 opacity-80">{{ bc.time }}</div>
+                                </div>
                             </div>
-                            <div class="text-[9px] text-amber-400 mt-1 opacity-70">{{ bc.time }}</div>
                         </div>
                     </div>
                 </div>
@@ -849,19 +957,38 @@
                             <div class="h-px flex-1 bg-red-300/70 dark:bg-red-500/40"></div>
                         </div>
                         <div class="flex animate-in fade-in slide-in-from-bottom-2 duration-300 w-full"
-                            :class="[msg.type === 'broadcast' ? 'justify-center' : (msg.isSelf ? 'justify-end' : 'justify-start')]">
+                            :class="[msg.type === 'broadcast' || msg.type === 'token_bind' ? 'justify-center' : (msg.isSelf ? 'justify-end' : 'justify-start')]">
                         <!-- 广播消息：居中系统样式 -->
                         <div v-if="msg.type === 'broadcast'" class="max-w-[90%] lg:max-w-[85%]">
                             <div class="flex items-center gap-2 justify-center mb-1">
-                                <div class="h-px flex-1 bg-amber-300/40 dark:bg-amber-500/30"></div>
-                                <span class="text-[10px] font-bold text-amber-600 dark:text-amber-400 tracking-wider uppercase">系统广播</span>
-                                <div class="h-px flex-1 bg-amber-300/40 dark:bg-amber-500/30"></div>
+                                <div class="h-px flex-1 bg-amber-400/50 dark:bg-amber-500/30"></div>
+                                <span class="text-[10px] font-bold text-amber-800 dark:text-amber-400 tracking-wider uppercase">系统广播</span>
+                                <div class="h-px flex-1 bg-amber-400/50 dark:bg-amber-500/30"></div>
                             </div>
-                            <div class="px-4 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 text-sm leading-relaxed text-amber-900 dark:text-amber-100 shadow-sm"
+                            <div class="px-4 py-2.5 rounded-xl bg-amber-100 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700/40 text-sm leading-relaxed text-amber-900 dark:text-amber-100 shadow-sm"
                                 v-html="formatBroadcastSegments(msg.segments || [], msg.chat)">
                             </div>
                             <div class="text-[9px] text-gray-400 mt-1 opacity-60 text-center">
                                 {{ msg.time }}
+                            </div>
+                        </div>
+                        <!-- Token 绑定：系统提示块 -->
+                        <div v-else-if="msg.type === 'token_bind'" class="max-w-[90%] lg:max-w-[85%] w-full">
+                            <div class="rounded-xl border-2 border-amber-300 dark:border-amber-600/60 bg-amber-100 dark:bg-amber-950/50 shadow-sm overflow-hidden">
+                                <div class="px-4 py-2 border-b border-amber-200 dark:border-amber-700/50">
+                                    <span class="text-sm font-bold text-amber-800 dark:text-amber-200">&#x1F512; Token 绑定</span>
+                                </div>
+                                <div class="px-4 py-3 space-y-3 text-sm">
+                                    <div>
+                                        <div class="text-amber-700 dark:text-amber-300 text-xs font-medium mb-1">你的新 Token</div>
+                                        <div class="font-mono text-sm px-3 py-2 rounded-lg bg-cyan-100 dark:bg-cyan-900/50 text-cyan-900 dark:text-cyan-100 border border-cyan-300 dark:border-cyan-700 break-all select-all">{{ msg.token }}</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-amber-700 dark:text-amber-300 text-xs font-medium mb-1">请在游戏内输入以下命令完成绑定</div>
+                                        <div class="font-mono text-sm px-3 py-2 rounded-lg bg-slate-200 dark:bg-slate-700/80 text-slate-800 dark:text-slate-100 border border-slate-300 dark:border-slate-600 break-all select-all">{{ msg.command }}</div>
+                                    </div>
+                                </div>
+                                <div class="text-[9px] text-amber-600 dark:text-amber-400 px-4 pb-2 opacity-80">{{ msg.time }}</div>
                             </div>
                         </div>
                         <!-- 普通消息：聊天气泡 -->
@@ -904,6 +1031,7 @@
                         <p class="text-sm font-medium">开始你的对话...</p>
                     </div>
                 </main>
+                </div>
 
                 <!-- 输入区域 -->
                 <footer class="p-4 bg-beige-100/80 dark:bg-gray-900/80 backdrop-blur-md border-t border-beige-200 dark:border-gray-700">
@@ -935,12 +1063,24 @@
                             <i data-lucide="send" class="w-5 h-5"></i>
                         </button>
                     </div>
-                    <div v-if="currentChat === 'public'" class="mt-2 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-                        <button v-for="cmd in quickCommands" :key="cmd"
-                            @click="inputMsg = cmd + ' '"
-                            class="text-[10px] px-2 py-1 bg-beige-200 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-md hover:bg-beige-300 dark:hover:bg-gray-700 transition-colors shrink-0">
-                            {{ cmd }}
+                    <div v-if="currentChat === 'public'" class="mt-2">
+                        <button @click="showQuickCommands = !showQuickCommands"
+                            class="w-full flex items-center justify-between px-3 py-2 bg-beige-50 dark:bg-gray-800 border border-beige-200 dark:border-gray-700 rounded-xl text-xs text-gray-600 dark:text-gray-300 transition-colors hover:bg-beige-100 dark:hover:bg-gray-700">
+                            <span>快捷指令</span>
+                            <span class="text-[10px] opacity-70">{{ showQuickCommands ? '收起' : `展开 (${quickCommands.length})` }}</span>
                         </button>
+                        <div class="grid transition-[grid-template-rows,opacity,padding] duration-300 ease-in-out"
+                            :class="showQuickCommands ? 'grid-rows-[1fr] opacity-100 pt-2' : 'grid-rows-[0fr] opacity-0 pt-0'">
+                            <div class="overflow-hidden">
+                                <div class="grid grid-cols-2 gap-2">
+                                    <button v-for="cmd in quickCommands" :key="cmd"
+                                        @click="selectQuickCommand(cmd)"
+                                        class="text-[10px] px-2.5 py-2 bg-beige-200 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-beige-300 dark:hover:bg-gray-700 transition-colors text-left break-all">
+                                        {{ cmd }}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </footer>
             </div>
@@ -953,6 +1093,37 @@
                 class="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm sidebar-overlay"
                 :class="{ 'pointer-events-none': !showSidebar && !sidebarDragging }"
                 :style="{ opacity: sidebarDragging ? (sidebarOverlayOpacity * 2) : (showSidebar ? 1 : 0) }"></div>
+
+            <transition name="fade">
+                <div v-if="showAccountSwitchDrawer" class="fixed inset-0 z-[130] flex">
+                    <div class="flex-1 bg-black/50" @click="showAccountSwitchDrawer = false"></div>
+                    <div class="w-[min(20rem,88vw)] h-full bg-beige-100 dark:bg-gray-900 border-l border-beige-200 dark:border-gray-700 shadow-2xl flex flex-col">
+                        <div class="p-4 border-b border-beige-200 dark:border-gray-700 flex items-center justify-between">
+                            <span class="font-bold text-gray-900 dark:text-white">切换游戏账号</span>
+                            <button type="button" class="p-2 rounded-lg hover:bg-beige-200 dark:hover:bg-gray-700" @click="showAccountSwitchDrawer = false">
+                                <i data-lucide="x" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                        <div class="px-4 py-2 text-[11px] text-gray-500 dark:text-gray-400 border-b border-beige-200 dark:border-gray-700">
+                            聊天内切换账号不再需要重复验证。
+                        </div>
+                        <div class="flex-1 overflow-y-auto p-2 space-y-2">
+                            <div v-for="acc in gameAccounts" :key="'sw-' + acc.playerName"
+                                class="p-3 rounded-xl bg-beige-50 dark:bg-gray-800 border border-beige-200 dark:border-gray-700 flex items-center gap-3">
+                                <img :src="'https://minotar.net/helm/' + encodeURIComponent(acc.playerName) + '/40'" class="w-10 h-10 rounded-full shrink-0" alt="">
+                                <div class="flex-1 min-w-0">
+                                    <div class="font-semibold text-sm truncate">{{ acc.playerName }}</div>
+                                    <div v-if="acc.needsRebind" class="text-[10px] text-amber-600">需重新绑定</div>
+                                </div>
+                                <button v-if="acc.token && !acc.needsRebind" type="button" class="text-xs px-2 py-1.5 rounded-lg bg-primary-600 text-white"
+                                    @click="switchGameAccountFromDrawer(acc)">切换</button>
+                                <span v-else class="text-[10px] text-gray-400 shrink-0">请到选择页绑定</span>
+                            </div>
+                            <div v-if="!gameAccounts.length" class="text-center text-sm text-gray-400 py-6">暂无账号，请返回登录页添加</div>
+                        </div>
+                    </div>
+                </div>
+            </transition>
         </div>
 
         <!-- 配置页 -->
@@ -970,6 +1141,12 @@
                         <input v-model="defaultDomain" type="text" placeholder="server.yinwurealm.org"
                             class="w-full px-4 py-3 bg-beige-50 dark:bg-gray-800 border-none rounded-xl focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white transition-all outline-none">
                         <p class="text-[11px] text-gray-400">用于 App 在本地环境下自动发现 WS 端口。</p>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-xs font-medium text-gray-500 dark:text-gray-400">登录头像</label>
+                        <input v-model="loginAvatarInput" type="text" placeholder="输入玩家名或头像 URL"
+                            class="w-full px-4 py-3 bg-beige-50 dark:bg-gray-800 border-none rounded-xl focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white transition-all outline-none">
+                        <p class="text-[11px] text-gray-400">支持填写 Minecraft 玩家名，或直接填写皮肤头图片链接。</p>
                     </div>
                     <div class="flex items-center gap-2">
                         <button @click="saveDefaultDomain" class="flex-1 py-2.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold rounded-xl transition-all">
@@ -1011,6 +1188,9 @@
                 const advancedOpen = ref(false);
                 const showSettings = ref(false);
                 const defaultDomain = ref(localStorage.getItem('yinwuchat_default_domain') || '');
+                const loginAvatarInput = ref(localStorage.getItem('yinwuchat_login_avatar') || '');
+                const rememberToken = ref(localStorage.getItem('yinwuchat_remember_token') || '');
+                const rememberLogin = ref(localStorage.getItem('yinwuchat_remember_enabled') === 'true');
                 const manualWsUrl = ref('');
                 const savedManualWsUrl = ref(localStorage.getItem('yinwuchat_manual_ws') || '');
                 const getInjectedWsUrl = () => {
@@ -1029,6 +1209,50 @@
                     const injected = getInjectedDiscoveryBase();
                     if (injected) return injected;
                     return 'https://server.yinwurealm.org:31115/new-chat/';
+                };
+                const getGameAccountCacheKey = (username) => {
+                    const normalized = String(username || '').trim().toLowerCase();
+                    return normalized ? `yinwuchat_game_accounts_${normalized}` : '';
+                };
+                const readCachedGameAccounts = (username) => {
+                    const key = getGameAccountCacheKey(username);
+                    if (!key) return [];
+                    try {
+                        const raw = localStorage.getItem(key);
+                        const parsed = raw ? JSON.parse(raw) : [];
+                        return Array.isArray(parsed) ? parsed : [];
+                    } catch (e) {
+                        return [];
+                    }
+                };
+                const writeCachedGameAccounts = (username, accounts) => {
+                    const key = getGameAccountCacheKey(username);
+                    if (!key) return;
+                    const list = Array.isArray(accounts) ? accounts : [];
+                    localStorage.setItem(key, JSON.stringify(list));
+                };
+                const pickRandomConnectedAccountAvatar = (username) => {
+                    const usable = readCachedGameAccounts(username)
+                        .filter((acc) => acc && acc.playerName && acc.token && !acc.needsRebind)
+                        .map((acc) => String(acc.playerName).trim())
+                        .filter(Boolean);
+                    if (!usable.length) return '';
+                    return usable[Math.floor(Math.random() * usable.length)];
+                };
+                const quickLoginAvatarPlayer = ref(pickRandomConnectedAccountAvatar(localStorage.getItem('yinwuchat_username') || ''));
+                const refreshQuickLoginAvatar = (username) => {
+                    quickLoginAvatarPlayer.value = pickRandomConnectedAccountAvatar(username || currentUser.value || loginForm.value.username);
+                };
+                const resolveLoginAvatarUrl = (fallbackNameOverride = '') => {
+                    const raw = String(loginAvatarInput.value || '').trim();
+                    if (!raw) {
+                        const fallbackName = String(fallbackNameOverride || currentUser.value || loginForm.value.username || '').trim();
+                        return fallbackName ? `https://minotar.net/helm/${encodeURIComponent(fallbackName)}/96` : './avater.png';
+                    }
+                    if (/^(https?:)?\/\//i.test(raw) || raw.startsWith('./') || raw.startsWith('data:image')) {
+                        return raw;
+                    }
+                    return `https://minotar.net/helm/${encodeURIComponent(raw)}/96`;
                 };
                 const getInjectedServerBase = () => {
                     if (window.__YINWUCHAT_SERVER__) return String(window.__YINWUCHAT_SERVER__);
@@ -1130,7 +1354,7 @@
                     return '';
                 };
                 const autoWsUrl = ref(getAutoWsUrl());
-                const authStep = ref('login');
+                const authStep = ref((rememberToken.value && localStorage.getItem('yinwuchat_username')) ? 'quick_login' : 'login');
                 const authLoading = ref(false);
                 const showDeleteAccount = ref(false);
                 const showResetToken = ref(false);
@@ -1170,6 +1394,13 @@
                 const captchaImage = ref('');
                 const captchaId = ref('');
                 const currentUser = ref(localStorage.getItem('yinwuchat_username') || '');
+                const gameAccounts = ref([]);
+                const accountActionPassword = ref('');
+                const showBindTokenModal = ref(false);
+                const bindModalToken = ref('');
+                const bindModalCommand = computed(() => '/yinwuchat bind ' + String(bindModalToken.value || '').trim());
+                const showAccountSwitchDrawer = ref(false);
+                const quickLoginAvatarUrl = computed(() => resolveLoginAvatarUrl(quickLoginAvatarPlayer.value));
                 const isConnected = ref(false);
                 const isManualDisconnect = ref(false);
                 const connecting = ref(false);
@@ -1187,6 +1418,7 @@
                 const sidebarWidth = ref(getSidebarWidth());
                 const sidebarTranslateX = ref(-sidebarWidth.value);
                 const sidebarDragging = ref(false);
+                const showQuickCommands = ref(false);
                 const chatContainer = ref(null);
                 const sidebarStartX = ref(0);
                 const sidebarStartY = ref(0);
@@ -1493,9 +1725,11 @@
                 const confirmClearCache = () => {
                     const dark = localStorage.getItem('yinwuchat_dark');
                     const domain = localStorage.getItem('yinwuchat_default_domain');
+                    const loginAvatar = localStorage.getItem('yinwuchat_login_avatar');
                     localStorage.clear();
                     if (dark) localStorage.setItem('yinwuchat_dark', dark);
                     if (domain) localStorage.setItem('yinwuchat_default_domain', domain);
+                    if (loginAvatar) localStorage.setItem('yinwuchat_login_avatar', loginAvatar);
                     messages.value = [];
                     showClearCacheConfirm.value = false;
                     showToast('缓存已清除', 'info');
@@ -1503,12 +1737,20 @@
 
                 const saveDefaultDomain = () => {
                     const trimmed = String(defaultDomain.value || '').trim();
+                    const avatar = String(loginAvatarInput.value || '').trim();
                     defaultDomain.value = trimmed;
+                    loginAvatarInput.value = avatar;
                     if (trimmed) {
                         localStorage.setItem('yinwuchat_default_domain', trimmed);
                     } else {
                         localStorage.removeItem('yinwuchat_default_domain');
                     }
+                    if (avatar) {
+                        localStorage.setItem('yinwuchat_login_avatar', avatar);
+                    } else {
+                        localStorage.removeItem('yinwuchat_login_avatar');
+                    }
+                    refreshQuickLoginAvatar(currentUser.value || loginForm.value.username);
                     showSettings.value = false;
                 };
 
@@ -1564,6 +1806,11 @@
                     return list[0];
                 };
 
+                const getSlotItemIconUrl = (item) => {
+                    const list = getItemIconCandidates(item);
+                    return list[0];
+                };
+
                 const handleItemIconError = (event) => {
                     const img = event && event.target;
                     if (!img) return;
@@ -1575,6 +1822,30 @@
                     if (next && next !== current) {
                         img.setAttribute('src', next);
                     }
+                };
+
+                const handleSlotItemIconError = (event, item) => {
+                    const img = event && event.target;
+                    if (!img || !item) return;
+                    const list = getItemIconCandidates(item);
+                    const current = img.getAttribute('src');
+                    const idx = list.indexOf(current);
+                    const next = idx >= 0 ? list[idx + 1] : list[1];
+                    if (next && next !== current) {
+                        img.setAttribute('src', next);
+                    }
+                };
+
+                const getBackpackPreviewSlots = (item) => {
+                    if (!item || item.displayType !== 'backpack' || !Array.isArray(item.slots)) return [];
+                    return item.slots.map((slot) => {
+                        if (!slot || !String(slot).trim()) return null;
+                        try {
+                            return JSON.parse(slot);
+                        } catch (e) {
+                            return null;
+                        }
+                    });
                 };
 
                 const formatMinecraftInline = (value) => {
@@ -1764,6 +2035,7 @@
                         if (connId !== _nativeWsConnId) return;
                         console.warn('[NativeWS] connect rejected:', err);
                         wsLike.readyState = 3;
+                        const errDetail = err && err.message ? String(err.message) : String(err || 'connect failed');
                         if (wsLike.onerror) wsLike.onerror(new Error(errDetail));
                         if (wsLike.onclose) wsLike.onclose({ code: 1006, reason: errDetail });
                     });
@@ -1891,6 +2163,8 @@
 
                 const goToLogin = () => {
                     authStep.value = 'login';
+                    gameAccounts.value = [];
+                    accountActionPassword.value = '';
                     registerForm.value.password = '';
                     registerForm.value.confirm = '';
                     registerForm.value.captcha = '';
@@ -1899,6 +2173,40 @@
                         resetStatusInterval = null;
                     }
                     nextTick(() => lucide.createIcons());
+                };
+
+                const backToLoginFromAccountSelect = () => {
+                    gameAccounts.value = [];
+                    accountActionPassword.value = '';
+                    token.value = '';
+                    localStorage.removeItem('yinwuchat_token');
+                    localStorage.removeItem('yinwuchat_last_good_ws');
+                    currentUser.value = '';
+                    localStorage.removeItem('yinwuchat_username');
+                    rememberToken.value = '';
+                    localStorage.removeItem('yinwuchat_remember_token');
+                    localStorage.removeItem('yinwuchat_remember_enabled');
+                    goToLogin();
+                };
+
+                const persistRememberState = (data) => {
+                    if (rememberLogin.value && data && data.rememberToken) {
+                        rememberToken.value = data.rememberToken;
+                        localStorage.setItem('yinwuchat_remember_token', data.rememberToken);
+                        localStorage.setItem('yinwuchat_remember_enabled', 'true');
+                    } else {
+                        rememberToken.value = '';
+                        localStorage.removeItem('yinwuchat_remember_token');
+                        localStorage.removeItem('yinwuchat_remember_enabled');
+                    }
+                };
+
+                const switchRememberedAccount = () => {
+                    rememberToken.value = '';
+                    rememberLogin.value = false;
+                    localStorage.removeItem('yinwuchat_remember_token');
+                    localStorage.removeItem('yinwuchat_remember_enabled');
+                    goToLogin();
                 };
 
                 const goToForgot = () => {
@@ -2244,6 +2552,175 @@
                     throw new Error('浏览器不支持加密注册，请升级浏览器');
                 };
 
+                const applyAccountsFromLoginPayload = (data) => {
+                    if (data && Array.isArray(data.accounts)) {
+                        gameAccounts.value = data.accounts.map((a) => ({
+                            playerName: String(a.playerName || a.player_name || '').trim(),
+                            needsRebind: !!a.needsRebind,
+                            token: String(a.token || '').trim()
+                        })).filter((a) => a.playerName);
+                    } else {
+                        gameAccounts.value = [];
+                    }
+                    writeCachedGameAccounts((data && data.username) || currentUser.value, gameAccounts.value);
+                    refreshQuickLoginAvatar((data && data.username) || currentUser.value);
+                };
+
+                const postEncryptedAuthApi = async (path, passwordPlain, extraPayload) => {
+                    const handshake = await fetchHandshake();
+                    const passwordHash = await sha256Hex(passwordPlain);
+                    const saltedHash = await sha256Hex(passwordHash + handshake.nonce);
+                    const oaepHash = handshake.oaepHash || 'SHA-256';
+                    const payload = {
+                        username: currentUser.value.trim(),
+                        passwordHash,
+                        saltedHash,
+                        nonce: handshake.nonce,
+                        ...(extraPayload || {})
+                    };
+                    const encryptedPayload = await encryptPayloadHybrid(payload, handshake.publicKey, oaepHash);
+                    const hmac = await signHmac(handshake.hmacKey, `${encryptedPayload.payloadEnc}.${encryptedPayload.iv}`);
+                    const base = getHttpBaseUrl();
+                    const res = await fetchWithFallback(base, path, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            handshakeId: handshake.handshakeId,
+                            payloadEnc: encryptedPayload.payloadEnc,
+                            keyEnc: encryptedPayload.keyEnc,
+                            iv: encryptedPayload.iv,
+                            hmac
+                        })
+                    });
+                    return await res.json();
+                };
+
+                const refreshGameAccounts = async () => {
+                    if (!isCryptoAvailable()) {
+                        showToast('浏览器不支持加密操作，请升级浏览器', 'error');
+                        return;
+                    }
+                    if (!accountActionPassword.value) {
+                        showToast('请输入操作密码', 'error');
+                        return;
+                    }
+                    if (!currentUser.value) {
+                        showToast('未登录 Web 账号', 'error');
+                        return;
+                    }
+                    authLoading.value = true;
+                    try {
+                        const data = await postEncryptedAuthApi('/new-chat/api/auth/accounts/list', accountActionPassword.value, {});
+                        if (data && data.ok) {
+                            applyAccountsFromLoginPayload(data);
+                            showToast('列表已更新');
+                        } else {
+                            showToast((data && data.message) || '刷新失败', 'error');
+                        }
+                    } catch (err) {
+                        showToast('刷新失败，请稍后重试', 'error');
+                    } finally {
+                        authLoading.value = false;
+                    }
+                };
+
+                const removeGameAccount = async (acc) => {
+                    if (!acc || !acc.playerName) return;
+                    if (!confirm('确定移除绑定「' + acc.playerName + '」？')) return;
+                    if (!isCryptoAvailable()) {
+                        showToast('浏览器不支持加密操作，请升级浏览器', 'error');
+                        return;
+                    }
+                    if (!accountActionPassword.value) {
+                        showToast('请输入操作密码', 'error');
+                        return;
+                    }
+                    authLoading.value = true;
+                    try {
+                        const data = await postEncryptedAuthApi('/new-chat/api/auth/accounts/remove', accountActionPassword.value, {
+                            playerName: acc.playerName
+                        });
+                        if (data && data.ok) {
+                            showToast(data.message || '已移除');
+                            gameAccounts.value = gameAccounts.value.filter((a) => a.playerName !== acc.playerName);
+                            writeCachedGameAccounts(currentUser.value, gameAccounts.value);
+                            refreshQuickLoginAvatar(currentUser.value);
+                        } else {
+                            showToast((data && data.message) || '移除失败', 'error');
+                        }
+                    } catch (err) {
+                        showToast('移除失败，请稍后重试', 'error');
+                    } finally {
+                        authLoading.value = false;
+                    }
+                };
+
+                const enterWithGameAccount = async (acc) => {
+                    if (!acc || !acc.token || acc.needsRebind) {
+                        showToast('该账号暂不可用，请先完成绑定', 'error');
+                        return;
+                    }
+                    token.value = acc.token;
+                    localStorage.setItem('yinwuchat_token', acc.token);
+                    authStep.value = 'connect';
+                    await nextTick();
+                    lucide.createIcons();
+                    await connect();
+                };
+
+                const openAddBindFlow = async () => {
+                    if (!isCryptoAvailable()) {
+                        showToast('浏览器不支持加密操作，请升级浏览器', 'error');
+                        return;
+                    }
+                    if (!accountActionPassword.value) {
+                        showToast('请输入操作密码', 'error');
+                        return;
+                    }
+                    if (!currentUser.value) return;
+                    authLoading.value = true;
+                    try {
+                        const data = await postEncryptedAuthApi('/new-chat/api/auth/accounts/bind-token', accountActionPassword.value, {});
+                        if (data && data.ok && data.token) {
+                            bindModalToken.value = data.token;
+                            showBindTokenModal.value = true;
+                            await nextTick();
+                            lucide.createIcons();
+                        } else {
+                            showToast((data && data.message) || '获取绑定 Token 失败', 'error');
+                        }
+                    } catch (err) {
+                        showToast('获取绑定 Token 失败', 'error');
+                    } finally {
+                        authLoading.value = false;
+                    }
+                };
+
+                const openAccountSwitchDrawer = () => {
+                    showAccountSwitchDrawer.value = true;
+                    nextTick(() => lucide.createIcons());
+                };
+
+                const switchGameAccountFromDrawer = async (acc) => {
+                    if (!acc || !acc.token || acc.needsRebind) {
+                        showToast('该账号暂不可用', 'error');
+                        return;
+                    }
+                    showAccountSwitchDrawer.value = false;
+                    isManualDisconnect.value = true;
+                    if (ws) {
+                        try { ws.close(); } catch (e) {}
+                    }
+                    isConnected.value = false;
+                    connecting.value = false;
+                    bindAccountSent.value = false;
+                    token.value = acc.token;
+                    localStorage.setItem('yinwuchat_token', acc.token);
+                    isManualDisconnect.value = false;
+                    await nextTick();
+                    await connect();
+                };
+
                 const submitLogin = async () => {
                     if (!isCryptoAvailable()) {
                         showToast('浏览器不支持加密登录，请升级浏览器', 'error');
@@ -2263,7 +2740,8 @@
                             username: loginForm.value.username.trim(),
                             passwordHash,
                             saltedHash,
-                            nonce: handshake.nonce
+                            nonce: handshake.nonce,
+                            rememberLogin: !!rememberLogin.value
                         };
                         const encryptedPayload = await encryptPayloadHybrid(payload, handshake.publicKey, oaepHash);
                         const hmac = await signHmac(handshake.hmacKey, `${encryptedPayload.payloadEnc}.${encryptedPayload.iv}`);
@@ -2283,8 +2761,14 @@
                         if (data.ok) {
                             currentUser.value = data.username || loginForm.value.username.trim();
                             localStorage.setItem('yinwuchat_username', currentUser.value);
+                            persistRememberState(data);
+                            applyAccountsFromLoginPayload(data);
+                            if (data.token) {
+                                token.value = data.token;
+                                localStorage.setItem('yinwuchat_token', data.token);
+                            }
                             loginForm.value.password = '';
-                            authStep.value = 'connect';
+                            authStep.value = 'account_select';
                             nextTick(() => lucide.createIcons());
                             showToast('登录成功');
                         } else {
@@ -2303,6 +2787,46 @@
                         }
                     } catch (err) {
                         showToast('登录失败，请稍后重试', 'error');
+                    } finally {
+                        authLoading.value = false;
+                    }
+                };
+
+                const submitQuickLogin = async () => {
+                    if (!rememberToken.value) {
+                        switchRememberedAccount();
+                        return;
+                    }
+                    authLoading.value = true;
+                    try {
+                        const base = getHttpBaseUrl();
+                        const res = await fetchWithFallback(base, '/new-chat/api/auth/quick-login', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                rememberToken: rememberToken.value
+                            })
+                        });
+                        const data = await res.json();
+                        if (data.ok) {
+                            currentUser.value = data.username || currentUser.value;
+                            localStorage.setItem('yinwuchat_username', currentUser.value);
+                            persistRememberState(data);
+                            applyAccountsFromLoginPayload(data);
+                            if (data.token) {
+                                token.value = data.token;
+                                localStorage.setItem('yinwuchat_token', data.token);
+                            }
+                            authStep.value = 'account_select';
+                            nextTick(() => lucide.createIcons());
+                            showToast('快捷登录成功');
+                        } else {
+                            showToast(data.message || '快捷登录失败', 'error');
+                            switchRememberedAccount();
+                        }
+                    } catch (err) {
+                        showToast('快捷登录失败，请重新输入账号密码', 'error');
+                        switchRememberedAccount();
                     } finally {
                         authLoading.value = false;
                     }
@@ -2360,9 +2884,10 @@
                             registerForm.value.password = '';
                             registerForm.value.confirm = '';
                             registerForm.value.captcha = '';
-                            authStep.value = 'connect';
+                            gameAccounts.value = [];
+                            authStep.value = 'account_select';
                             nextTick(() => lucide.createIcons());
-                            showToast('注册成功，请继续填写 Token');
+                            showToast('注册成功，请添加并绑定游戏账号');
                         } else {
                             showToast(data.message || '注册失败', 'error');
                             await refreshCaptcha();
@@ -2585,10 +3110,13 @@
                         connecting.value = false;
                         showToast('已生成新 Token，请在游戏内绑定');
                         
-                        // 添加一条系统消息说明如何绑定
+                        // 添加 Token 绑定系统提示块（专用卡片样式）
+                        const bindCmd = `/yinwuchat bind ${data.token}`;
                         messages.value.push({
+                            type: 'token_bind',
                             player: '系统',
-                            chat: `&6你的新 Token 是: &b${data.token}&r\n&e请在游戏内输入: &b/yinwuchat bind ${data.token}&e 以完成绑定。`,
+                            token: data.token,
+                            command: bindCmd,
                             isSelf: false,
                             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                         });
@@ -2747,7 +3275,7 @@
                         isManualDisconnect.value = true;
                         if (ws) ws.close();
                         isConnected.value = false;
-                        authStep.value = 'login';
+                        goToLogin();
                         nextTick(() => lucide.createIcons());
                     } else if (data.action === 'admin_alert') {
                         adminAlert.value = {
@@ -2883,6 +3411,7 @@
                     if (ws) ws.close();
                     isConnected.value = false;
                     bindAccountSent.value = false;
+                    showAccountSwitchDrawer.value = false;
                 };
 
                 const scrollToBottom = (smooth = true) => {
@@ -3042,7 +3571,7 @@
                             // 可点击片段：渲染为按钮样式，点击填入输入框
                             const safeClick = seg.click.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
                             const hoverAttr = seg.hover ? ` title="${seg.hover.replace(/"/g, '&quot;')}"` : '';
-                            segHtml = `<span class="broadcast-cmd inline cursor-pointer px-1 py-0.5 rounded bg-amber-200/60 dark:bg-amber-700/40 hover:bg-amber-300/80 dark:hover:bg-amber-600/50 transition-colors border-b border-dashed border-amber-500 dark:border-amber-400" data-cmd="${safeClick}"${hoverAttr}>${segHtml}</span>`;
+                            segHtml = `<span class="broadcast-cmd inline cursor-pointer px-1 py-0.5 rounded bg-amber-300/90 dark:bg-amber-700/50 hover:bg-amber-400 dark:hover:bg-amber-600/60 transition-colors border border-amber-500 dark:border-amber-500/60 text-amber-900 dark:text-amber-100" data-cmd="${safeClick}"${hoverAttr}>${segHtml}</span>`;
                         } else if (seg.hover) {
                             const hoverAttr = seg.hover.replace(/"/g, '&quot;');
                             segHtml = `<span title="${hoverAttr}">${segHtml}</span>`;
@@ -3171,15 +3700,31 @@
                     sidebarLongPressActive.value = false;
                 };
 
+                const shouldBypassSidebarSwipe = (event) => {
+                    return !!event.target?.closest?.('[data-touch-scroll-x="true"]');
+                };
+
+                const selectQuickCommand = (cmd) => {
+                    inputMsg.value = cmd + ' ';
+                    showQuickCommands.value = false;
+                    nextTick(() => {
+                        const area = document.querySelector('textarea');
+                        if (area) area.focus();
+                    });
+                };
+
                 const onChatTouchStart = (event) => {
+                    if (shouldBypassSidebarSwipe(event)) return;
                     onSidebarTouchStart(event);
                 };
 
                 const onChatTouchMove = (event) => {
+                    if (shouldBypassSidebarSwipe(event)) return;
                     onSidebarTouchMove(event);
                 };
 
-                const onChatTouchEnd = () => {
+                const onChatTouchEnd = (event) => {
+                    if (event && shouldBypassSidebarSwipe(event)) return;
                     onSidebarTouchEnd();
                 };
 
@@ -3360,14 +3905,17 @@
 
                 return {
                     token, authStep, authLoading, loginForm, registerForm, captchaImage, captchaId, currentUser,
+                    rememberLogin, quickLoginAvatarUrl, loginAvatarInput,
                     advancedOpen, manualWsUrl, savedManualWsUrl, fillSavedWsUrl,
                     isConnected, connecting, isDark, showSidebar, currentChat, inputMsg, 
                     isMobile, messages, playerRoster, unreadCount, toasts, wsStatus, currentMessages, unreadDividerIndex, chatContainer,
-                    isAdmin, quickCommands, isVanished,
+                    isAdmin, quickCommands, showQuickCommands, isVanished,
                     pinnedBroadcasts, broadcastPanelOpen, pinnedBroadcastCount, pinnedBroadcastList,
-                    showDeleteAccount, showResetToken, resetTokenPassword, submitResetToken, showAppKeepAliveTips, showClearCacheConfirm, banNotice, closeBanNotice, adminAlert, closeAdminAlert, itemPreview, closeItemPreview, atAllAdminConfirm, closeAtAllAdminConfirm, sendAtAllAdminExecute, deleteAccountForm, submitDeleteAccount,
+                    showDeleteAccount, showResetToken, resetTokenPassword, submitResetToken, showAppKeepAliveTips, showClearCacheConfirm, banNotice, closeBanNotice, adminAlert, closeAdminAlert, itemPreview, closeItemPreview, getBackpackPreviewSlots, getSlotItemIconUrl, handleSlotItemIconError, atAllAdminConfirm, closeAtAllAdminConfirm, sendAtAllAdminExecute, deleteAccountForm, submitDeleteAccount,
                     forgotForm, resetPasswordForm, resetCode, goToForgot, submitForgotRequest, submitResetPassword,
-                    connect, submitLogin, submitRegister, goToRegister, goToLogin, refreshCaptcha,
+                    connect, submitLogin, submitQuickLogin, submitRegister, goToRegister, goToLogin, backToLoginFromAccountSelect, switchRememberedAccount, refreshCaptcha,
+                    gameAccounts, accountActionPassword, showBindTokenModal, bindModalCommand, refreshGameAccounts, removeGameAccount, enterWithGameAccount, openAddBindFlow,
+                    showAccountSwitchDrawer, openAccountSwitchDrawer, switchGameAccountFromDrawer,
                     sendMessage, selectChat, acknowledgeUnreadForCurrentChat, mentionPlayer, logout, toggleDarkMode, clearCache, confirmClearCache, formatMessage, formatBroadcastSegments, formatMinecraftInline, getItemIconUrl, handleItemIconError,
                     handleTouchStart, handleTouchEnd, getAvatarName, getAvatarUrl, getTargetStatus,
                     showSettings, defaultDomain, saveDefaultDomain,
@@ -3375,6 +3923,7 @@
                     onSidebarTouchStart, onSidebarTouchMove, onSidebarTouchEnd,
                     onChatTouchStart, onChatTouchMove, onChatTouchEnd, closeSidebar,
                     toastDragId, toastDragOffset, startToastDrag, moveToastDrag, endToastDrag,
+                    selectQuickCommand,
                     showCommandPicker, commandTargetCandidates, selectCommandTarget
                 };
             }

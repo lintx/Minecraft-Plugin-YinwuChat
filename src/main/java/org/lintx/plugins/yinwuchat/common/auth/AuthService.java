@@ -1,6 +1,7 @@
 package org.lintx.plugins.yinwuchat.common.auth;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -17,6 +18,7 @@ public class AuthService {
     private static final Map<String, AuthService> INSTANCES = new HashMap<>();
     private static final int USERNAME_MIN = 3;
     private static final int USERNAME_MAX = 16;
+    private static final long REMEMBER_LOGIN_TTL_MILLIS = 30L * 24L * 60L * 60L * 1000L;
 
     private final AuthUserStore userStore;
     private final CaptchaManager captchaManager;
@@ -131,25 +133,55 @@ public class AuthService {
             }
             AuthUserStore.BanInfo banInfo = userStore.getBanInfo(auth.username);
             if (banInfo.banned) {
-                String durationText = formatDuration(banInfo.permanent ? -1L : banInfo.remainingMillis);
-                JsonObject res = new JsonObject();
-                res.addProperty("ok", false);
-                res.addProperty("action", "ban_notice");
-                res.addProperty("message", "该账号已被封禁");
-                res.addProperty("duration", durationText.isEmpty() ? "永久" : durationText);
-                res.addProperty("reason", banInfo.reason == null ? "" : banInfo.reason);
-                res.addProperty("by", banInfo.bannedBy == null ? "" : banInfo.bannedBy);
-                res.addProperty("target", auth.username);
-                return res;
+                return createBanNotice(auth.username, banInfo);
             }
             JsonObject res = new JsonObject();
             res.addProperty("ok", true);
             res.addProperty("message", "登录成功");
             res.addProperty("username", userStore.getDisplayName(auth.username));
+            if (auth.rememberLogin) {
+                String rememberToken = userStore.issueRememberLoginToken(auth.username, REMEMBER_LOGIN_TTL_MILLIS);
+                if (!rememberToken.isEmpty()) {
+                    res.addProperty("rememberToken", rememberToken);
+                    res.addProperty("rememberExpiresIn", REMEMBER_LOGIN_TTL_MILLIS);
+                }
+            }
             return res;
         } catch (Exception e) {
             e.printStackTrace();
             return error("登录失败: " + safeErrorMessage(e));
+        }
+    }
+
+    public JsonObject handleQuickLogin(String body) {
+        try {
+            JsonObject request = parseBody(body);
+            String rememberToken = getString(request, "rememberToken");
+            if (rememberToken.isEmpty()) {
+                return error("缺少记住登录凭证");
+            }
+            String username = userStore.findUserByRememberLoginToken(rememberToken);
+            if (username == null || username.isEmpty()) {
+                return error("登录凭证已失效，请重新输入账号密码");
+            }
+            AuthUserStore.BanInfo banInfo = userStore.getBanInfo(username);
+            if (banInfo.banned) {
+                return createBanNotice(username, banInfo);
+            }
+            userStore.revokeRememberLoginToken(rememberToken);
+            String refreshedToken = userStore.issueRememberLoginToken(username, REMEMBER_LOGIN_TTL_MILLIS);
+            JsonObject res = new JsonObject();
+            res.addProperty("ok", true);
+            res.addProperty("message", "快捷登录成功");
+            res.addProperty("username", userStore.getDisplayName(username));
+            if (!refreshedToken.isEmpty()) {
+                res.addProperty("rememberToken", refreshedToken);
+                res.addProperty("rememberExpiresIn", REMEMBER_LOGIN_TTL_MILLIS);
+            }
+            return res;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return error("快捷登录失败: " + safeErrorMessage(e));
         }
     }
 
@@ -163,12 +195,17 @@ public class AuthService {
             if (!userStore.verify(auth.username, auth.passwordHash)) {
                 return error("密码错误");
             }
-            String playerName = getBoundPlayerName(auth.username);
-            if (playerName == null || playerName.isEmpty()) {
+            java.util.List<AuthUserStore.BoundPlayerRecord> bound = userStore.getBoundPlayers(auth.username);
+            if (bound.isEmpty()) {
                 return error("该账号尚未绑定玩家，无需重置");
             }
-            if (tokenDeleter != null) {
-                tokenDeleter.deleteToken(playerName);
+            for (AuthUserStore.BoundPlayerRecord b : bound) {
+                if (b != null && b.playerName != null && !b.playerName.isEmpty()) {
+                    if (tokenDeleter != null) {
+                        tokenDeleter.deleteToken(b.playerName);
+                    }
+                    userStore.markBoundPlayerNeedsRebind(auth.username, b.playerName, true);
+                }
             }
             JsonObject res = new JsonObject();
             res.addProperty("ok", true);
@@ -190,16 +227,22 @@ public class AuthService {
             if (!userStore.verify(auth.username, auth.passwordHash)) {
                 return error("用户名或密码错误");
             }
-            
+            java.util.List<String> boundNames = new java.util.ArrayList<>();
+            for (AuthUserStore.BoundPlayerRecord b : userStore.getBoundPlayers(auth.username)) {
+                if (b != null && b.playerName != null && !b.playerName.trim().isEmpty()) {
+                    boundNames.add(b.playerName.trim());
+                }
+            }
             // 账户删除
             boolean deleted = userStore.delete(auth.username);
             if (!deleted) {
                 return error("账户不存在");
             }
-            
-            // Token 删除 (由具体平台实现)
-            if (tokenDeleter != null && auth.playerName != null && !auth.playerName.isEmpty()) {
-                tokenDeleter.deleteToken(auth.playerName);
+            // Token 删除：所有已绑定游戏账号
+            if (tokenDeleter != null) {
+                for (String name : boundNames) {
+                    tokenDeleter.deleteToken(name);
+                }
             }
             
             JsonObject res = new JsonObject();
@@ -277,6 +320,7 @@ public class AuthService {
             
             boolean updated = userStore.updatePassword(auth.username, auth.passwordHash);
             if (updated) {
+                userStore.clearRememberLoginTokens(auth.username);
                 resetManager.removeSession(auth.username);
                 JsonObject res = new JsonObject();
                 res.addProperty("ok", true);
@@ -307,6 +351,22 @@ public class AuthService {
         return userStore.bindPlayerName(username, playerName);
     }
 
+    public boolean isWebAccountBoundToPlayer(String account, String playerName) {
+        if (playerName == null || playerName.isEmpty()) {
+            return false;
+        }
+        for (AuthUserStore.BoundPlayerRecord b : userStore.getBoundPlayers(account)) {
+            if (b != null && b.playerName != null && playerName.equalsIgnoreCase(b.playerName.trim())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public java.util.List<AuthUserStore.BoundPlayerRecord> listBoundPlayers(String username) {
+        return userStore.getBoundPlayers(username);
+    }
+
     public boolean unbindAccountPlayerName(String username) {
         return userStore.unbindPlayerName(username);
     }
@@ -321,6 +381,140 @@ public class AuthService {
 
     public String getBoundPlayerName(String username) {
         return userStore.getBoundPlayerName(username);
+    }
+
+    /**
+     * Looks up which web account requested in-game binding for this raw token (pending state).
+     */
+    public String findAccountByPendingBindToken(String rawToken) {
+        return userStore.findAccountByPendingBindToken(rawToken, System.currentTimeMillis());
+    }
+
+    public void onGameBindWithPendingTokenCompletes(String webAccount, String playerName, String rawToken) {
+        long now = System.currentTimeMillis();
+        userStore.consumePendingBindToken(rawToken, now);
+        userStore.addOrUpdateBoundPlayerFromGame(webAccount, playerName, now, false);
+    }
+
+    public void onGameBindWithoutPending(String webAccount, String playerName) {
+        userStore.addOrUpdateBoundPlayerFromGame(webAccount, playerName, System.currentTimeMillis(), false);
+    }
+
+    /**
+     * Proxy supplies live token lookup from {@code TokenManager}.
+     */
+    public interface GameTokenLookup {
+        /** @return current WS token string for that player, or empty */
+        String getTokenForPlayerName(String playerName);
+    }
+
+    public void appendAccountsToLoginResult(JsonObject result, GameTokenLookup lookup) {
+        if (lookup == null || !result.has("ok") || !result.get("ok").getAsBoolean() || !result.has("username")) {
+            return;
+        }
+        String accountName = result.get("username").getAsString();
+        JsonArray accounts = new JsonArray();
+        String firstUsableToken = null;
+        for (AuthUserStore.BoundPlayerRecord b : userStore.getBoundPlayers(accountName)) {
+            if (b == null || b.playerName == null || b.playerName.isEmpty()) {
+                continue;
+            }
+            JsonObject o = new JsonObject();
+            o.addProperty("playerName", b.playerName.trim());
+            String tok = lookup.getTokenForPlayerName(b.playerName.trim());
+            boolean missing = tok == null || tok.isEmpty();
+            boolean needsRebind = b.needsRebind || missing;
+            o.addProperty("needsRebind", needsRebind);
+            if (!needsRebind && tok != null && !tok.isEmpty()) {
+                o.addProperty("token", tok);
+                if (firstUsableToken == null) {
+                    firstUsableToken = tok;
+                }
+            }
+            accounts.add(o);
+        }
+        result.add("accounts", accounts);
+        if (firstUsableToken != null && !firstUsableToken.isEmpty()) {
+            result.addProperty("token", firstUsableToken);
+        }
+    }
+
+    public JsonObject handleListAccounts(String body, GameTokenLookup lookup) {
+        try {
+            JsonObject request = parseBody(body);
+            AuthRequest auth = decryptAndVerify(request);
+            if (auth == null) {
+                return error("鉴权失败，请刷新后重试");
+            }
+            if (!userStore.verify(auth.username, auth.passwordHash)) {
+                return error("密码错误");
+            }
+            JsonObject res = new JsonObject();
+            res.addProperty("ok", true);
+            res.addProperty("username", userStore.getDisplayName(auth.username));
+            appendAccountsToLoginResult(res, lookup);
+            return res;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return error("获取账号列表失败: " + safeErrorMessage(e));
+        }
+    }
+
+    public JsonObject handleRemoveBoundPlayer(String body) {
+        try {
+            JsonObject request = parseBody(body);
+            AuthRequest auth = decryptAndVerify(request);
+            if (auth == null) {
+                return error("鉴权失败，请刷新后重试");
+            }
+            if (!userStore.verify(auth.username, auth.passwordHash)) {
+                return error("密码错误");
+            }
+            if (auth.playerName == null || auth.playerName.trim().isEmpty()) {
+                return error("请指定要移除的玩家名");
+            }
+            if (!userStore.removeBoundPlayer(auth.username, auth.playerName.trim())) {
+                return error("未找到该绑定玩家");
+            }
+            JsonObject res = new JsonObject();
+            res.addProperty("ok", true);
+            res.addProperty("message", "已移除绑定");
+            return res;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return error("移除失败: " + safeErrorMessage(e));
+        }
+    }
+
+    /**
+     * Registers a server-issued raw token as pending for this web account (used by add-account flow).
+     */
+    public JsonObject handleRegisterBindToken(String body, String rawTokenFromServer) {
+        try {
+            JsonObject request = parseBody(body);
+            AuthRequest auth = decryptAndVerify(request);
+            if (auth == null) {
+                return error("鉴权失败，请刷新后重试");
+            }
+            if (!userStore.verify(auth.username, auth.passwordHash)) {
+                return error("密码错误");
+            }
+            if (rawTokenFromServer == null || rawTokenFromServer.trim().isEmpty()) {
+                return error("缺少 Token");
+            }
+            long ttl = 24L * 60L * 60L * 1000L;
+            if (!userStore.registerPendingBindToken(auth.username, rawTokenFromServer.trim(), System.currentTimeMillis(), ttl)) {
+                return error("无法登记待绑定 Token");
+            }
+            JsonObject res = new JsonObject();
+            res.addProperty("ok", true);
+            res.addProperty("token", rawTokenFromServer.trim());
+            res.addProperty("message", "请在游戏内执行 /yinwuchat bind <Token> 完成绑定");
+            return res;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return error("申请绑定 Token 失败: " + safeErrorMessage(e));
+        }
     }
 
     public BanResult banUser(String username, long durationMillis, String reason, String bannedBy) {
@@ -414,6 +608,9 @@ public class AuthService {
         auth.captchaId = getString(payload, "captchaId");
         auth.captchaText = getString(payload, "captchaText");
         auth.playerName = getString(payload, "playerName");
+        auth.rememberLogin = payload.has("rememberLogin")
+                && !payload.get("rememberLogin").isJsonNull()
+                && payload.get("rememberLogin").getAsBoolean();
         return auth;
     }
 
@@ -440,6 +637,19 @@ public class AuthService {
         json.addProperty("ok", false);
         json.addProperty("message", message);
         return json;
+    }
+
+    private JsonObject createBanNotice(String username, AuthUserStore.BanInfo banInfo) {
+        String durationText = formatDuration(banInfo.permanent ? -1L : banInfo.remainingMillis);
+        JsonObject res = new JsonObject();
+        res.addProperty("ok", false);
+        res.addProperty("action", "ban_notice");
+        res.addProperty("message", "该账号已被封禁");
+        res.addProperty("duration", durationText.isEmpty() ? "永久" : durationText);
+        res.addProperty("reason", banInfo.reason == null ? "" : banInfo.reason);
+        res.addProperty("by", banInfo.bannedBy == null ? "" : banInfo.bannedBy);
+        res.addProperty("target", username);
+        return res;
     }
 
     private String getString(JsonObject object, String key) {
@@ -472,6 +682,7 @@ public class AuthService {
         String captchaId;
         String captchaText;
         String playerName;
+        boolean rememberLogin;
     }
 
     public static class BanResult {

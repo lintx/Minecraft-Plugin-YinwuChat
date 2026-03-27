@@ -10,6 +10,8 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.lintx.plugins.yinwuchat.Const;
 import org.lintx.plugins.yinwuchat.Util.MessageUtil;
+import org.lintx.plugins.yinwuchat.bukkit.display.BackpackDisplayLayout;
+import org.lintx.plugins.yinwuchat.bukkit.display.BackpackDisplayPayload;
 import org.lintx.plugins.yinwuchat.json.*;
 import org.lintx.plugins.yinwuchat.Util.ModernItemUtil;
 
@@ -249,11 +251,16 @@ public class MessageManage {
     }
 
     private List<String> getMessageItems(String message,Player player){
-        Pattern pattern = Pattern.compile(Const.ITEM_PLACEHOLDER);
+        Pattern pattern = Pattern.compile(Const.ITEM_PLACEHOLDER + "|" + Const.BACKPACK_PLACEHOLDER);
         Matcher matcher = pattern.matcher(message);
         List<String> list = new ArrayList<>();
         PlayerInventory inventory = player.getInventory();
         while (matcher.find()){
+            String placeholder = matcher.group();
+            if ("[B]".equalsIgnoreCase(placeholder)) {
+                list.add(createBackpackDisplayData(player));
+                continue;
+            }
             int index = -1;
             String s = matcher.group(2);
             try {
@@ -293,6 +300,29 @@ public class MessageManage {
             list.add(itemData);
         }
         return list;
+    }
+
+    private String createBackpackDisplayData(Player player) {
+        PlayerInventory inventory = player.getInventory();
+        List<String> storage = new ArrayList<>();
+        for (int slot = 9; slot <= 35; slot++) {
+            storage.add(ModernItemUtil.getItemDataForTransfer(inventory.getItem(slot)));
+        }
+        List<String> hotbar = new ArrayList<>();
+        for (int slot = 0; slot <= 8; slot++) {
+            hotbar.add(ModernItemUtil.getItemDataForTransfer(inventory.getItem(slot)));
+        }
+        List<String> armor = new ArrayList<>();
+        armor.add(ModernItemUtil.getItemDataForTransfer(inventory.getHelmet()));
+        armor.add(ModernItemUtil.getItemDataForTransfer(inventory.getChestplate()));
+        armor.add(ModernItemUtil.getItemDataForTransfer(inventory.getLeggings()));
+        armor.add(ModernItemUtil.getItemDataForTransfer(inventory.getBoots()));
+        String offhand = ModernItemUtil.getItemDataForTransfer(inventory.getItemInOffHand());
+        String displayId = ItemDisplayCache.getInstance().generateDisplayId();
+        List<String> chestSlots = BackpackDisplayLayout.buildChestSlots(storage, hotbar, armor, offhand);
+        String payload = BackpackDisplayPayload.toJson(player.getName(), displayId, chestSlots);
+        sendItemToVelocity(player, displayId, payload);
+        return payload;
     }
     
     /**

@@ -8,6 +8,7 @@ import java.util.List;
  */
 public class ItemResponse {
     public String playerName;
+    public String ownerName;
     public String requestType; // "hand", "inventory", "enderchest"
     public boolean success;
     public String errorMessage;

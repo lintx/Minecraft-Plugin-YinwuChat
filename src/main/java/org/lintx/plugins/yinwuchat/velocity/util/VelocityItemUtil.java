@@ -67,7 +67,7 @@ public class VelocityItemUtil {
      * @param itemJson 物品的 JSON 字符串
      * @return 展示ID，如果不存在则返回 null
      */
-    private static String extractDisplayId(String itemJson) {
+    public static String extractDisplayId(String itemJson) {
         if (itemJson == null || itemJson.isEmpty()) {
             return null;
         }
@@ -1145,5 +1145,25 @@ public class VelocityItemUtil {
             .color(NamedTextColor.LIGHT_PURPLE);
 
         return ecText.hoverEvent(HoverEvent.showText(hoverText));
+    }
+
+    public static Component createBackpackComponent(String backpackJson) {
+        String ownerName = "玩家";
+        try {
+            com.google.gson.JsonObject json = com.google.gson.JsonParser.parseString(backpackJson).getAsJsonObject();
+            if (json.has("ownerName")) {
+                ownerName = json.get("ownerName").getAsString();
+            }
+        } catch (Exception ignored) {
+        }
+        String displayId = extractDisplayId(backpackJson);
+        Component text = Component.text("[" + ownerName + "的背包]")
+                .color(NamedTextColor.BLUE);
+        if (displayId != null && !displayId.isEmpty()) {
+            text = text.clickEvent(ClickEvent.runCommand("/viewbackpack " + displayId));
+        }
+        Component hoverText = Component.text("点击查看 " + ownerName + " 的完整背包")
+                .color(NamedTextColor.GREEN);
+        return text.hoverEvent(HoverEvent.showText(hoverText));
     }
 }

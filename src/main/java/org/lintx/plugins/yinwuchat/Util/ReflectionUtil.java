@@ -172,15 +172,13 @@ public class ReflectionUtil {
             return loadedOBCClasses.get(obcClassName);
         }
 
-        String clazzName = "org.bukkit.craftbukkit." + getVersion() + obcClassName;
-        Class<?> clazz;
+        // 优先从 CraftServer 的实际包名推导（兼容 de-versioned Paper 1.20.5+）
+        String serverPkg = Bukkit.getServer().getClass().getPackage().getName();
+        Class<?> clazz = tryLoadClass(serverPkg + "." + obcClassName);
 
-        try {
-            clazz = Class.forName(clazzName);
-        } catch (Throwable t) {
-            t.printStackTrace();
-            loadedOBCClasses.put(obcClassName, null);
-            return null;
+        if (clazz == null) {
+            // 回退到传统的版本化路径
+            clazz = tryLoadClass("org.bukkit.craftbukkit." + getVersion() + obcClassName);
         }
 
         loadedOBCClasses.put(obcClassName, clazz);

@@ -3,9 +3,8 @@ package org.lintx.plugins.yinwuchat.velocity.chat;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
-import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import org.lintx.plugins.yinwuchat.Util.ClickActionResolver;
 import org.lintx.plugins.yinwuchat.chat.struct.ChatPlayer;
 import org.lintx.plugins.yinwuchat.chat.struct.ChatSource;
 import org.lintx.plugins.yinwuchat.chat.struct.ChatType;
@@ -15,8 +14,6 @@ import org.lintx.plugins.yinwuchat.velocity.config.Config;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Velocity 版本的聊天消息类
@@ -369,28 +366,16 @@ public class VelocityChat {
         }
         
         if (format.click != null && !format.click.isEmpty()) {
-            ClickEvent.Action action = determineClickAction(format.click);
-            result = result.clickEvent(ClickEvent.clickEvent(action, format.click));
+            ClickActionResolver.ResolvedClick resolved = ClickActionResolver.resolve(format.click, config.linkRegex);
+            result = result.clickEvent(ClickEvent.clickEvent(toAdventureAction(resolved.getMode()), resolved.getValue()));
         }
         
         return result;
     }
 
-    // 确定点击动作类型
-    private ClickEvent.Action determineClickAction(String click) {
-        Pattern pattern = Pattern.compile(config.linkRegex);
-        Matcher matcher = pattern.matcher(click);
-
-        if (matcher.find()) {
-            return ClickEvent.Action.OPEN_URL;
-        } else if (click.startsWith("/msg")) {
-            return ClickEvent.Action.SUGGEST_COMMAND;  // 私聊命令建议输入而不是直接运行
-        } else if (click.startsWith("/")) {
-            return ClickEvent.Action.RUN_COMMAND;  // 其他命令直接运行
-        } else if (click.startsWith("!")) {
-            return ClickEvent.Action.RUN_COMMAND;
-        } else {
-            return ClickEvent.Action.SUGGEST_COMMAND;
-        }
+    private ClickEvent.Action toAdventureAction(ClickActionResolver.ClickMode mode) {
+        return mode == ClickActionResolver.ClickMode.OPEN_URL
+                ? ClickEvent.Action.OPEN_URL
+                : ClickEvent.Action.SUGGEST_COMMAND;
     }
 }

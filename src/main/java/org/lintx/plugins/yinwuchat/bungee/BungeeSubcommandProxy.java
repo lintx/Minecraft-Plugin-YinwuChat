@@ -2,12 +2,15 @@ package org.lintx.plugins.yinwuchat.bungee;
 
 import net.md_5.bungee.api.CommandSender;
 import net.md_5.bungee.api.plugin.Command;
+import net.md_5.bungee.api.plugin.TabExecutor;
+
+import java.util.List;
 
 /**
  * 将 /yinwuchat 的子命令代理为独立命令
  * 例如 /vanish 实际执行 /yinwuchat vanish
  */
-public class BungeeSubcommandProxy extends Command {
+public class BungeeSubcommandProxy extends Command implements TabExecutor {
     private final Commands delegate;
     private final String subcommand;
 
@@ -23,5 +26,14 @@ public class BungeeSubcommandProxy extends Command {
         newArgs[0] = subcommand;
         System.arraycopy(args, 0, newArgs, 1, args.length);
         delegate.execute(sender, newArgs);
+    }
+
+    @Override
+    public Iterable<String> onTabComplete(CommandSender sender, String[] args) {
+        String[] newArgs = new String[args.length + 1];
+        newArgs[0] = subcommand;
+        System.arraycopy(args, 0, newArgs, 1, args.length);
+        Iterable<String> suggestions = delegate.onTabComplete(sender, newArgs);
+        return suggestions == null ? List.of() : suggestions;
     }
 }

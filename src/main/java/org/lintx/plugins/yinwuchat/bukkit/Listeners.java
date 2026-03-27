@@ -13,13 +13,20 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
+import org.lintx.plugins.yinwuchat.bukkit.commands.ViewBackpackCommand;
 import org.lintx.plugins.yinwuchat.bukkit.commands.ViewItemCommand;
 import com.google.common.io.ByteArrayDataInput;
 import org.bukkit.plugin.messaging.PluginMessageListener;
 import org.lintx.plugins.yinwuchat.Const;
+import org.lintx.plugins.yinwuchat.Util.BackpackViewDebugLogUtil;
 import org.lintx.plugins.yinwuchat.Util.Gson;
+import org.lintx.plugins.yinwuchat.Util.ItemResponseJsonUtil;
 import org.lintx.plugins.yinwuchat.Util.ItemUtil;
 import org.lintx.plugins.yinwuchat.Util.ModernItemUtil;
+import org.lintx.plugins.yinwuchat.bukkit.display.BackpackDisplayLayout;
+import org.lintx.plugins.yinwuchat.bukkit.display.BackpackDisplayPayload;
+import org.lintx.plugins.yinwuchat.velocity.json.ItemRequest;
+import org.lintx.plugins.yinwuchat.velocity.json.ItemResponse;
 
 import java.util.logging.Level;
 
@@ -39,7 +46,8 @@ public class Listeners implements Listener, PluginMessageListener {
      */
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-        if (event.getView().getTitle().startsWith(ViewItemCommand.DISPLAY_TITLE_PREFIX)) {
+        if (event.getView().getTitle().startsWith(ViewItemCommand.DISPLAY_TITLE_PREFIX)
+                || event.getView().getTitle().startsWith(ViewBackpackCommand.DISPLAY_TITLE_PREFIX)) {
             event.setCancelled(true);
         }
     }
@@ -49,7 +57,8 @@ public class Listeners implements Listener, PluginMessageListener {
      */
     @EventHandler
     public void onInventoryDrag(InventoryDragEvent event) {
-        if (event.getView().getTitle().startsWith(ViewItemCommand.DISPLAY_TITLE_PREFIX)) {
+        if (event.getView().getTitle().startsWith(ViewItemCommand.DISPLAY_TITLE_PREFIX)
+                || event.getView().getTitle().startsWith(ViewBackpackCommand.DISPLAY_TITLE_PREFIX)) {
             event.setCancelled(true);
         }
     }
@@ -137,6 +146,7 @@ public class Listeners implements Listener, PluginMessageListener {
             
             // 调用 ViewItemCommand 处理响应
             ViewItemCommand.handleItemDisplayResponse(plugin, player, itemId, success, itemJson, playerName, serverName);
+            ViewBackpackCommand.handleItemDisplayResponse(plugin, player, itemId, success, itemJson, playerName, serverName);
             
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to handle item display response: " + e.getMessage());
@@ -149,13 +159,18 @@ public class Listeners implements Listener, PluginMessageListener {
     private void handleItemRequest(Player player, ByteArrayDataInput input) {
         try {
             String jsonRequest = input.readUTF();
-            plugin.getLogger().info("Received item request JSON: " + jsonRequest);
-
-            // 简单解析 JSON，提取请求类型
-            String requestType = extractRequestType(jsonRequest);
-            plugin.getLogger().info("Extracted request type: '" + requestType + "'");
+            plugin.getLogger().fine("Received item request JSON: " + jsonRequest);
+            ItemRequest request = parseItemRequest(jsonRequest);
+            String requestType = request.requestType == null || request.requestType.isEmpty() ? "hand" : request.requestType;
+            plugin.getLogger().fine("Extracted request type: '" + requestType + "'");
+            if ("backpackview".equalsIgnoreCase(requestType)) {
+                plugin.getLogger().log(Level.FINE, "[backpackview] bukkit parsed request: {0}",
+                        BackpackViewDebugLogUtil.summarizeRequest(request));
+            }
 
             List<String> items = new ArrayList<>();
+            String viewerName = request.playerName == null || request.playerName.trim().isEmpty() ? player.getName() : request.playerName.trim();
+            Player targetPlayer = resolveRequestedPlayer(player, request.targetPlayer);
 
             switch (requestType) {
                 case "hand":
@@ -174,18 +189,52 @@ public class Listeners implements Listener, PluginMessageListener {
                     // 获取末影箱物品
                     items = getPlayerEnderChestItems(player);
                     break;
+                case "backpackview":
+                    if (targetPlayer == null || !targetPlayer.isOnline()) {
+                        plugin.getLogger().log(Level.FINE, "[backpackview] bukkit target unavailable: viewer={0}, target={1}",
+                                new Object[]{viewerName, request.targetPlayer});
+                        sendItemError(player, viewerName, requestType, "目标玩家不在线");
+                        return;
+                    }
+                    String payload = createBackpackDisplayData(targetPlayer);
+                    plugin.getLogger().log(Level.FINE, "[backpackview] bukkit created payload: {0}",
+                            BackpackViewDebugLogUtil.summarizePayload(payload));
+                    items.add(payload);
+                    sendItemResponse(targetPlayer, viewerName, targetPlayer.getName(), requestType, items);
+                    return;
                 default:
-                    sendItemError(player, "未知的请求类型: " + requestType);
+                    sendItemError(player, viewerName, requestType, "未知的请求类型: " + requestType);
                     return;
             }
 
             // 发送响应回 Velocity
-            sendItemResponse(player, requestType, items);
+            sendItemResponse(player, viewerName, player.getName(), requestType, items);
 
         } catch (Exception e) {
-            sendItemError(player, "处理请求时出错");
+            sendItemError(player, player.getName(), "unknown", "处理请求时出错");
             plugin.getLogger().log(java.util.logging.Level.WARNING, "Failed to handle item request", e);
         }
+    }
+
+    private ItemRequest parseItemRequest(String json) {
+        try {
+            return Gson.gson().fromJson(json, ItemRequest.class);
+        } catch (Exception ignored) {
+            ItemRequest fallback = new ItemRequest();
+            fallback.requestType = extractRequestType(json);
+            return fallback;
+        }
+    }
+
+    private Player resolveRequestedPlayer(Player fallback, String requestedName) {
+        if (requestedName == null || requestedName.trim().isEmpty()) {
+            return fallback;
+        }
+        Player exact = org.bukkit.Bukkit.getPlayerExact(requestedName.trim());
+        if (exact != null) {
+            return exact;
+        }
+        return org.bukkit.Bukkit.getPlayer(requestedName.trim());
     }
 
     /**
@@ -274,13 +323,23 @@ public class Listeners implements Listener, PluginMessageListener {
     /**
      * 发送物品响应
      */
-    private void sendItemResponse(Player player, String requestType, List<String> items) {
+    private void sendItemResponse(Player player, String viewerName, String ownerName, String requestType, List<String> items) {
         try {
-            String responseJson = createItemResponseJson(player.getName(), requestType, items);
+            String responseJson = createItemResponseJson(viewerName, ownerName, requestType, items);
             ByteArrayDataOutput output = ByteStreams.newDataOutput();
             output.writeUTF(Const.PLUGIN_SUB_CHANNEL_ITEM_RESPONSE);
             output.writeUTF(responseJson);
 
+            if ("backpackview".equalsIgnoreCase(requestType)) {
+                ItemResponse debugResponse = new ItemResponse();
+                debugResponse.playerName = viewerName;
+                debugResponse.ownerName = ownerName;
+                debugResponse.requestType = requestType;
+                debugResponse.success = true;
+                debugResponse.items = items;
+                plugin.getLogger().log(Level.FINE, "[backpackview] bukkit sending response via {0}: {1}",
+                        new Object[]{responseChannel, BackpackViewDebugLogUtil.summarizeResponse(debugResponse)});
+            }
             plugin.getLogger().info("Sending item response to " + player.getName() + " via channel " + responseChannel);
             player.sendPluginMessage(plugin, responseChannel, output.toByteArray());
             plugin.getLogger().info("Item response sent successfully");
@@ -292,13 +351,17 @@ public class Listeners implements Listener, PluginMessageListener {
     /**
      * 发送错误响应
      */
-    private void sendItemError(Player player, String errorMessage) {
+    private void sendItemError(Player player, String viewerName, String requestType, String errorMessage) {
         try {
-            String errorJson = createItemErrorJson(player.getName(), errorMessage);
+            String errorJson = createItemErrorJson(viewerName, requestType, errorMessage);
             ByteArrayDataOutput output = ByteStreams.newDataOutput();
             output.writeUTF(Const.PLUGIN_SUB_CHANNEL_ITEM_RESPONSE);
             output.writeUTF(errorJson);
 
+            if ("backpackview".equalsIgnoreCase(requestType)) {
+                plugin.getLogger().log(Level.FINE, "[backpackview] bukkit sending error via {0}: viewer={1}, error={2}",
+                        new Object[]{responseChannel, viewerName, errorMessage});
+            }
             player.sendPluginMessage(plugin, responseChannel, output.toByteArray());
         } catch (Exception e) {
             plugin.getLogger().log(java.util.logging.Level.WARNING, "Failed to send item error", e);
@@ -308,27 +371,54 @@ public class Listeners implements Listener, PluginMessageListener {
     /**
      * 创建物品响应 JSON
      */
-    private String createItemResponseJson(String playerName, String requestType, List<String> items) {
-        StringBuilder json = new StringBuilder();
-        json.append("{\"playerName\":\"").append(playerName).append("\",")
-            .append("\"requestType\":\"").append(requestType).append("\",")
-            .append("\"success\":true,")
-            .append("\"items\":[");
-        for (int i = 0; i < items.size(); i++) {
-            if (i > 0) json.append(",");
-            json.append("\"").append(items.get(i).replace("\"", "\\\"")).append("\"");
-        }
-        json.append("]}");
-        return json.toString();
+    private String createItemResponseJson(String playerName, String ownerName, String requestType, List<String> items) {
+        return ItemResponseJsonUtil.success(playerName, ownerName, requestType, items);
     }
 
     /**
      * 创建错误响应 JSON
      */
-    private String createItemErrorJson(String playerName, String errorMessage) {
-        return "{\"playerName\":\"" + playerName + "\"," +
-               "\"requestType\":\"unknown\"," +
-               "\"success\":false," +
-               "\"errorMessage\":\"" + errorMessage.replace("\"", "\\\"") + "\"}";
+    private String createItemErrorJson(String playerName, String requestType, String errorMessage) {
+        return ItemResponseJsonUtil.error(playerName, requestType, errorMessage);
+    }
+
+    private String createBackpackDisplayData(Player player) {
+        var inventory = player.getInventory();
+        List<String> storage = new ArrayList<>();
+        for (int slot = 9; slot <= 35; slot++) {
+            storage.add(ModernItemUtil.getItemDataForTransfer(inventory.getItem(slot)));
+        }
+        List<String> hotbar = new ArrayList<>();
+        for (int slot = 0; slot <= 8; slot++) {
+            hotbar.add(ModernItemUtil.getItemDataForTransfer(inventory.getItem(slot)));
+        }
+        List<String> armor = new ArrayList<>();
+        armor.add(ModernItemUtil.getItemDataForTransfer(inventory.getHelmet()));
+        armor.add(ModernItemUtil.getItemDataForTransfer(inventory.getChestplate()));
+        armor.add(ModernItemUtil.getItemDataForTransfer(inventory.getLeggings()));
+        armor.add(ModernItemUtil.getItemDataForTransfer(inventory.getBoots()));
+        String offhand = ModernItemUtil.getItemDataForTransfer(inventory.getItemInOffHand());
+        String displayId = ItemDisplayCache.getInstance().generateDisplayId();
+        List<String> chestSlots = BackpackDisplayLayout.buildChestSlots(storage, hotbar, armor, offhand);
+        String payload = BackpackDisplayPayload.toJson(player.getName(), displayId, chestSlots);
+        plugin.getLogger().log(Level.FINE, "[backpackview] bukkit built display payload for {0}: {1}",
+                new Object[]{player.getName(), BackpackViewDebugLogUtil.summarizePayload(payload)});
+        sendItemToVelocity(player, displayId, payload);
+        return payload;
+    }
+
+    private void sendItemToVelocity(Player player, String itemId, String itemJson) {
+        try {
+            ByteArrayDataOutput output = ByteStreams.newDataOutput();
+            output.writeUTF(Const.PLUGIN_SUB_CHANNEL_ITEM_DISPLAY_STORE);
+            output.writeUTF(itemId);
+            output.writeUTF(itemJson);
+            output.writeUTF(player.getName());
+            plugin.getLogger().log(Level.FINE, "[backpackview] bukkit caching payload to proxy: {0}",
+                    BackpackViewDebugLogUtil.summarizeDisplayRequest(itemId, player.getName()));
+            player.sendPluginMessage(plugin, responseChannel, output.toByteArray());
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "Failed to cache backpack display payload", e);
+        }
     }
 }
