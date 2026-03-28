@@ -147,6 +147,25 @@ public class WebChatReplayStore {
         return list;
     }
 
+    /**
+     * 最近若干条「任一方为指定玩家」的私聊记录（从尾部向前取，返回按 id 升序便于阅读）。
+     */
+    public synchronized List<PrivateMessageRecord> listPrivateInvolving(String playerName, int limit) {
+        List<PrivateMessageRecord> out = new ArrayList<>();
+        if (limit <= 0 || playerName == null) return out;
+        String key = normalizeKey(playerName);
+        if (key.isEmpty()) return out;
+        for (int i = privateRecords.size() - 1; i >= 0 && out.size() < limit; i--) {
+            PrivateMessageRecord r = privateRecords.get(i);
+            if (r == null) continue;
+            if (normalizeKey(r.from).equals(key) || normalizeKey(r.to).equals(key)) {
+                out.add(r);
+            }
+        }
+        Collections.reverse(out);
+        return out;
+    }
+
     private List<PrivateMessageRecord> listUnreadPrivate(String userKey, Map<String, Long> privateCursorMap, int limit) {
         List<PrivateMessageRecord> list = new ArrayList<>();
         if (limit <= 0) return list;

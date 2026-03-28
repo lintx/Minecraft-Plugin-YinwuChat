@@ -15,6 +15,16 @@ import java.util.concurrent.ConcurrentHashMap;
  * 管理玩家的个人设置（忽略列表、绑定的 Web token 等）
  */
 public class PlayerConfig {
+
+    /** 私聊视监模式（存 YAML / PlayerSettings.monitorPrivateMode） */
+    public static final class PrivateMonitorMode {
+        public static final String OFF = "off";
+        public static final String ALL = "all";
+        public static final String TARGET = "target";
+
+        private PrivateMonitorMode() {}
+    }
+
     private static PlayerConfig instance;
     private static final Path CONFIG_DIR = Paths.get("plugins/YinwuChat/players");
     private static final Path TOKENS_FILE = Paths.get("plugins/YinwuChat/tokens.yml");
@@ -130,9 +140,42 @@ public class PlayerConfig {
         public long mutedUntil = 0;         // 禁言结束时间（时间戳，0表示永久）
         public String mutedBy = "";         // 禁言操作者
         public String muteReason = "";      // 禁言原因
-        
+
+        /** 私聊视监：off | all | target（与 YAML 一致，小写） */
+        public String monitorPrivateMode = PrivateMonitorMode.OFF;
+        /** 视监目标规范名（小写），仅 monitorPrivateMode=target 时有效 */
+        public String monitorTargetCanonical = "";
+        /** 菜单/提示用展示名，可为空则回退为规范名 */
+        public String monitorTargetDisplay = "";
+
         public PlayerSettings(String playerName) {
             this.playerName = playerName;
+        }
+
+        /** 规范化玩家名用于视监匹配 */
+        public static String canonicalPlayerName(String name) {
+            if (name == null) return "";
+            return name.trim().toLowerCase(Locale.ROOT);
+        }
+
+        public void clearPrivateMonitor() {
+            monitorPrivateMode = PrivateMonitorMode.OFF;
+            monitorTargetCanonical = "";
+            monitorTargetDisplay = "";
+        }
+
+        public boolean isPrivateMonitorOff() {
+            return PrivateMonitorMode.OFF.equalsIgnoreCase(monitorPrivateMode)
+                    || monitorPrivateMode == null || monitorPrivateMode.isEmpty();
+        }
+
+        public boolean isPrivateMonitorAll() {
+            return PrivateMonitorMode.ALL.equalsIgnoreCase(monitorPrivateMode);
+        }
+
+        public boolean isPrivateMonitorTarget() {
+            return PrivateMonitorMode.TARGET.equalsIgnoreCase(monitorPrivateMode)
+                    && monitorTargetCanonical != null && !monitorTargetCanonical.isEmpty();
         }
         
         /**
@@ -215,6 +258,9 @@ public class PlayerConfig {
             map.put("muted_until", mutedUntil);
             map.put("muted_by", mutedBy);
             map.put("mute_reason", muteReason);
+            map.put("monitor_private_mode", monitorPrivateMode != null ? monitorPrivateMode : PrivateMonitorMode.OFF);
+            map.put("monitor_target_canonical", monitorTargetCanonical != null ? monitorTargetCanonical : "");
+            map.put("monitor_target_display", monitorTargetDisplay != null ? monitorTargetDisplay : "");
             return map;
         }
         
@@ -300,6 +346,19 @@ public class PlayerConfig {
             if (map.containsKey("mute_reason")) {
                 Object obj = map.get("mute_reason");
                 settings.muteReason = obj != null ? obj.toString() : "";
+            }
+
+            if (map.containsKey("monitor_private_mode")) {
+                Object obj = map.get("monitor_private_mode");
+                settings.monitorPrivateMode = obj != null ? obj.toString().trim().toLowerCase(Locale.ROOT) : PrivateMonitorMode.OFF;
+            }
+            if (map.containsKey("monitor_target_canonical")) {
+                Object obj = map.get("monitor_target_canonical");
+                settings.monitorTargetCanonical = obj != null ? canonicalPlayerName(obj.toString()) : "";
+            }
+            if (map.containsKey("monitor_target_display")) {
+                Object obj = map.get("monitor_target_display");
+                settings.monitorTargetDisplay = obj != null ? obj.toString() : "";
             }
             
             return settings;

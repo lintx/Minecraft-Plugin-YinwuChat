@@ -16,13 +16,13 @@ case "$1" in
         echo "Building Velocity platform..."
         mvn clean package -P velocity -q
         echo
-        echo "Velocity JAR created: target/YinwuChat-Velocity-2.12.jar"
+        echo "Velocity JAR created: target/YinwuChat-Velocity-3.2.0.jar"
         ;;
     "bukkit")
         echo "Building Bukkit platform..."
         mvn clean package -P bukkit -q
         echo
-        echo "Bukkit JAR created: target/YinwuChat-Bukkit-2.12.jar"
+        echo "Bukkit JAR created: target/YinwuChat-Bukkit-3.2.0.jar"
         ;;
     *)
         echo "Usage: $0 [platform]"
@@ -38,9 +38,9 @@ case "$1" in
         echo "  $0 bukkit     - Build only Bukkit version"
         echo
         echo "Output files:"
-        echo "  - target/YinwuChat-2.12.jar (all platforms)"
-        echo "  - target/YinwuChat-Velocity-2.12.jar (Velocity only)"
-        echo "  - target/YinwuChat-Bukkit-2.12.jar (Bukkit only)"
+        echo "  - target/YinwuChat-3.2.0.jar (all platforms)"
+        echo "  - target/YinwuChat-Velocity-3.2.0.jar (Velocity only)"
+        echo "  - target/YinwuChat-Bukkit-3.2.0.jar (Bukkit only)"
         echo
         exit 1
         ;;

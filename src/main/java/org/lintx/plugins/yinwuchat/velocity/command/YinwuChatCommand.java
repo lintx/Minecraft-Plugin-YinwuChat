@@ -11,6 +11,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import org.lintx.plugins.yinwuchat.Util.MonitorMenuUtil;
 import org.lintx.plugins.yinwuchat.Util.BackpackViewCommandUtil;
 import org.lintx.plugins.yinwuchat.Util.AdminAlertCommandUtil;
 import org.lintx.plugins.yinwuchat.Util.CommandCompletionUtil;
@@ -22,6 +23,7 @@ import org.lintx.plugins.yinwuchat.velocity.YinwuChat;
 import org.lintx.plugins.yinwuchat.velocity.config.Config;
 import org.lintx.plugins.yinwuchat.velocity.config.PlayerConfig;
 import org.lintx.plugins.yinwuchat.velocity.json.ItemRequest;
+import org.lintx.plugins.yinwuchat.velocity.message.MessageManage;
 import org.lintx.plugins.yinwuchat.velocity.manage.MuteManage;
 import org.lintx.plugins.yinwuchat.common.auth.AuthService;
 
@@ -211,7 +213,7 @@ public class YinwuChatCommand implements SimpleCommand {
                 break;
             case "monitor":
                 if (player.hasPermission(Const.PERMISSION_MONITOR_PRIVATE_MESSAGE) || isAdmin) {
-                    player.sendMessage(Component.text("监听私聊功能施工中").color(NamedTextColor.YELLOW));
+                    handleMonitor(player, args);
                 } else {
                     player.sendMessage(Component.text("✗ 权限不足").color(NamedTextColor.RED));
                 }
@@ -940,6 +942,33 @@ public class YinwuChatCommand implements SimpleCommand {
                     return CommandCompletionUtil.filterByPrefix(config.shieldeds, args[2]);
                 }
                 return List.of();
+            case "monitor":
+                if (args.length <= 1) {
+                    List<String> mon = new ArrayList<>();
+                    mon.add("all");
+                    mon.add("off");
+                    mon.add("menu");
+                    mon.add("history");
+                    mon.addAll(plugin.getProxy().getAllPlayers().stream().map(Player::getUsername).toList());
+                    return mon;
+                }
+                if (args.length == 2) {
+                    String prefix = args[1];
+                    List<String> mon = new ArrayList<>();
+                    mon.add("all");
+                    mon.add("off");
+                    mon.add("menu");
+                    mon.add("history");
+                    mon.addAll(plugin.getProxy().getAllPlayers().stream().map(Player::getUsername).toList());
+                    return CommandCompletionUtil.filterByPrefix(mon, prefix);
+                }
+                if (args.length == 3 && "history".equalsIgnoreCase(args[1])) {
+                    return getOnlinePlayerSuggestions(args[2]);
+                }
+                if (args.length == 4 && "history".equalsIgnoreCase(args[1])) {
+                    return CommandCompletionUtil.filterByPrefix(List.of("10", "20", "50"), args[3]);
+                }
+                return List.of();
             case "backpackview":
                 return BackpackViewCommandUtil.suggestTargets(
                         args.length >= 2 ? args[1] : "",
@@ -1140,6 +1169,11 @@ public class YinwuChatCommand implements SimpleCommand {
             player.sendMessage(Component.text("/yinwuchat vanish").color(NamedTextColor.AQUA)
                 .append(Component.text(": 切换隐身模式").color(NamedTextColor.GRAY)));
         }
+
+        if (player.hasPermission(Const.PERMISSION_MONITOR_PRIVATE_MESSAGE) || isAdmin) {
+            player.sendMessage(Component.text("/yinwuchat monitor all|玩家名|off|menu|history").color(NamedTextColor.AQUA)
+                .append(Component.text(": 私聊视监（menu 打开快捷菜单）").color(NamedTextColor.GRAY)));
+        }
         
         player.sendMessage(Component.text("/yinwuchat atalladmin").color(NamedTextColor.AQUA)
             .append(Component.text(": 报告突发事件给所有管理员 (每日限一次)").color(NamedTextColor.GRAY)));
@@ -1301,6 +1335,78 @@ public class YinwuChatCommand implements SimpleCommand {
         } else {
             player.sendMessage(Component.text("✓ 已启用@声音").color(NamedTextColor.GREEN));
         }
+    }
+
+    private void handleMonitor(Player player, String[] args) {
+        if (args.length < 2) {
+            player.sendMessage(Component.text("用法: /yinwuchat monitor <all|玩家名|off|menu|history>").color(NamedTextColor.RED));
+            return;
+        }
+        String sub = args[1];
+        String subLower = sub.toLowerCase(Locale.ROOT);
+        PlayerConfig playerConfig = PlayerConfig.getInstance();
+        PlayerConfig.PlayerSettings settings = playerConfig.getSettings(player);
+
+        if ("all".equals(subLower)) {
+            settings.monitorPrivateMode = PlayerConfig.PrivateMonitorMode.ALL;
+            settings.monitorTargetCanonical = "";
+            settings.monitorTargetDisplay = "";
+            playerConfig.saveSettings(settings);
+            player.sendMessage(Component.text("✓ 已开始视监所有玩家的私聊").color(NamedTextColor.GREEN));
+            return;
+        }
+        if ("off".equals(subLower)) {
+            settings.clearPrivateMonitor();
+            playerConfig.saveSettings(settings);
+            player.sendMessage(Component.text("✓ 已关闭私聊视监").color(NamedTextColor.GRAY));
+            return;
+        }
+        if ("menu".equals(subLower)) {
+            MonitorMenuUtil.sendMenu(player, settings);
+            return;
+        }
+        if ("history".equals(subLower)) {
+            if (args.length < 3) {
+                player.sendMessage(Component.text("用法: /yinwuchat monitor history <玩家> [条数]").color(NamedTextColor.RED));
+                return;
+            }
+            String targetName = args[2];
+            int limit = 20;
+            if (args.length >= 4) {
+                try {
+                    limit = Integer.parseInt(args[3]);
+                    if (limit < 1) {
+                        limit = 1;
+                    }
+                    if (limit > 500) {
+                        limit = 500;
+                    }
+                } catch (NumberFormatException e) {
+                    player.sendMessage(Component.text("✗ 条数须为正整数").color(NamedTextColor.RED));
+                    return;
+                }
+            }
+            MessageManage.getInstance().sendPrivateMonitorHistory(player, targetName, limit);
+            return;
+        }
+        if (isReservedMonitorToken(subLower)) {
+            player.sendMessage(Component.text("✗ 无效的玩家名或子命令").color(NamedTextColor.RED));
+            return;
+        }
+        String rawName = args[1].trim();
+        if (rawName.isEmpty()) {
+            player.sendMessage(Component.text("✗ 请指定玩家名").color(NamedTextColor.RED));
+            return;
+        }
+        settings.monitorPrivateMode = PlayerConfig.PrivateMonitorMode.TARGET;
+        settings.monitorTargetCanonical = PlayerConfig.PlayerSettings.canonicalPlayerName(rawName);
+        settings.monitorTargetDisplay = rawName;
+        playerConfig.saveSettings(settings);
+        player.sendMessage(Component.text("✓ 已视监玩家 " + rawName + " 的私聊（仅推送之后的新消息）").color(NamedTextColor.GREEN));
+    }
+
+    private static boolean isReservedMonitorToken(String lower) {
+        return "all".equals(lower) || "off".equals(lower) || "menu".equals(lower) || "history".equals(lower);
     }
 
     /**

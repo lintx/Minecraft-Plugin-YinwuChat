@@ -1,6 +1,6 @@
 {
   "name": "yinwuchat-mobile",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "Minecraft YinwuChat Mobile App",
   "dependencies": {
     "@capacitor/android": "^6.0.0",

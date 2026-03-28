@@ -71,9 +71,19 @@ public class MessageManage {
     }
 
     private void monitorPrivateMessage(TextComponent textComponent,String fromPlayer,String toPlayer){
+        org.lintx.plugins.yinwuchat.bungee.config.Config cfg = org.lintx.plugins.yinwuchat.bungee.config.Config.getInstance();
+        String fromCanon = PlayerConfig.Player.canonicalPlayerName(fromPlayer);
+        String toCanon = PlayerConfig.Player.canonicalPlayerName(toPlayer);
         for (ProxiedPlayer p:plugin.getProxy().getPlayers()){
-            if (!p.hasPermission(Const.PERMISSION_MONITOR_PRIVATE_MESSAGE)) continue;
+            if (!p.hasPermission(Const.PERMISSION_MONITOR_PRIVATE_MESSAGE) && !cfg.isAdmin(p)) continue;
             if (p.getName().equalsIgnoreCase(fromPlayer) || p.getName().equalsIgnoreCase(toPlayer)) continue;
+            PlayerConfig.Player pc = PlayerConfig.getConfig(p);
+            if (pc.isPrivateMonitorOff()) continue;
+            if (pc.isPrivateMonitorTarget()) {
+                String t = pc.monitorTargetCanonical;
+                if (t == null || t.isEmpty()
+                        || (!fromCanon.equals(t) && !toCanon.equals(t))) continue;
+            } else if (!pc.isPrivateMonitorAll()) continue;
             p.sendMessage(textComponent);
         }
     }

@@ -510,14 +510,40 @@ public class Commands extends Command implements TabExecutor {
             }
             else if (first.equalsIgnoreCase("monitor")){
                 if (player.hasPermission(Const.PERMISSION_MONITOR_PRIVATE_MESSAGE) || Config.getInstance().isAdmin(player)){
-                    playerConfig.monitor = !playerConfig.monitor;
+                    if (args.length < 2) {
+                        sender.sendMessage(MessageUtil.newTextComponent(ChatColor.RED + "用法: /yinwuchat monitor <all|玩家名|off>"));
+                        return;
+                    }
+                    String a1 = args[1];
+                    String lower = a1.toLowerCase(Locale.ROOT);
+                    if ("all".equals(lower)) {
+                        playerConfig.monitorPrivateMode = "all";
+                        playerConfig.monitorTargetCanonical = "";
+                        playerConfig.monitorTargetDisplay = "";
+                        playerConfig.save();
+                        sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GREEN + "✓ 已开始视监所有玩家的私聊"));
+                        return;
+                    }
+                    if ("off".equals(lower)) {
+                        playerConfig.clearPrivateMonitor();
+                        playerConfig.save();
+                        sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GRAY + "✓ 已关闭私聊视监"));
+                        return;
+                    }
+                    if ("menu".equals(lower) || "history".equals(lower)) {
+                        sender.sendMessage(MessageUtil.newTextComponent(ChatColor.RED + "Bungee 端请使用 Velocity 代理上的完整视监菜单与历史功能"));
+                        return;
+                    }
+                    String raw = a1.trim();
+                    if (raw.isEmpty()) {
+                        sender.sendMessage(MessageUtil.newTextComponent(ChatColor.RED + "请指定玩家名"));
+                        return;
+                    }
+                    playerConfig.monitorPrivateMode = "target";
+                    playerConfig.monitorTargetCanonical = PlayerConfig.Player.canonicalPlayerName(raw);
+                    playerConfig.monitorTargetDisplay = raw;
                     playerConfig.save();
-                    if (playerConfig.monitor){
-                        sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GREEN + "你现在会监听其他玩家的私聊信息"));
-                    }
-                    else {
-                        sender.sendMessage(MessageUtil.newTextComponent(ChatColor.RED + "你现在不会监听其他玩家的私聊信息"));
-                    }
+                    sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GREEN + "✓ 已视监玩家 " + raw + " 的私聊（仅新消息）"));
                     return;
                 }
             }
@@ -698,7 +724,7 @@ public class Commands extends Command implements TabExecutor {
             sender.sendMessage(MessageUtil.newTextComponent("&c聊天隐身：&b/yinwuchat vanish"));
         }
         if (sender.hasPermission(Const.PERMISSION_MONITOR_PRIVATE_MESSAGE) || isAdmin){
-            sender.sendMessage(MessageUtil.newTextComponent("&c切换是否监听其他玩家私聊信息：&b/yinwuchat monitor"));
+            sender.sendMessage(MessageUtil.newTextComponent("&c私聊视监：&b/yinwuchat monitor <all|玩家名|off>"));
         }
         if (isAdmin) {
             sender.sendMessage(MessageUtil.newTextComponent(ChatColor.GOLD + "同步权限节点：&b/yinwuchat permsync"));
@@ -846,10 +872,25 @@ public class Commands extends Command implements TabExecutor {
             case "list":
             case "noat":
             case "muteat":
-            case "monitor":
             case "vanish":
             case "permsync":
             case "reset":
+                return List.of();
+            case "monitor":
+                if (args.length <= 1) {
+                    List<String> mon = new ArrayList<>();
+                    mon.add("all");
+                    mon.add("off");
+                    mon.addAll(plugin.getProxy().getPlayers().stream().map(ProxiedPlayer::getName).toList());
+                    return mon;
+                }
+                if (args.length == 2) {
+                    List<String> mon = new ArrayList<>();
+                    mon.add("all");
+                    mon.add("off");
+                    mon.addAll(plugin.getProxy().getPlayers().stream().map(ProxiedPlayer::getName).toList());
+                    return CommandCompletionUtil.filterByPrefix(mon, args[1]);
+                }
                 return List.of();
             case "unbind":
                 if (args.length <= 1) {

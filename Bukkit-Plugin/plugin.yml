@@ -1,5 +1,5 @@
 name: YinwuChat
-version: 2.12.76
+version: 3.2.0
 main: org.lintx.plugins.yinwuchat.bukkit.YinwuChat
 description: Cross-server chat synchronization for Bukkit/Spigot
 authors: [LinTx]

@@ -185,8 +185,15 @@ public class PlayerConfig {
         @YamlConfig
         public boolean vanish = false;
 
+        /** off | all | target */
         @YamlConfig
-        public boolean monitor = true;
+        public String monitorPrivateMode = "off";
+
+        @YamlConfig
+        public String monitorTargetCanonical = "";
+
+        @YamlConfig
+        public String monitorTargetDisplay = "";
 
         @YamlConfig
         public boolean muteAt = false;
@@ -244,6 +251,31 @@ public class PlayerConfig {
             if (!isMuted()) return 0;
             if (mutedUntil == 0) return -1;
             return Math.max(0, (mutedUntil - System.currentTimeMillis()) / 1000);
+        }
+
+        public static String canonicalPlayerName(String name) {
+            if (name == null) return "";
+            return name.trim().toLowerCase(Locale.ROOT);
+        }
+
+        public void clearPrivateMonitor() {
+            monitorPrivateMode = "off";
+            monitorTargetCanonical = "";
+            monitorTargetDisplay = "";
+        }
+
+        public boolean isPrivateMonitorOff() {
+            return monitorPrivateMode == null || monitorPrivateMode.isEmpty()
+                    || "off".equalsIgnoreCase(monitorPrivateMode);
+        }
+
+        public boolean isPrivateMonitorAll() {
+            return "all".equalsIgnoreCase(monitorPrivateMode);
+        }
+
+        public boolean isPrivateMonitorTarget() {
+            return "target".equalsIgnoreCase(monitorPrivateMode)
+                    && monitorTargetCanonical != null && !monitorTargetCanonical.isEmpty();
         }
     }
 
