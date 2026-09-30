@@ -82,14 +82,15 @@
                 <directory>src/main/resources</directory>
                 <excludes>
                     <exclude>velocity-plugin.json</exclude>
-                    <exclude>web/fonts/**</exclude>
+                    <exclude>web/**</exclude>
                 </excludes>
             </resource>
             <resource>
                 <filtering>false</filtering>
                 <directory>src/main/resources</directory>
                 <includes>
-                    <include>web/fonts/**</include>
+                    <!-- Preserve JavaScript template literals such as ${name}, and binary assets. -->
+                    <include>web/**</include>
                 </includes>
             </resource>
         </resources>
