@@ -1012,7 +1012,29 @@ admins:
 | 001  | 根据UUID查找用户失败，且新增失败 |
 
 
-### 其他信息
+### 网页聊天记录的维护与测试
+
+网页、Android 和 HarmonyOS 内嵌网页共用 `src/main/resources/web/index.html` 的实现。修改这个文件后执行 `node scripts/sync-web-clients.mjs`，同步到两个 App；`--check` 参数只检查是否一致。
+
+聊天记录按连接地址、Web 账号和服务器确认的游戏名隔离，确认身份前不加载记录。消息按服务端 ID 合并、排序；相同 ID 的补发消息可以更新已有内容和原始时间戳，不会重复增加未读计数或通知。时间在显示时按照浏览器环境格式化，不改变消息顺序。缺失时间戳时显示“时间未知”，不推测成当前时间。
+
+“清除缓存”仅删除当前账号在当前服务器的本地聊天记录，保留登录、设置及其他账号数据。旧版 `yinwuchat_msg_cache` 没有所属账号和服务器标识，因此不自动导入、不自动删除；可以在清除缓存弹窗中导出旧记录。服务端仍按原规则补发未读消息，本次未增加历史分页，清空缓存不会重新下载已经读过的全部历史消息。
+
+本地验证（Node.js 22+、JDK 17+、Maven）：
+
+```sh
+node scripts/sync-web-clients.mjs --check
+node --test src/test/web/history.test.mjs
+mvn -Pvelocity clean package
+```
+
+`history.test.mjs` 使用实际网页脚本和模拟 WebSocket，覆盖乱序补发、重复更新、原始时间戳、读游标、账号/服务器隔离、缓存清理和旧连接事件。Java 资源测试检查打包时 HTML、图片和脚本是否被原样复制，避免 Maven 将 JavaScript 的 `${name}` 等模板字符串替换成项目属性。
+
+可选的真实浏览器测试：先准备 Chromium 和 Vue 3 的本地 `vue.global.js`，执行 `node src/test/web/browser-smoke.mjs "浏览器可执行文件路径" "vue.global.js 路径"`。它启动独立无头浏览器，以模拟消息检查实际 Vue 页面和清空按钮；不使用已有浏览器资料或实际聊天账号。浏览器临时资料和编译产物均在被 Git 忽略的 `target/` 中。
+
+以上聊天记录修复与测试由 Soidraw 维护。
+
+### 制作信息
 
 本插件由国内正版Minecraft服务器[YinwuRealm](https://www.yinwurealm.org/)玩家[LinTx](https://mine.ly/LinTx.1)为服务器开发
 
