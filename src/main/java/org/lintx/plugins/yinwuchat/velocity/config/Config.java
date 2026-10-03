@@ -249,6 +249,14 @@ public class Config {
             formatConfig.fromFormat.add(new MessageFormat(" &6>>> "));
             formatConfig.fromFormat.add(new MessageFormat("&r{message}"));
         }
+
+        if (formatConfig.monitorFormat == null || formatConfig.monitorFormat.isEmpty()) {
+            formatConfig.monitorFormat = new ArrayList<>();
+            formatConfig.monitorFormat.add(new MessageFormat("&7{formPlayer} &6-> "));
+            formatConfig.monitorFormat.add(new MessageFormat("&e{toPlayer}"));
+            formatConfig.monitorFormat.add(new MessageFormat(" &6>>> "));
+            formatConfig.monitorFormat.add(new MessageFormat("&r{message}"));
+        }
     }
 
     public void save(YinwuChat plugin) {

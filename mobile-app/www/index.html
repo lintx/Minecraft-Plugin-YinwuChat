@@ -174,7 +174,7 @@
                             <input v-model="rememberLogin" type="checkbox" class="rounded border-gray-300 text-primary-600 focus:ring-primary-500">
                             <span>自动登录</span>
                         </label>
-                        <div class="flex items-center justify-between px-1">
+                        <div class="flex items-center justify-between px-1" key="login-links">
                             <button @click="goToRegister" key="login-switch" class="py-2 text-primary-600 hover:text-primary-700 text-sm font-medium">
                                 未注册？点击这里注册
                             </button>
@@ -428,7 +428,7 @@
                                     </button>
                                 </div>
                                 <div class="mt-4 border-t border-beige-200 dark:border-gray-800 pt-3">
-                                    <button @click="messages = []; saveLocalMessages(); showToast('历史记录已清空')" 
+                                    <button @click="clearCache"
                                         class="text-[11px] text-gray-400 hover:text-red-500 font-medium flex items-center gap-1">
                                         <i data-lucide="trash-2" class="w-3 h-3"></i>
                                         清空本地历史记录
@@ -598,11 +598,16 @@
                             <i data-lucide="x" class="w-5 h-5"></i>
                         </button>
                     </div>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-                        确定要清除缓存的消息和设置吗？此操作将清空本地聊天记录和部分个性化配置。
+                    <p v-if="isConnected" class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                        确定要清空当前账号、当前服务器的本地聊天记录吗？登录信息和设置会保留，其他账号不受影响。已读的历史消息不会因此重新从服务器下载。
+                    </p>
+                    <p v-else class="text-sm text-gray-500 dark:text-gray-400">请先连接要清理的游戏账号，再从聊天侧栏清空其本地记录。</p>
+                    <p v-if="hasLegacyCache" class="text-sm text-gray-500 dark:text-gray-400">
+                        旧版缓存没有账号标识，已保留但不自动载入。
+                        <button @click="exportLegacyCache" class="text-primary-600 underline">导出旧版记录</button>
                     </p>
                     <div class="flex items-center gap-3 pt-2">
-                        <button @click="confirmClearCache"
+                        <button @click="confirmClearCache" :disabled="!isConnected"
                             class="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-red-500/30 active:scale-95">
                             确认清除
                         </button>
@@ -941,7 +946,7 @@
                                     <div class="text-sm leading-relaxed text-amber-900 dark:text-amber-100"
                                          v-html="formatBroadcastSegments(bc.segments || [], bc.chat)">
                                     </div>
-                                    <div class="text-[9px] text-amber-500 mt-1 opacity-80">{{ bc.time }}</div>
+                                    <div class="text-[9px] text-amber-500 mt-1 opacity-80">{{ formatMessageTime(bc.timestamp) }}</div>
                                 </div>
                             </div>
                         </div>
@@ -950,7 +955,7 @@
 
                 <!-- 消息区域 -->
                 <main ref="chatContainer" class="flex-1 overflow-y-auto p-4 space-y-6 chat-scroll">
-                    <div v-for="(msg, index) in currentMessages" :key="index">
+                    <div v-for="(msg, index) in currentMessages" :key="msg.messageId ? 'message-' + msg.messageId : 'local-' + index">
                         <div v-if="index === unreadDividerIndex" @click="acknowledgeUnreadForCurrentChat" class="flex items-center gap-2 py-1 cursor-pointer select-none">
                             <div class="h-px flex-1 bg-red-300/70 dark:bg-red-500/40"></div>
                             <span class="text-[10px] font-bold text-red-600 dark:text-red-400 whitespace-nowrap">上次阅读处</span>
@@ -969,7 +974,7 @@
                                 v-html="formatBroadcastSegments(msg.segments || [], msg.chat)">
                             </div>
                             <div class="text-[9px] text-gray-400 mt-1 opacity-60 text-center">
-                                {{ msg.time }}
+                                {{ formatMessageTime(msg.timestamp, msg.time) }}
                             </div>
                         </div>
                         <!-- Token 绑定：系统提示块 -->
@@ -988,7 +993,7 @@
                                         <div class="font-mono text-sm px-3 py-2 rounded-lg bg-slate-200 dark:bg-slate-700/80 text-slate-800 dark:text-slate-100 border border-slate-300 dark:border-slate-600 break-all select-all">{{ msg.command }}</div>
                                     </div>
                                 </div>
-                                <div class="text-[9px] text-amber-600 dark:text-amber-400 px-4 pb-2 opacity-80">{{ msg.time }}</div>
+                                <div class="text-[9px] text-amber-600 dark:text-amber-400 px-4 pb-2 opacity-80">{{ formatMessageTime(msg.timestamp, msg.time) }}</div>
                             </div>
                         </div>
                         <!-- 普通消息：聊天气泡 -->
@@ -1020,7 +1025,7 @@
                                 </div>
                                 <!-- 时间 -->
                                 <div class="text-[9px] text-gray-400 mt-1 opacity-60 px-1">
-                                    {{ msg.time }}
+                                    {{ formatMessageTime(msg.timestamp, msg.time) }}
                                 </div>
                             </div>
                         </div>
@@ -1180,6 +1185,51 @@
     </div>
 
     <script>
+        // Shared by all three clients. Keep timestamps as data, not localized labels.
+        const ChatHistory = {
+            id(value) {
+                const id = Number(value);
+                return Number.isSafeInteger(id) && id > 0 ? id : 0;
+            },
+            timestamp(value) {
+                if (typeof value !== 'number' && typeof value !== 'string') return null;
+                const raw = typeof value === 'string' ? value.trim() : value;
+                // Do not guess a date/timezone for legacy labels such as "08:59 AM".
+                const millis = /^\d+$/.test(String(raw)) ? Number(raw)
+                    : (typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/i.test(raw) ? Date.parse(raw) : NaN);
+                return Number.isFinite(millis) && millis > 0 && !Number.isNaN(new Date(millis).getTime()) ? millis : null;
+            },
+            key(endpoint, account, player) {
+                const url = new URL(endpoint);
+                const server = url.origin + url.pathname.replace(/\/+$/, '');
+                return 'yinwuchat_history_v2:' + encodeURIComponent(JSON.stringify([
+                    server, String(account || '').trim().toLowerCase(), String(player).trim().toLowerCase()
+                ]));
+            },
+            sort(messages) {
+                // Server IDs define chronology even when public/private replay arrives in batches.
+                // Messages without IDs keep their arrival order after the ordered history.
+                return messages.sort((a, b) => {
+                    const aId = this.id(a.messageId), bId = this.id(b.messageId);
+                    return aId && bId ? aId - bId : aId ? -1 : bId ? 1 : 0;
+                });
+            },
+            merge(messages, message) {
+                const id = this.id(message.messageId);
+                const previous = id ? messages.find(m => this.id(m.messageId) === id) : null;
+                if (previous) {
+                    const timestamp = message.timestamp || previous.timestamp || null;
+                    Object.assign(previous, message, { timestamp });
+                } else {
+                    messages.push(message);
+                }
+                this.sort(messages);
+                return !previous;
+            },
+            latestId(messages) {
+                return messages.reduce((latest, m) => Math.max(latest, this.id(m.messageId)), 0);
+            }
+        };
         const { createApp, ref, onMounted, onBeforeUnmount, nextTick, computed, watch } = Vue;
 
         createApp({
@@ -1428,95 +1478,70 @@
                 const sidebarLongPressActive = ref(false);
                 const sidebarAnimationActive = ref(false);
 
-                // 从本地加载历史消息
+                // Only load a cache after the server confirms the selected player via self_info.
+                let historyKey = '';
+                let connectionEndpoint = '';
+                const hasLegacyCache = ref(!!localStorage.getItem('yinwuchat_msg_cache'));
                 const loadLocalMessages = () => {
                     try {
-                        const saved = localStorage.getItem('yinwuchat_msg_cache');
-                        return saved ? JSON.parse(saved) : [];
+                        const parsed = JSON.parse(localStorage.getItem(historyKey) || 'null');
+                        if (!Array.isArray(parsed)) return [];
+                        const result = [];
+                        parsed.forEach(m => {
+                            if (!m || typeof m !== 'object' || typeof m.chat !== 'string' || m.type === 'token_bind') return;
+                            const own = String(selfName.value).toLowerCase();
+                            const from = String(m.player || '').toLowerCase();
+                            if (m.to && from !== own && String(m.to).toLowerCase() !== own) return;
+                            ChatHistory.merge(result, { ...m, messageId: ChatHistory.id(m.messageId) || null,
+                                timestamp: ChatHistory.timestamp(m.timestamp), isSelf: from === own });
+                        });
+                        return result.slice(-100);
                     } catch (e) {
                         return [];
                     }
                 };
 
-                const messages = ref(loadLocalMessages()); 
+                const messages = ref([]);
                 const publicReadCursor = ref(0);
                 const privateReadCursor = ref({});
                 const sessionPublicDividerCursor = ref(0);
                 const sessionPrivateDividerCursor = ref({});
                 const dismissedUnreadDivider = ref({});
-                const DIVIDER_ANCHOR_KEY = 'yinwuchat_divider_anchor';
-                const dividerAnchorLoadedForConnection = ref(false);
 
-                // --- 消息去重：防止同一条消息因多连接/重连被重复添加 ---
-                const _seenMsgIds = new Set();
-                const _initSeenMsgIds = () => {
-                    _seenMsgIds.clear();
-                    // 从已有消息中初始化
-                    messages.value.forEach(m => {
-                        const id = Number(m && m.messageId ? m.messageId : 0);
-                        if (id > 0) _seenMsgIds.add(id);
-                    });
-                };
-                _initSeenMsgIds(); // 初始化时调用
-                const _isDuplicateMsg = (msgId) => {
-                    const id = Number(msgId || 0);
-                    if (id <= 0) return false; // 没有 messageId 的消息不做去重
-                    if (_seenMsgIds.has(id)) return true;
-                    _seenMsgIds.add(id);
-                    // 防止 Set 无限增长，保留最近的 2000 条
-                    if (_seenMsgIds.size > 2000) {
-                        const arr = [..._seenMsgIds];
-                        _seenMsgIds.clear();
-                        arr.slice(-1500).forEach(v => _seenMsgIds.add(v));
-                    }
-                    return false;
-                };
-                
                 // 保存消息到本地
                 const saveLocalMessages = () => {
+                    if (!historyKey) return;
                     try {
                         // 仅保留最近的 100 条记录
-                        const toSave = messages.value.slice(-100);
-                        localStorage.setItem('yinwuchat_msg_cache', JSON.stringify(toSave));
+                        const toSave = ChatHistory.sort(messages.value.filter(m => m.type !== 'token_bind')).slice(-100);
+                        localStorage.setItem(historyKey, JSON.stringify(toSave));
                     } catch (e) {}
                 };
 
-                const buildLatestDividerAnchor = () => {
-                    const anchor = { public: 0, private: {} };
-                    for (const msg of messages.value) {
-                        const id = Number(msg && msg.messageId ? msg.messageId : 0);
-                        if (id <= 0) continue;
-                        if (!msg.to) {
-                            if (id > anchor.public) anchor.public = id;
-                            continue;
-                        }
-                        const peer = String(msg.isSelf ? msg.to : msg.player || '').toLowerCase();
-                        if (!peer) continue;
-                        const current = Number(anchor.private[peer] || 0);
-                        if (id > current) {
-                            anchor.private[peer] = id;
-                        }
-                    }
-                    return anchor;
+                const buildReadAnchor = () => {
+                    // Receiving a message is not an acknowledgement of reading it.
+                    return { public: publicReadCursor.value, private: { ...privateReadCursor.value } };
                 };
 
                 const saveDividerAnchor = () => {
+                    if (!historyKey) return;
                     try {
-                        localStorage.setItem(DIVIDER_ANCHOR_KEY, JSON.stringify(buildLatestDividerAnchor()));
+                        localStorage.setItem(historyKey + ':read', JSON.stringify(buildReadAnchor()));
                     } catch (e) {}
                 };
 
                 const applyDividerAnchorFromLocal = () => {
                     try {
-                        const raw = localStorage.getItem(DIVIDER_ANCHOR_KEY);
+                        if (!historyKey) return false;
+                        const raw = localStorage.getItem(historyKey + ':read');
                         if (!raw) return false;
                         const parsed = JSON.parse(raw);
-                        const localPublic = Number(parsed.public || 0);
+                        const localPublic = ChatHistory.id(parsed.public);
                         const localPrivateRaw = parsed.private && typeof parsed.private === 'object' ? parsed.private : {};
                         const localPrivate = {};
                         Object.keys(localPrivateRaw).forEach((key) => {
                             const normalizedKey = String(key || '').toLowerCase();
-                            const id = Number(localPrivateRaw[key] || 0);
+                            const id = ChatHistory.id(localPrivateRaw[key]);
                             if (!normalizedKey || id <= 0) return;
                             localPrivate[normalizedKey] = id;
                         });
@@ -1524,6 +1549,8 @@
                         if (!hasLocalAnchor) return false;
                         sessionPublicDividerCursor.value = localPublic;
                         sessionPrivateDividerCursor.value = localPrivate;
+                        publicReadCursor.value = localPublic;
+                        privateReadCursor.value = { ...localPrivate };
                         dismissedUnreadDivider.value = {};
                         return true;
                     } catch (e) {
@@ -1531,20 +1558,10 @@
                     }
                 };
 
-                const formatMessageTime = (payloadTime) => {
-                    const toDisplay = (millis) => new Date(millis).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    const numericTime = Number(payloadTime || 0);
-                    if (Number.isFinite(numericTime) && numericTime > 0) {
-                        return toDisplay(numericTime);
-                    }
-                    if (typeof payloadTime === 'string' && payloadTime.trim()) {
-                        const parsed = Date.parse(payloadTime);
-                        if (!Number.isNaN(parsed)) {
-                            return toDisplay(parsed);
-                        }
-                        return payloadTime;
-                    }
-                    return toDisplay(Date.now());
+                const formatMessageTime = (payloadTime, legacyLabel) => {
+                    const timestamp = ChatHistory.timestamp(payloadTime);
+                    return timestamp ? new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        : (legacyLabel ? String(legacyLabel) + '（旧记录）' : '时间未知');
                 };
 
                 const sidebarOverlayOpacity = computed(() => {
@@ -1624,6 +1641,47 @@
                 const wsStatus = ref('closed');
                 const lastGoodWsUrl = ref(localStorage.getItem('yinwuchat_last_good_ws') || '');
                 let ws = null;
+                let connectionGeneration = 0;
+                const resetChatState = () => {
+                    historyKey = '';
+                    messages.value = [];
+                    selfName.value = '';
+                    isAdmin.value = false;
+                    isVanished.value = false;
+                    showAccountSwitchDrawer.value = false;
+                    showBindTokenModal.value = false;
+                    bindModalToken.value = '';
+                    showClearCacheConfirm.value = false;
+                    broadcastPanelOpen.value = false;
+                    currentChat.value = 'public';
+                    inputMsg.value = '';
+                    unreadCount.value = {};
+                    publicReadCursor.value = 0;
+                    privateReadCursor.value = {};
+                    sessionPublicDividerCursor.value = 0;
+                    sessionPrivateDividerCursor.value = {};
+                    dismissedUnreadDivider.value = {};
+                    pinnedBroadcasts.value = new Map();
+                    gamePlayers.value = [];
+                    webPlayers.value = [];
+                    playerStatusList.value = [];
+                    toasts.value = [];
+                    itemPreview.value = null;
+                    adminAlert.value = null;
+                    atAllAdminConfirm.value = null;
+                };
+                const closeChatSession = () => {
+                    saveDividerAnchor();
+                    connectionGeneration += 1;
+                    const previous = ws;
+                    ws = null; // Detach first: even a synchronous close must not affect the new session.
+                    if (previous) { try { previous.close(); } catch (e) {} }
+                    isConnected.value = false;
+                    connecting.value = false;
+                    wsStatus.value = 'closed';
+                    bindAccountSent.value = false;
+                    resetChatState();
+                };
                 let toastId = 0;
                 let touchTimer = null;
                 const toastDragId = ref(null);
@@ -1635,10 +1693,12 @@
                     if (currentChat.value === 'public') {
                         return messages.value.filter(m => !m.to && m.type !== 'broadcast');
                     } else {
-                        const target = currentChat.value;
-                        return messages.value.filter(m => 
-                            (m.to === target) || (m.player === target && m.to)
-                        );
+                        const target = currentChat.value.toLowerCase();
+                        const own = selfName.value.toLowerCase();
+                        return messages.value.filter(m => m.to && (
+                            (String(m.player).toLowerCase() === own && String(m.to).toLowerCase() === target) ||
+                            (String(m.player).toLowerCase() === target && String(m.to).toLowerCase() === own)
+                        ));
                     }
                 });
                 const unreadDividerIndex = computed(() => {
@@ -1723,16 +1783,35 @@
                 };
 
                 const confirmClearCache = () => {
-                    const dark = localStorage.getItem('yinwuchat_dark');
-                    const domain = localStorage.getItem('yinwuchat_default_domain');
-                    const loginAvatar = localStorage.getItem('yinwuchat_login_avatar');
-                    localStorage.clear();
-                    if (dark) localStorage.setItem('yinwuchat_dark', dark);
-                    if (domain) localStorage.setItem('yinwuchat_default_domain', domain);
-                    if (loginAvatar) localStorage.setItem('yinwuchat_login_avatar', loginAvatar);
+                    if (!historyKey) {
+                        showToast('请先连接要清理的游戏账号', 'info');
+                        return;
+                    }
+                    try {
+                        localStorage.removeItem(historyKey);
+                        localStorage.removeItem(historyKey + ':read');
+                    } catch (e) {
+                        showToast('本地记录清理失败，请检查浏览器存储权限', 'error');
+                        return;
+                    }
                     messages.value = [];
+                    unreadCount.value = {};
+                    dismissedUnreadDivider.value = {};
+                    sessionPublicDividerCursor.value = publicReadCursor.value;
+                    sessionPrivateDividerCursor.value = { ...privateReadCursor.value };
                     showClearCacheConfirm.value = false;
-                    showToast('缓存已清除', 'info');
+                    showToast('当前账号的本地聊天记录已清空', 'info');
+                };
+
+                const exportLegacyCache = () => {
+                    const raw = localStorage.getItem('yinwuchat_msg_cache');
+                    if (!raw) return;
+                    const url = URL.createObjectURL(new Blob([raw], { type: 'application/json' }));
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = 'yinwuchat-legacy-history.json';
+                    link.click();
+                    setTimeout(() => URL.revokeObjectURL(url), 1000);
                 };
 
                 const saveDefaultDomain = () => {
@@ -2042,10 +2121,15 @@
                     return wsLike;
                 };
 
-                const connectWebSocket = (url, allowFallback, onConnectFailed) => {
+                const connectWebSocket = (url, allowFallback, onConnectFailed, generation) => {
+                    if (generation !== connectionGeneration) return;
                     let opened = false;
+                    let socket;
+                    const account = currentUser.value;
                     try {
-                        ws = createWebSocket(url);
+                        socket = createWebSocket(url);
+                        ws = socket;
+                        connectionEndpoint = url;
                     } catch (err) {
                         connecting.value = false;
                         showToast('无法建立连接: ' + err.message, 'error');
@@ -2053,20 +2137,23 @@
                         return;
                     }
 
-                    ws.onopen = () => {
+                    const isCurrent = () => ws === socket && generation === connectionGeneration;
+                    socket.onopen = () => {
+                        if (!isCurrent()) return;
                         opened = true;
                         wsStatus.value = 'open';
                         lastGoodWsUrl.value = url;
                         localStorage.setItem('yinwuchat_last_good_ws', url);
                         requestNotificationPermission(); // 请求通知权限
-                        ws.send(JSON.stringify({
+                        socket.send(JSON.stringify({
                             action: 'check_token',
                             token: token.value || ''
                         }));
                         localStorage.setItem('yinwuchat_token', token.value || '');
                     };
 
-                    ws.onmessage = (e) => {
+                    socket.onmessage = (e) => {
+                        if (!isCurrent() || currentUser.value !== account) return;
                         try {
                             const data = JSON.parse(e.data);
                             handleWsMessage(data);
@@ -2075,8 +2162,10 @@
                         }
                     };
 
-                    ws.onclose = (evt) => {
+                    socket.onclose = (evt) => {
+                        if (!isCurrent()) return;
                         saveDividerAnchor();
+                        ws = null;
                         wsStatus.value = 'closed';
                         isConnected.value = false;
                         connecting.value = false;
@@ -2085,7 +2174,7 @@
                             const altUrl = toggleWsProtocol(url);
                             if (altUrl && altUrl !== url) {
                                 showToast(`连接失败，尝试备用协议：${altUrl}`, 'error');
-                                connectWebSocket(altUrl, false, onConnectFailed);
+                                connectWebSocket(altUrl, false, onConnectFailed, generation);
                                 return;
                             }
                         }
@@ -2100,7 +2189,7 @@
                             // 只有曾经连接成功且不是手动断开的才尝试自动重连
                             showToast(`连接已断开，5秒后尝试自动重连...`, 'error');
                             setTimeout(() => {
-                                if (!isConnected.value && !isManualDisconnect.value) connect();
+                                if (generation === connectionGeneration && !isConnected.value && !isManualDisconnect.value) connect();
                             }, 5000);
                         } else {
                             const msg = isManualDisconnect.value ? '已成功断开连接' : `WebSocket 连接已断开${detail}`;
@@ -2108,7 +2197,8 @@
                         }
                     };
 
-                    ws.onerror = () => {
+                    socket.onerror = () => {
+                        if (!isCurrent()) return;
                         if (!opened && !allowFallback) {
                             showToast('连接失败，请确认地址和端口是否正确', 'error');
                         }
@@ -2116,6 +2206,8 @@
                 };
 
                 const connect = async () => {
+                    closeChatSession();
+                    const generation = connectionGeneration;
                     isManualDisconnect.value = false;
                     bindAccountSent.value = false;
                     autoWsUrl.value = getAutoWsUrl();
@@ -2123,6 +2215,7 @@
                     let resolvedWsUrl = manualCandidate ? buildWsUrlFromBase(manualCandidate) : (lastGoodWsUrl.value || autoWsUrl.value);
                     if (!resolvedWsUrl && isLocalHostEnv()) {
                         const discovered = await discoverWsUrl();
+                        if (generation !== connectionGeneration) return;
                         if (discovered) {
                             autoWsUrl.value = buildWsUrlFromBase(discovered);
                             resolvedWsUrl = autoWsUrl.value;
@@ -2143,16 +2236,17 @@
                     const wsCandidates = buildWsUrlCandidates(resolvedWsUrl);
                     let candidateIndex = 0;
                     const tryNextCandidate = () => {
+                        if (generation !== connectionGeneration) return;
                         candidateIndex += 1;
                         if (candidateIndex >= wsCandidates.length) {
                             showToast('所有候选 WebSocket 地址都连接失败，请检查反代 WS 路由', 'error');
                             return;
                         }
-                        connectWebSocket(wsCandidates[candidateIndex], true, tryNextCandidate);
+                        connectWebSocket(wsCandidates[candidateIndex], true, tryNextCandidate, generation);
                     };
                     connecting.value = true;
                     showToast(`尝试连接：${wsCandidates[0]}`, 'info');
-                    connectWebSocket(wsCandidates[0], true, tryNextCandidate);
+                    connectWebSocket(wsCandidates[0], true, tryNextCandidate, generation);
                 };
 
                 const goToRegister = async () => {
@@ -2162,6 +2256,8 @@
                 };
 
                 const goToLogin = () => {
+                    isManualDisconnect.value = true;
+                    closeChatSession();
                     authStep.value = 'login';
                     gameAccounts.value = [];
                     accountActionPassword.value = '';
@@ -2708,9 +2804,7 @@
                     }
                     showAccountSwitchDrawer.value = false;
                     isManualDisconnect.value = true;
-                    if (ws) {
-                        try { ws.close(); } catch (e) {}
-                    }
+                    closeChatSession();
                     isConnected.value = false;
                     connecting.value = false;
                     bindAccountSent.value = false;
@@ -2948,10 +3042,8 @@
                             localStorage.removeItem('yinwuchat_last_good_ws');
                             token.value = '';
                             lastGoodWsUrl.value = '';
-                            if (ws && ws.readyState === WebSocket.OPEN) {
-                                ws.close();
-                            }
-                            isConnected.value = false;
+                            isManualDisconnect.value = true;
+                            closeChatSession();
                             authStep.value = 'connect';
                             nextTick(() => lucide.createIcons());
                         } else {
@@ -3009,6 +3101,8 @@
                             showDeleteAccount.value = false;
                             deleteAccountForm.value = { username: '', password: '', playerName: '' };
                             if (currentUser.value === payload.username) {
+                                isManualDisconnect.value = true;
+                                closeChatSession();
                                 localStorage.removeItem('yinwuchat_username');
                                 localStorage.removeItem('yinwuchat_token');
                                 currentUser.value = '';
@@ -3087,8 +3181,6 @@
                         // 兼容多种可能的成功状态码：true, 0, '0', 1000, "1000"
                         const statusOk = data.status === 0 || data.status === true || data.status === '0' || data.status === 1000 || data.status === '1000';
                         if (statusOk) {
-                            _initSeenMsgIds(); // 重连时重新初始化去重集合
-                            dividerAnchorLoadedForConnection.value = applyDividerAnchorFromLocal();
                             isConnected.value = true;
                             connecting.value = false;
                             showToast('欢迎回来，连接成功');
@@ -3118,12 +3210,20 @@
                             token: data.token,
                             command: bindCmd,
                             isSelf: false,
-                            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                            timestamp: Date.now()
                         });
                         nextTick(() => lucide.createIcons());
                     } else if (data.action === 'self_info') {
                         if (data.player) {
-                            selfName.value = data.player;
+                            const nextKey = ChatHistory.key(connectionEndpoint, currentUser.value, data.player);
+                            if (nextKey !== historyKey) {
+                                saveDividerAnchor();
+                                resetChatState();
+                                selfName.value = data.player;
+                                historyKey = nextKey;
+                                messages.value = loadLocalMessages();
+                                applyDividerAnchorFromLocal();
+                            }
                         }
                         if (data.isAdmin !== undefined) {
                             isAdmin.value = data.isAdmin;
@@ -3134,14 +3234,19 @@
                         }
                         sendBindAccount();
                     } else if (data.action === 'read_cursor_snapshot') {
-                        const serverPublic = Number(data.public_last_read_id || 0);
-                        publicReadCursor.value = serverPublic;
+                        if (!historyKey) return;
+                        const serverPublic = ChatHistory.id(data.public_last_read_id);
+                        publicReadCursor.value = Math.max(publicReadCursor.value, serverPublic);
                         const privateMap = data.private_last_read || {};
                         const normalizedMap = {};
                         Object.keys(privateMap).forEach((key) => {
-                            normalizedMap[String(key).toLowerCase()] = Number(privateMap[key] || 0);
+                            normalizedMap[String(key).toLowerCase()] = ChatHistory.id(privateMap[key]);
                         });
-                        privateReadCursor.value = normalizedMap;
+                        const readPrivate = { ...privateReadCursor.value };
+                        Object.keys(normalizedMap).forEach(key => {
+                            readPrivate[key] = Math.max(ChatHistory.id(readPrivate[key]), normalizedMap[key]);
+                        });
+                        privateReadCursor.value = readPrivate;
                         // 使用 max(本地, 服务端) 确保分割线定位准确
                         const localPublicCursor = Number(sessionPublicDividerCursor.value || 0);
                         sessionPublicDividerCursor.value = Math.max(localPublicCursor, serverPublic);
@@ -3153,16 +3258,19 @@
                         dismissedUnreadDivider.value = {};
                     } else if (data.action === 'send_message' || data.action === 'private_message') {
                         const text = data.message || data.chat || '';
-                        if (!text) return;
+                        if (!text || !historyKey) return;
 
-                        // --- 消息去重 ---
-                        if (_isDuplicateMsg(data.message_id)) return;
+                        const id = ChatHistory.id(data.message_id);
+                        const duplicate = id && messages.value.some(m => m.messageId === id);
                         
                         const isPrivate = data.action === 'private_message';
-                        const isSelf = data.is_self || data.player === 'You';
+                        const isSelf = !!data.is_self || data.player === 'You' || String(data.player || '').toLowerCase() === selfName.value.toLowerCase();
+                        const resolvedPlayer = data.player === 'You' || !data.player && isSelf ? selfName.value : (data.player || data.from || data.sender || '');
+                        if (isPrivate && String(resolvedPlayer).toLowerCase() !== selfName.value.toLowerCase()
+                            && String(data.to || '').toLowerCase() !== selfName.value.toLowerCase()) return;
 
                         // 处理 @ 提及和私聊提醒
-                        if (!isSelf) {
+                        if (!isSelf && !duplicate && !data.replay) {
                             if (data.mention) {
                                 showToast(`玩家 @${data.player || '有人'} 在公屏提到了你！`, 'info');
                                 sendNativeNotification('你被 @ 了', `${data.player || '有人'}: ${extractPublicContent(text)}`);
@@ -3174,10 +3282,6 @@
                             }
                         }
 
-                        if (data.is_self && data.player) {
-                            selfName.value = data.player;
-                        }
-                        const resolvedPlayer = data.player || (data.is_self ? selfName.value : '') || '';
                         const isPublicMessage = data.action === 'send_message' && !data.to;
                         const structuredItems = Array.isArray(data.items) ? data.items : [];
                         const templateChat = typeof data.raw_chat === 'string' ? data.raw_chat : '';
@@ -3189,13 +3293,13 @@
                             chat: displayChat,
                             items: structuredItems,
                             server: data.server,
-                            messageId: Number(data.message_id || 0) || null,
+                            messageId: id || null,
                             replay: !!data.replay,
-                            isSelf: data.is_self || data.player === 'You',
+                            isSelf,
                             to: data.to,
-                            time: formatMessageTime(data.time || data.timestamp || data.ts)
+                            timestamp: ChatHistory.timestamp(data.time ?? data.timestamp ?? data.ts)
                         };
-                        messages.value.push(msg);
+                        ChatHistory.merge(messages.value, msg);
                         saveLocalMessages(); // 保存到本地
                         
                         if (data.action === 'private_message' && !msg.isSelf && msg.player) {
@@ -3207,7 +3311,7 @@
                         
                         // 处理未读计数
                         const chatKey = msg.to ? (msg.isSelf ? msg.to : msg.player) : 'public';
-                        if (currentChat.value !== chatKey) {
+                        if (!duplicate && !msg.isSelf && currentChat.value.toLowerCase() !== String(chatKey).toLowerCase()) {
                             unreadCount.value[chatKey] = (unreadCount.value[chatKey] || 0) + 1;
                         }
                         
@@ -3227,8 +3331,7 @@
                             chat: data.message || '',
                             segments: segments,
                             messageId: Number(data.message_id || 0) || null,
-                            timestamp: data.time || Date.now(),
-                            time: formatMessageTime(data.time || data.timestamp || data.ts)
+                            timestamp: ChatHistory.timestamp(data.time ?? data.timestamp ?? data.ts)
                         });
                         pinnedBroadcasts.value = newMap;
                     } else if (data.action === 'player_list') {
@@ -3291,18 +3394,20 @@
                         };
                         nextTick(() => lucide.createIcons());
                     } else if (data.action === 'server_message') {
-                        if (_isDuplicateMsg(data.message_id)) return;
+                        const id = ChatHistory.id(data.message_id);
+                        const duplicate = id && messages.value.some(m => m.messageId === id);
                         const level = data.type || (data.status === 1 ? 'error' : 'info');
-                        showToast(data.message || '服务器提示', level === 'error' ? 'error' : 'info');
-                        messages.value.push({
+                        if (!duplicate && !data.replay) showToast(data.message || '服务器提示', level === 'error' ? 'error' : 'info');
+                        if (!historyKey) return;
+                        ChatHistory.merge(messages.value, {
                             player: '系统',
                             chat: data.message || '',
                             server: 'Server',
-                            messageId: Number(data.message_id || 0) || null,
+                            messageId: id || null,
                             replay: !!data.replay,
                             isSelf: false,
                             to: null,
-                            time: formatMessageTime(data.time || data.timestamp || data.ts)
+                            timestamp: ChatHistory.timestamp(data.time ?? data.timestamp ?? data.ts)
                         });
                         saveLocalMessages(); // 保存到本地
                         scrollToBottom();
@@ -3407,10 +3512,7 @@
 
                 const logout = () => {
                     isManualDisconnect.value = true;
-                    saveDividerAnchor();
-                    if (ws) ws.close();
-                    isConnected.value = false;
-                    bindAccountSent.value = false;
+                    closeChatSession();
                     showAccountSwitchDrawer.value = false;
                 };
 
@@ -3489,14 +3591,14 @@
                 const acknowledgeUnreadForCurrentChat = () => {
                     const list = currentMessages.value;
                     if (!Array.isArray(list) || list.length === 0) return;
-                    const reversed = [...list].reverse();
-                    const latest = reversed.find(m => Number(m.messageId || 0) > 0);
-                    if (!latest) return;
-                    const latestId = Number(latest.messageId);
+                    const latestId = ChatHistory.latestId(list);
+                    if (!latestId) return;
                     if (currentChat.value === 'public') {
                         dismissedUnreadDivider.value.public = true;
-                        publicReadCursor.value = Math.max(Number(publicReadCursor.value || 0), latestId);
-                        sendReadCursor('public', latestId);
+                        if (latestId > publicReadCursor.value) {
+                            publicReadCursor.value = latestId;
+                            sendReadCursor('public', latestId);
+                        }
                     } else {
                         const key = String(currentChat.value || '').toLowerCase();
                         if (!key) return;
@@ -3834,7 +3936,8 @@
                 });
 
                 onBeforeUnmount(() => {
-                    saveDividerAnchor();
+                    isManualDisconnect.value = true;
+                    closeChatSession();
                     document.removeEventListener('click', handleItemTagClick);
                     if (iconObserver) {
                         iconObserver.disconnect();
@@ -3904,6 +4007,7 @@
                 });
 
                 return {
+                    formatMessageTime, hasLegacyCache, exportLegacyCache,
                     token, authStep, authLoading, loginForm, registerForm, captchaImage, captchaId, currentUser,
                     rememberLogin, quickLoginAvatarUrl, loginAvatarInput,
                     advancedOpen, manualWsUrl, savedManualWsUrl, fillSavedWsUrl,

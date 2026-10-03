@@ -43,7 +43,7 @@ import java.util.concurrent.TimeUnit;
 @Plugin(
     id = "yinwuchat-velocity",
     name = "YinwuChat",
-    version = "2.12.76",
+    version = "3.2.0",
     description = "Cross-server chat synchronization for Velocity",
     authors = {"LinTx"}
 )

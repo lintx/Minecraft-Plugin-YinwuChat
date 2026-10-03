@@ -41,7 +41,9 @@ import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -1836,12 +1838,29 @@ public class MessageManage {
 
     private void sendPrivateMonitor(String fromPlayer, String toPlayer, String message) {
         Config config = plugin.getConfig();
-        Component monitor = Component.text("[监听] ")
-            .append(Component.text(fromPlayer))
-            .append(Component.text(" -> "))
-            .append(Component.text(toPlayer))
-            .append(Component.text(": "))
-            .append(Component.text(message));
+        List<MessageFormat> formats = config.formatConfig != null ? config.formatConfig.monitorFormat : null;
+        Component monitorComponent;
+        if (formats != null && !formats.isEmpty()) {
+            ChatPlayer cpFrom = new ChatPlayer();
+            cpFrom.playerName = fromPlayer;
+            ChatPlayer cpTo = new ChatPlayer();
+            cpTo.playerName = toPlayer;
+            VelocityChatStruct struct = new VelocityChatStruct();
+            struct.chat = message;
+            List<VelocityChatStruct> list = new ArrayList<>();
+            list.add(struct);
+            VelocityChat chat = new VelocityChat(cpFrom, cpTo, list, ChatSource.GAME);
+            monitorComponent = chat.buildPrivateMonitorMessage(formats);
+        } else {
+            monitorComponent = Component.text("[监听] ")
+                .append(Component.text(fromPlayer))
+                .append(Component.text(" -> "))
+                .append(Component.text(toPlayer))
+                .append(Component.text(": "))
+                .append(Component.text(message));
+        }
+        String fromCanon = PlayerConfig.PlayerSettings.canonicalPlayerName(fromPlayer);
+        String toCanon = PlayerConfig.PlayerSettings.canonicalPlayerName(toPlayer);
         for (Player p : plugin.getProxy().getAllPlayers()) {
             boolean canMonitor = p.hasPermission(Const.PERMISSION_MONITOR_PRIVATE_MESSAGE)
                     || config.isAdmin(p);
@@ -1849,7 +1868,50 @@ public class MessageManage {
             if (p.getUsername().equalsIgnoreCase(fromPlayer) || p.getUsername().equalsIgnoreCase(toPlayer)) {
                 continue;
             }
-            p.sendMessage(monitor);
+            PlayerConfig.PlayerSettings settings = PlayerConfig.getInstance().getSettings(p);
+            if (settings.isPrivateMonitorOff()) continue;
+            if (settings.isPrivateMonitorTarget()) {
+                String t = settings.monitorTargetCanonical;
+                if (t == null || t.isEmpty()
+                        || (!fromCanon.equals(t) && !toCanon.equals(t))) {
+                    continue;
+                }
+            } else if (!settings.isPrivateMonitorAll()) {
+                continue;
+            }
+            p.sendMessage(monitorComponent);
+        }
+    }
+
+    /**
+     * 向管理员私发某玩家相关的私聊历史（仅执行者可见）。
+     */
+    public void sendPrivateMonitorHistory(Player player, String targetPlayerName, int limit) {
+        if (limit <= 0) {
+            limit = 20;
+        }
+        WebChatReplayStore store = getReplayStore();
+        if (store == null) {
+            player.sendMessage(Component.text("✗ 私聊历史不可用（存储未初始化）").color(NamedTextColor.RED));
+            return;
+        }
+        List<WebChatReplayStore.PrivateMessageRecord> records = store.listPrivateInvolving(targetPlayerName, limit);
+        if (records.isEmpty()) {
+            player.sendMessage(Component.text("暂无涉及该玩家的私聊记录").color(NamedTextColor.GRAY));
+            return;
+        }
+        player.sendMessage(Component.text("—— 私聊历史（最近 " + records.size() + " 条）——").color(NamedTextColor.GOLD));
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        for (WebChatReplayStore.PrivateMessageRecord r : records) {
+            String timeStr = sdf.format(new Date(r.time));
+            String msg = r.message != null ? r.message : "";
+            String from = r.from != null ? r.from : "";
+            String to = r.to != null ? r.to : "";
+            String line = timeStr + " " + from + " -> " + to + ": " + msg;
+            if (line.length() > 256) {
+                line = line.substring(0, 253) + "...";
+            }
+            player.sendMessage(Component.text(line).color(NamedTextColor.GRAY));
         }
     }
 

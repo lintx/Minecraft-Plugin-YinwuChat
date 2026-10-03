@@ -21,14 +21,14 @@ goto :end
 echo Building Velocity platform...
 call mvn clean package -P velocity -q
 echo.
-echo Velocity JAR created: target/YinwuChat-Velocity-2.12.jar
+echo Velocity JAR created: target/YinwuChat-Velocity-3.2.0.jar
 goto :end
 
 :build_bukkit
 echo Building Bukkit platform...
 call mvn clean package -P bukkit -q
 echo.
-echo Bukkit JAR created: target/YinwuChat-Bukkit-2.12.jar
+echo Bukkit JAR created: target/YinwuChat-Bukkit-3.2.0.jar
 goto :end
 
 :help
@@ -45,9 +45,9 @@ echo   build.bat velocity   - Build only Velocity version
 echo   build.bat bukkit     - Build only Bukkit version
 echo.
 echo Output files:
-echo   - target/YinwuChat-2.12.jar (all platforms)
-echo   - target/YinwuChat-Velocity-2.12.jar (Velocity only)
-echo   - target/YinwuChat-Bukkit-2.12.jar (Bukkit only)
+echo   - target/YinwuChat-3.2.0.jar (all platforms)
+echo   - target/YinwuChat-Velocity-3.2.0.jar (Velocity only)
+echo   - target/YinwuChat-Bukkit-3.2.0.jar (Bukkit only)
 echo.
 goto :end
 

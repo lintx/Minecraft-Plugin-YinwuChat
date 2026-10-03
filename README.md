@@ -47,6 +47,8 @@
 
 - 3.0.0：YinwuChat重构后第一个正式版本，该版本针对web端做了全新优化，快捷指令列表重构，可读性进行优化，token绑定消息转为消息块显示模式，更加清晰。至此，YinwuChat基本重构完成
 - 3.1.0：web端现已支持快捷登录，选择记住登录后即可在下次登录时快速登录；新增账号切换功能，同一web账号下可绑定多个游戏账号，可在登录后切换，亦可在聊天时切换。游戏端新增[b]背包展示功能，输入后即可展示背包，管理员新增背包公示功能，输入/yinwuchat backpackview 玩家名 即可将对应玩家的背包展现在公屏上。另增改动：游戏端指令快速补全已加入，可根据指令自动展示tab补全，方便输入
+- 3.1.1：@全体管理员功能优化，加入管理员快捷确认；前后缀编辑器优化，现在可以快捷输入和清除前后缀；广播消息优化，现在被写入click的网址可以被自动识别，游戏端点击即可自动打开网页
+- 3.2.0：更新视监功能（私聊监听）`/yinwuchat monitor`子命令与视监菜单；现在可监听全体/指定玩家、查看玩家私聊历史记录；
 #### 示例图片
 <p align="center">
   <img src="./picturesForReadme/log_in.png" alt="登录界面" />
@@ -401,18 +403,18 @@ mvn clean package -P bukkit
 
 构建完成后，在 `target/` 目录下会生成：
 
-- `YinwuChat-Velocity-2.12.75.jar` - Velocity 代理专用版本
-- `YinwuChat-Bukkit-2.12.75.jar` - Bukkit/Spigot 后端专用版本
-- `YinwuChat-2.12.75.jar` - 包含所有平台代码（向后兼容）
+- `YinwuChat-Velocity-3.2.0.jar` - Velocity 代理专用版本
+- `YinwuChat-Bukkit-3.2.0.jar` - Bukkit/Spigot 后端专用版本
+- `YinwuChat-3.2.0.jar` - 包含所有平台代码（向后兼容）
 
 ### 部署说明
 
 1. **Velocity 代理服务器**
-  - 安装：`YinwuChat-Velocity-2.12.75.jar`
-  - 位置：`plugins/YinwuChat-Velocity-2.12.75.jar`
+  - 安装：`YinwuChat-Velocity-3.2.0.jar`
+  - 位置：`plugins/YinwuChat-Velocity-3.2.0.jar`
 2. **Bukkit/Spigot 后端服务器**
-  - 安装：`YinwuChat-Bukkit-2.12.75.jar`
-  - 位置：`plugins/YinwuChat-Bukkit-2.12.75.jar`
+  - 安装：`YinwuChat-Bukkit-3.2.0.jar`
+  - 位置：`plugins/YinwuChat-Bukkit-3.2.0.jar`
 3. **配置文件**
   - 首次运行后会在相应插件目录生成配置文件
 
@@ -863,6 +865,12 @@ muteinfo Steve          # 查看禁言状态
     - `/yinwuchat format <public|private> <prefix|suffix> clear`：直接清除前后缀
     - `/yinwuchat atalladmin`：报告突发事件给所有管理员（需要 `yinwuchat.default.atalladmin` 权限，每日限一次；管理员可点击“确认收到”快捷填入确认指令）
     - `/yinwuchat atalladmin confirm <玩家名>`：重置玩家报告冷却时间（仅管理员）
+    - **私聊视监**（需要 `yinwuchat.admin.monitor` 或配置中的管理员）：须先执行 `monitor all` 或 `monitor <玩家名>` 才会收到实时视监推送；仅有权限而未开启视监时不会收到。私聊双方不会收到任何「被视监」提示。
+      - `/yinwuchat monitor all`：视监所有玩家的私聊（新消息）
+      - `/yinwuchat monitor <玩家名>`：仅视监该玩家作为发送方或接收方的私聊（新消息）
+      - `/yinwuchat monitor off`：关闭视监
+      - `/yinwuchat monitor menu`：打开「YinwuChat视监菜单」（可点击快捷填入命令）
+      - `/yinwuchat monitor history <玩家> [条数]`：从代理端私聊缓存中读取该玩家相关的最近若干条记录（默认 20 条，上限 500）；依赖已写入 `web-private-messages.jsonl` 的消息
 
 ### Velocity端权限
 
@@ -874,7 +882,7 @@ muteinfo Steve          # 查看禁言状态
 | `yinwuchat.admin.reload`          | 重新加载配置             |
 | `yinwuchat.admin.vanish`          | 聊天隐身模式             |
 | `yinwuchat.admin.atall`           | @所有人               |
-| `yinwuchat.admin.monitor`         | 监听私聊消息             |
+| `yinwuchat.admin.monitor`         | 使用 `/yinwuchat monitor` 子命令并接收私聊视监推送（须先 `all` / 指定玩家） |
 | `yinwuchat.admin.badword`         | 管理屏蔽词              |
 | `yinwuchat.admin.cooldown.bypass` | @人无冷却时间            |
 | `yinwuchat.default`               | 通用基础权限（拥有所有基础权限）   |
@@ -960,7 +968,7 @@ admins:
     - `/yinwuchat ignore <玩家名>`：忽略/取消忽略玩家消息，需要具有`yinwuchat.default.ignore`权限
     - `/yinwuchat noat`：禁止/允许自己被@，需要具有`yinwuchat.default.noat`权限
     - `/yinwuchat muteat`：切换自己被@时有没有声音，需要具有`yinwuchat.default.muteat`权限
-    - `/yinwuchat monitor`：切换是否监听其他玩家的私聊消息，需要具有`yinwuchat.admin.monitor`权限
+    - `/yinwuchat monitor <all|玩家名|off>`：私聊视监（Bungee 端无 `menu`/`history`；完整功能请使用 Velocity）。需要 `yinwuchat.admin.monitor` 或配置管理员；须先 `all` 或指定玩家才会收到推送
 3. WebClient命令
   - `/msg <玩家名> <消息>`：向玩家发送私聊消息
 
@@ -982,7 +990,7 @@ admins:
 - `yinwuchat.admin.atall`允许@所有人
 - `yinwuchat.admin.vanish`允许进入聊天隐身模式
 - `yinwuchat.admin.badword`允许编辑聊天系统关键词列表
-- `yinwuchat.admin.monitor`允许玩家使用`/yinwuchat monitor`命令，并允许玩家监听其他玩家的私聊消息
+- `yinwuchat.admin.monitor`允许使用`/yinwuchat monitor`子命令并接收私聊视监推送（须先执行 `monitor all` 或 `monitor <玩家名>` 才会收到实时内容）
 - `yinwuchat.default.`*基础功能权限节点（bind, list, unbind, ignore, noat, muteat, ws）
 
 - 权限需要在Bungeecord中设置，玩家可以在Bungeecord连接到的任何服务器使用这个命令
@@ -1004,7 +1012,29 @@ admins:
 | 001  | 根据UUID查找用户失败，且新增失败 |
 
 
-### 其他信息
+### 网页聊天记录的维护与测试
+
+网页、Android 和 HarmonyOS 内嵌网页共用 `src/main/resources/web/index.html` 的实现。修改这个文件后执行 `node scripts/sync-web-clients.mjs`，同步到两个 App；`--check` 参数只检查是否一致。
+
+聊天记录按连接地址、Web 账号和服务器确认的游戏名隔离，确认身份前不加载记录。消息按服务端 ID 合并、排序；相同 ID 的补发消息可以更新已有内容和原始时间戳，不会重复增加未读计数或通知。时间在显示时按照浏览器环境格式化，不改变消息顺序。缺失时间戳时显示“时间未知”，不推测成当前时间。
+
+“清除缓存”仅删除当前账号在当前服务器的本地聊天记录，保留登录、设置及其他账号数据。旧版 `yinwuchat_msg_cache` 没有所属账号和服务器标识，因此不自动导入、不自动删除；可以在清除缓存弹窗中导出旧记录。服务端仍按原规则补发未读消息，本次未增加历史分页，清空缓存不会重新下载已经读过的全部历史消息。
+
+本地验证（Node.js 22+、JDK 17+、Maven）：
+
+```sh
+node scripts/sync-web-clients.mjs --check
+node --test src/test/web/history.test.mjs
+mvn -Pvelocity clean package
+```
+
+`history.test.mjs` 使用实际网页脚本和模拟 WebSocket，覆盖乱序补发、重复更新、原始时间戳、读游标、账号/服务器隔离、缓存清理和旧连接事件。Java 资源测试检查打包时 HTML、图片和脚本是否被原样复制，避免 Maven 将 JavaScript 的 `${name}` 等模板字符串替换成项目属性。
+
+可选的真实浏览器测试：先准备 Chromium 和 Vue 3 的本地 `vue.global.js`，执行 `node src/test/web/browser-smoke.mjs "浏览器可执行文件路径" "vue.global.js 路径"`。它启动独立无头浏览器，以模拟消息检查实际 Vue 页面和清空按钮；不使用已有浏览器资料或实际聊天账号。浏览器临时资料和编译产物均在被 Git 忽略的 `target/` 中。
+
+以上聊天记录修复与测试由 Soidraw 维护。
+
+### 制作信息
 
 本插件由国内正版Minecraft服务器[YinwuRealm](https://www.yinwurealm.org/)玩家[LinTx](https://mine.ly/LinTx.1)为服务器开发
 
